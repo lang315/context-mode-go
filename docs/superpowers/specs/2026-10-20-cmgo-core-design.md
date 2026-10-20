@@ -307,7 +307,7 @@ Detection runs lazily on first use per language, with `exec.LookPath`, and the r
 A missing runtime returns the TS error text for that language.
 
 ### 4.2 Running a script
-1. Create the script dir with `os.MkdirTemp(<OS temp dir>, ".ctx-mode-")`. The OS temp dir is found as in TS (E:99-111): `getconf DARWIN_USER_TEMP_DIR` on darwin, `/tmp` on Linux. A `TMPDIR` override that points into the project is therefore ignored.
+1. Create the script dir with `os.MkdirTemp(<OS temp dir>, ".cmgo-")`. The OS temp dir is found as in TS (E:99-111): `getconf DARWIN_USER_TEMP_DIR` on darwin, `/tmp` on Linux. A `TMPDIR` override that points into the project is therefore ignored.
 2. Write the script as `script.<ext>`, using the extension map at E:23-36.
    - Shell scripts get mode 0700 and the first line `export PATH='<parent PATH>'`.
    - PHP gets `<?php` if it is missing.
