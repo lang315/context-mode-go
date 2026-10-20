@@ -409,7 +409,9 @@ Table tests port the relevant TS cases.
 - **HTML to Markdown:** Turndown and html-to-markdown v2 will differ on some markup. Each difference is either fixed or listed in `testdata/golden/KNOWN-DIFFS.md`. Criterion 3 allows only listed differences.
 
 ### 5.3 End-to-end
-A Go test builds `cmgo`, then spawns `cmgo serve` against a temp `CMGO_DIR`. Over JSON-RPC it runs `initialize`, then `tools/list` (checking the 5 names and schemas), then each tool with assertions on the result text. It finishes by closing stdin and checking that the server exits and its background groups are gone.
+Two layers:
+- **In-process, `cmd/cmgo/serve_test.go`:** runs the real `serve()` over pipes against a temp `CMGO_DIR`. Over JSON-RPC it runs `initialize` and `tools/list` (checking the 5 names), then closes stdin and checks that the server exits. It also checks two things: a foreground command still running at shutdown is killed, and two servers indexing into the same DB at once both succeed.
+- **The built binary:** each tool's result text is asserted through the MCP client in `internal/mcpserver`. The built binary itself is driven by the §5.4 scripts, which spawn `cmgo serve` and call every tool once.
 
 ### 5.4 Acceptance scripts (`bench/`, run by hand on this machine)
 - **`bench/footprint.py`:** starts 8 `cmgo serve` processes, calls each tool once, and prints the sum of `phys_footprint` and of RSS. Must meet criterion 1.
