@@ -182,7 +182,7 @@ Tool names, parameter names, defaults, thresholds and output text are kept, so e
 
 **`ctx_search`** (S:2553-2806)
 - **Schema:**
-  - `queries`, plus the legacy `query`.
+  - `queries`. No legacy `query`: TS reads it, but its zod schema has no such field, so the SDK strips it and TS answers `Error: provide query or queries.` (golden cases t18/t19).
   - `limit` (default 3; the effective value is `min(limit, 2)`, and 1 after the soft cap).
   - `source` (LIKE match), `contentType` (`code` or `prose`), `sort` (`relevance` or `timeline`).
 - **Flood guard:** 60 s window. The soft cap applies when the count goes over 3. A count over 8 is blocked with `BLOCKED: N search calls in Xs…`.
@@ -211,12 +211,13 @@ Tool names, parameter names, defaults, thresholds and output text are kept, so e
 | `mmap_size` 256 MB | No mmap | mmap pages raise footprint and RSS. The OS page cache is enough |
 | Timeline sort merges session events and auto-memory | Content store only, ordered by `indexed_at` | Session events arrive in sub-project 3 |
 | Antigravity timeout, Windows paths, the `project` parameter, `CONTEXT_MODE_*` env vars | Dropped | Claude Code on macOS/Linux only |
-| On `SQLITE_BUSY`, retry after 100/500/2000 ms | `busy_timeout=30000` only | The driver's busy handler already waits |
+| On `SQLITE_BUSY`, retry after 100/500/2000 ms | `busy_timeout=30000` for normal statements. The WAL switch runs once in `Open` with its own retry for up to 30 s | Switching to WAL needs an exclusive lock that SQLite refuses with `SQLITE_BUSY` without consulting `busy_timeout`. Re-applying it per connection made a new session fail to start while another session was writing |
+| `Read()` deny rules are case-sensitive on darwin (S:1222 passes `platform === "win32"`) | Case-insensitive on darwin, like the `Bash()` rules | On case-insensitive APFS, a case variant of a denied path would otherwise be readable |
 
 ## 3. Storage and search
 
 ### 3.1 Schema
-`PRAGMA user_version = 1`. Pragmas: `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=30000`, `foreign_keys=ON`. Each process keeps one connection open for its whole life, so nothing is reopened on a timer.
+`PRAGMA user_version = 1`. Per-connection pragmas: `synchronous=NORMAL`, `busy_timeout=30000`, `foreign_keys=ON`. `journal_mode=WAL` persists in the file and is set once in `Open`: read the mode (no lock), and only if it is not `wal`, switch it, retrying on `SQLITE_BUSY` for up to 30 s. Each process keeps one connection open for its whole life, so nothing is reopened on a timer.
 
 ```sql
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -306,7 +307,7 @@ Detection runs lazily on first use per language, with `exec.LookPath`, and the r
 A missing runtime returns the TS error text for that language.
 
 ### 4.2 Running a script
-1. Create the script dir with `os.MkdirTemp("", ".cmgo-")`; Go reads `$TMPDIR`, which is the per-user temp dir on darwin.
+1. Create the script dir with `os.MkdirTemp(<OS temp dir>, ".ctx-mode-")`. The OS temp dir is found as in TS (E:99-111): `getconf DARWIN_USER_TEMP_DIR` on darwin, `/tmp` on Linux. A `TMPDIR` override that points into the project is therefore ignored.
 2. Write the script as `script.<ext>`, using the extension map at E:23-36.
    - Shell scripts get mode 0700 and the first line `export PATH='<parent PATH>'`.
    - PHP gets `<?php` if it is missing.
@@ -341,8 +342,10 @@ Start from the parent env.
 - every `BASH_FUNC_*` and `COMPlus_*` (case-insensitive)
 - the remaining entries of the E:573-745 list, ported as a table
 
+The list is the exact TS list. Patterns such as `PYTHON*` above are shorthand for its entries, not wildcards: a wildcard would also remove variables TS keeps, such as `PYTHONPATH`, `R_LIBS` and `DOTNET_CLI_HOME`.
+
 **Forced:**
-- `TMPDIR=<script dir parent>`, `HOME`
+- `TMPDIR=<script dir>` (as TS), `HOME`
 - `LANG=en_US.UTF-8`, `PYTHONDONTWRITEBYTECODE=1`, `PYTHONUNBUFFERED=1`, `PYTHONUTF8=1`, `NO_COLOR=1`
 - `PATH` defaults to `/usr/local/bin:/usr/bin:/bin` when empty
 - `SSL_CERT_FILE` is set to the first existing well-known cert path
