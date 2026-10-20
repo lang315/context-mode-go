@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -23,6 +24,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "version", "--version":
 		fmt.Fprintln(stdout, "cmgo "+version)
 		return 0
+	case "serve":
+		return serve(context.Background(), serveIO{
+			getenv: os.Getenv, getwd: os.Getwd, in: os.Stdin, out: os.Stdout, stderr: stderr,
+		})
 	default:
 		fmt.Fprintf(stderr, "cmgo: unknown command %q\n", args[0])
 		return 2
