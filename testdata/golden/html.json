@@ -1,0 +1,13 @@
+{
+  "tsCommit": "a5e6dd31",
+  "cases": [
+    {
+      "path": "html/strip.html",
+      "markdown": "Release Notes  \n\n# Release 2.1\n\nThis release adds **pool stats**, _faster_ retries and removes ~legacy~ options.\n\n## Highlights\n\n*   New `Pool.Stats` method\n    *   idle counter\n    *   busy counter\n*   Rate limiter sets `Retry-After`\n\n## Example\n\n```go\nstats := pool.Stats()\nfmt.Println(stats.Idle, stats.Busy)\n```\n\n* * *\n\n### Escaping & entities\n\nUse <Pool> with care: 5 \\* 3 = 15, a\\_b\\_c and \\[brackets\\].  \nLine two after a break.\n\n![Latency chart](/img/chart.png) [Full notes](https://example.com/notes \"Full notes\")"
+    },
+    {
+      "path": "html/table.html",
+      "markdown": " Pool Settings Reference\n\n# Pool Settings\n\nThe table below lists every **pool** option and its _default_ value.\n\n| Option | Default | Description |\n| --- | --- | --- |\n| `max_connections` | 10 | Upper bound on open connections. |\n| `idle_timeout` | 5m | Close connections idle for longer than this. |\n| `connect_timeout` | 2s | How long [Get](/docs/get) waits. |\n\n## Without a header row\n\n<table><tbody><tr><td>alpha</td><td>1</td></tr><tr><td>beta</td><td>2</td></tr></tbody></table>\n\n### Notes\n\n1.  Values are read once at startup.\n2.  Environment variables win over the file.\n\n> Changing `max_connections` needs a restart."
+    }
+  ]
+}

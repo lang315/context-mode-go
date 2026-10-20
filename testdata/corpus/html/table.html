@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pool Settings Reference</title>
+</head>
+<body>
+<main>
+<h1>Pool Settings</h1>
+<p>The table below lists every <strong>pool</strong> option and its <em>default</em> value.</p>
+<table>
+  <thead>
+    <tr><th>Option</th><th>Default</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>max_connections</code></td><td>10</td><td>Upper bound on open connections.</td></tr>
+    <tr><td><code>idle_timeout</code></td><td>5m</td><td>Close connections idle for longer than this.</td></tr>
+    <tr><td><code>connect_timeout</code></td><td>2s</td><td>How long <a href="/docs/get">Get</a> waits.</td></tr>
+  </tbody>
+</table>
+<h2>Without a header row</h2>
+<table>
+  <tr><td>alpha</td><td>1</td></tr>
+  <tr><td>beta</td><td>2</td></tr>
+</table>
+<h3>Notes</h3>
+<ol>
+  <li>Values are read once at startup.</li>
+  <li>Environment variables win over the file.</li>
+</ol>
+<blockquote><p>Changing <code>max_connections</code> needs a restart.</p></blockquote>
+</main>
+</body>
+</html>

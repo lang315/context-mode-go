@@ -1,0 +1,320 @@
+{
+  "tsCommit": "a5e6dd31",
+  "masks": [
+    {
+      "re": "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}",
+      "to": "<DATE>"
+    },
+    {
+      "re": "\\d+ms",
+      "to": "<N>ms"
+    },
+    {
+      "re": "\\d+\\.\\dKB",
+      "to": "<N.N>KB"
+    },
+    {
+      "re": "search calls in \\d+s",
+      "to": "search calls in <N>s"
+    }
+  ],
+  "steps": [
+    {
+      "id": "t01",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "pool"
+        ]
+      },
+      "isError": true,
+      "text": "Knowledge base is empty — no content has been indexed yet.\n\nctx_search is a follow-up tool that queries previously indexed content. To gather and index content first, use:\n  • ctx_batch_execute(commands, queries) — run commands, auto-index output, and search in one call\n  • ctx_fetch_and_index(url) — fetch a URL, index it, then search with ctx_search\n  • ctx_index(content, source) — manually index text content\n\nAfter indexing, ctx_search becomes available for follow-up queries."
+    },
+    {
+      "id": "t02",
+      "session": 1,
+      "tool": "ctx_batch_execute",
+      "args": {
+        "commands": [
+          {
+            "label": "getting started",
+            "command": "cat corpus/md/01-getting-started.md"
+          },
+          {
+            "label": "troubleshooting",
+            "command": "cat corpus/md/09-troubleshooting.md"
+          },
+          {
+            "label": "unicode",
+            "command": "cat corpus/md/08-unicode.md"
+          }
+        ],
+        "queries": [
+          "connection refused",
+          "max_connections",
+          "café",
+          "zzzz qqqq"
+        ]
+      },
+      "isError": false,
+      "text": "Executed 3 commands (97 lines, <N.N>KB). Indexed 20 sections. Searched 4 queries.\n\n## Commands\n\n- getting started: `cat corpus/md/01-getting-started.md`\n- troubleshooting: `cat corpus/md/09-troubleshooting.md`\n- unicode: `cat corpus/md/08-unicode.md`\n\n## Indexed Sections\n\n- getting started (<N.N>KB)\n- Getting Started (<N.N>KB)\n- Getting Started > Installation (<N.N>KB)\n- Getting Started > Configuration (<N.N>KB)\n- Getting Started > Configuration > Timeouts (<N.N>KB)\n- Getting Started > Configuration > Timeouts > Retry policy (<N.N>KB)\n- Getting Started > Configuration (<N.N>KB)\n- Getting Started > Next steps (<N.N>KB)\n- troubleshooting (<N.N>KB)\n- Troubleshooting (<N.N>KB)\n- Troubleshooting > Connection refused (<N.N>KB)\n- Troubleshooting > Timeout errors (<N.N>KB)\n- Troubleshooting > Authentication (<N.N>KB)\n- Troubleshooting > Slow queries (<N.N>KB)\n- unicode (<N.N>KB)\n- Internationalisation 🌍 (<N.N>KB)\n- Internationalisation 🌍 > Café menu (<N.N>KB)\n- Internationalisation 🌍 > 日本語のセクション (<N.N>KB)\n- Internationalisation 🌍 > Emoji status 😀 (<N.N>KB)\n- Internationalisation 🌍 > Ελληνικά και Русский (<N.N>KB)\n\n## connection refused\n\n### Troubleshooting > Connection refused\n## Connection refused\n\nIf clients log `ECONNREFUSED` or \"connection refused\", the database is not\nlistening on the configured port. Check the host, the port and the firewall.\n\n### Getting Started > Configuration\n## Configuration\n\nSet `max_connections` to the number of connections the pool may open.\nThe default is 10, which suits most small services.\n\n### Troubleshooting > Timeout errors\n## Timeout errors\n\nA `context deadline exceeded` error means the pool waited longer than\n`connect_timeout` for a free connection. Raise `max_connections` or find the\nhandler that leaks connections without calling `Put`.\n\n## max_connections\n\n### Getting Started > Configuration\n## Configuration\n\nSet `max_connections` to the number of connections the pool may open.\nThe default is 10, which suits most small services.\n\n### Troubleshooting > Timeout errors\n## Timeout errors\n\nA `context deadline exceeded` error means the pool waited longer than\n`connect_timeout` for a free connection. Raise `max_connections` or find the\nhandler that leaks connections without calling `Put`.\n\n## café\n\n### Internationalisation 🌍 > Café menu\n## Café menu\n\nThe café serves crème brûlée, naïve coffee art and jalapeño toast.\nPrices: ¥500, €4.50, £3.20.\n\n## zzzz qqqq\n\nNo matching sections found.\n\n\n> **Tip:** Results are scoped to this batch only. To search across all indexed sources, use `ctx_search(queries: [...])` or call ctx_batch_execute with `query_scope: \"global\"`.\n\nSearchable terms for follow-up: max_connections, connect_timeout, configuration, troubleshooting, getting, started, library, request, clients, failed, deploy, errors, small, open, free, log, database, corpus, connections, cat, set, connection, pool"
+    },
+    {
+      "id": "t03",
+      "session": 1,
+      "tool": "ctx_batch_execute",
+      "args": {
+        "commands": [
+          {
+            "label": "mixed streams",
+            "command": "echo stdout line; echo stderr line >&2"
+          },
+          {
+            "label": "silent",
+            "command": "true"
+          },
+          {
+            "label": "failing",
+            "command": "false"
+          },
+          {
+            "label": "stderr only",
+            "command": "echo only-err >&2"
+          },
+          {
+            "label": "long command",
+            "command": "echo word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced word   spaced"
+          }
+        ],
+        "queries": [
+          "stderr line",
+          "spaced"
+        ]
+      },
+      "isError": false,
+      "text": "Executed 5 commands (34 lines, <N.N>KB). Indexed 5 sections. Searched 2 queries.\n\n## Commands\n\n- mixed streams: `echo stdout line; echo stderr line >&2`\n- silent: `true`\n- failing: `false`\n- stderr only: `echo only-err >&2`\n- long command: `echo word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced wor…`\n\n## Indexed Sections\n\n- mixed streams (<N.N>KB)\n- silent (<N.N>KB)\n- failing (<N.N>KB)\n- stderr only (<N.N>KB)\n- long command (<N.N>KB)\n\n## stderr line\n\n### mixed streams\n# mixed streams\n\n$ echo stdout line; echo stderr line >&2\n\nstdout line\nstderr line\n\n### stderr only\n# stderr only\n\n$ echo only-err >&2\n\nonly-err\n\n## spaced\n\n### long command\n# long command\n\n$ echo word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced wor…\n\nword spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced word spaced\n\n\n> **Tip:** Results are scoped to this batch only. To search across all indexed sources, use `ctx_search(queries: [...])` or call ctx_batch_execute with `query_scope: \"global\"`.\n\nSearchable terms for follow-up: stderr, output, echo"
+    },
+    {
+      "id": "t04",
+      "session": 1,
+      "tool": "ctx_batch_execute",
+      "args": {
+        "commands": [
+          {
+            "label": "changelog",
+            "command": "cat corpus/md/10-changelog.md"
+          },
+          {
+            "label": "oversized",
+            "command": "cat corpus/md/05-oversized.md"
+          }
+        ],
+        "queries": [
+          "pool",
+          "connection ceiling",
+          "rollback"
+        ],
+        "concurrency": 2
+      },
+      "isError": false,
+      "text": "Executed 2 commands (65 lines, <N.N>KB). Indexed 11 sections. Searched 3 queries.\n\n## Commands\n\n- changelog: `cat corpus/md/10-changelog.md`\n- oversized: `cat corpus/md/05-oversized.md`\n\n## Indexed Sections\n\n- changelog (<N.N>KB)\n- Changelog (<N.N>KB)\n- Changelog > v2.1.0 (<N.N>KB)\n- Changelog > v2.0.0 (<N.N>KB)\n- Changelog > v1.4.2 (<N.N>KB)\n- Changelog > v1.4.1 (<N.N>KB)\n- oversized (<N.N>KB)\n- Incident Report (<N.N>KB)\n- Incident Report > Timeline (<N.N>KB)\n- Incident Report > Raw notes (<N.N>KB)\n- Incident Report > Summary (<N.N>KB)\n\n## pool\n\n### Incident Report > Raw notes\n…ragraph with no blank lines inside it, so the paragraph splitter has nothing to split on and must keep it as a single oversized chunk. The notes were typed live during the incident call and cover the same events as the timeline in rougher form. Primary database rejecting connections at nine twelve. Pool full on api nodes within forty seconds. Median latency forty milliseconds before, eight seconds after. Pager fired on latency alert. Database CPU normal, so not load. Checking network between api subnet and database subnet, no packet loss seen. Checking database logs: too many connections errors, thousands per second. Checking max_connections: two thousand, unchanged since last quarter. Counting connections per api node: around one hundred twenty, expected ten. Looking at this morning's deploy: pool construction moved into the handler constructor, so every handler builds its own pool. Twelve handlers per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two minutes, connection count on database drops by half. Decision: roll back everything. Full rol…\n\n…k to baseline, latency normal. Circuit breakers paused background jobs, queue depth stable, resumed jobs after mitigation. Checkout failure rate peaked at four percent, retries succeeded for most of the rest. No data loss, all writes idempotent with request keys. Root cause confirmed as per-handler pool. Load test runs one node so it never hit the ceiling. Need a connection budget test, a database connection alert at eighty percent, a fleet pool panel, and a slower canary for data layer changes. Postmortem owner assigned, review scheduled for Thursday. Extra filler so this paragraph alone is larger than the four kilobyte chunk limit: the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool dr\n\n### Changelog > v2.1.0\n## v2.1.0\n\n- Added `Pool.Stats` with idle, busy and wait counters.\n- The rate limiter middleware now sets `Retry-After` on 429 responses.\n- Fixed a race in `Pool.Put` when the context was cancelled during return.\n\n### Incident Report > Summary\n## Summary\n\nPer-handler pools exceeded the database connection ceiling; rollback fixed it.\n\n## connection ceiling\n\n### Incident Report > Timeline\n## Timeline\n\nAt 09:12 UTC the primary database began rejecting new connections. The connection pool on every API node filled within forty seconds, and request latency climbed from a median of 40 ms to more than eight seconds. The on-call engineer was paged by the latency alert at 09:14 and acknowledged it at 09:16. Early dashboards showed the database CPU at normal levels, which pointed away from a load problem and toward a configuration or network fault.\n\nAt 09:20 the team noticed that the database had reached its max_connections ceiling. Each API node opened far more connections than its configured pool size, because a deploy earlier that morning had changed the pool from a shared instance to one pool per request handler. With twelve handlers per node and sixty nodes, the fleet tried to hold more than seven thousand connections against a ceiling of two thousand.\n\nAt 09:31 the deploy was rolled back on half of the fleet as a test. Connection counts on the database dropped immediately and latency on the rolled-back nodes returned to normal within two minutes. The rest of the fleet was rolled back at 09:38. Error rates fell to baseline by 09:45, and the incident was declared mitigated at 09:50 after fifteen minutes of stable metrics.\n\nDuring the incident roughly four percent of checkout requests failed outright and another eleven percent completed only after client retries. Background jobs that depend on the same database were paused automatically by their circuit breakers, which kept the job queue from growing without bound. No data was lost, because every write path is idempotent and the clients retried with the same request keys.\n\nThe root cause was the per-handler pool introduced by the deploy. The change passed review because the diff looked like a small refactor, and the load test environment runs a single node, where the extra pools stayed well under the connection ceiling. Nothing in the test suite asserted the total number of connections a node may open, so the regression only appeared at fleet scale.\n\nContributing factors include the missing connection budget alert on the database, a dashboard that showed pool usage per node but not per fleet, and a rollout policy that allowed the deploy to reach every node in under ten minutes. A slower canary phase would have limited the blast radius to a handful of nodes before the ceiling was reached.\n\nFollow-up actions: add a test that fails when a node opens more connections than its budget, alert when the database passes eighty percent of max_connections, add a fleet-wide pool usage panel, and slow the default rollout to a one-hour canary for changes that touch the data access layer. Owners and due dates are tracked in the reliability backlog.\n\n### Incident Report > Summary\n## Summary\n\nPer-handler pools exceeded the database connection ceiling; rollback fixed it.\n\n### Incident Report > Raw notes\n… section is one very long paragraph with no blank lines inside it, so the paragraph splitter has nothing to split on and must keep it as a single oversized chunk. The notes were typed live during the incident call and cover the same events as the timeline in rougher form. Primary database rejecting connections at nine twelve. Pool full on api nodes within forty seconds. Median latency forty milliseconds before, eight seconds after. Pager fired on latency alert. Database CPU normal, so not load. Checking network between api subnet and database subnet, no packet loss seen. Checking database logs: too many connections errors, thousands per second. Checking max_connections: two thousand, unchanged since last quarter. Counting connections per api node: around one hundred twenty, expected ten. Looking at this morning's deploy: pool construction moved into the handler constructor, so every handler builds its own pool. Twelve handlers per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two minutes, connection count on database drops by half. Decision: roll back everything. Full rollback complete, error rate back to baseline, latency normal. Circuit breakers paused background jobs, queue depth stable, resumed jobs after mitigation. Checkout failure rate peaked at four percent, retries succeeded for most of the rest. No data loss, all writes idempotent with request keys. Root cause confirmed as per-handler pool. Load test runs one node so it never hit the ceiling. Need a connection budget test, a database connection alert at eighty percent, a fleet pool panel, and a slower canary for data layer changes. Postmortem owner assigned, review scheduled for Thursday. Extra filler so this paragraph alone is larger than the four kilobyte chunk limit: the quick brown fox jumps over the lazy dog while the pool …\n\n## rollback\n\n### Incident Report > Summary\n## Summary\n\nPer-handler pools exceeded the database connection ceiling; rollback fixed it.\n\n### Incident Report > Raw notes\n…wn pool. Twelve handlers per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two minutes, connection count on database drops by half. Decision: roll back everything. Full rollback complete, error rate back to baseline, latency normal. Circuit breakers paused background jobs, queue depth stable, resumed jobs after mitigation. Checkout failure rate peaked at four percent, retries succeeded for most of the rest. No data loss, all writes idempotent with request keys. Roo…\n\n\n> **Tip:** Results are scoped to this batch only. To search across all indexed sources, use `ctx_search(queries: [...])` or call ctx_batch_execute with `query_scope: \"global\"`.\n\nSearchable terms for follow-up: max_connections, configuration, background, idempotent, changelog, oversized, rejecting, timeline, handlers, thousand, baseline, checkout, breakers, rollback, primary, seconds, latency, morning, handler, minutes, percent, retries, circuit, nothing, changes, corpus, errors, within, median, normal, deploy, twelve, rolled, stable, paused, review, single, budget, slower, canary"
+    },
+    {
+      "id": "t05",
+      "session": 1,
+      "tool": "ctx_batch_execute",
+      "args": {
+        "commands": [
+          {
+            "label": "test log",
+            "command": "cat corpus/logs/sections.log"
+          }
+        ],
+        "queries": [
+          "connection refused",
+          "TestPoolTimeout"
+        ],
+        "query_scope": "global"
+      },
+      "isError": false,
+      "text": "Executed 1 commands (25 lines, <N.N>KB). Indexed 1 sections. Searched 2 queries.\n\n## Commands\n\n- test log: `cat corpus/logs/sections.log`\n\n## Indexed Sections\n\n- test log (<N.N>KB)\n\n## connection refused\n\n### Troubleshooting > Connection refused\n## Connection refused\n\nIf clients log `ECONNREFUSED` or \"connection refused\", the database is not\nlistening on the configured port. Check the host, the port and the firewall.\n\n### Getting Started > Configuration\n## Configuration\n\nSet `max_connections` to the number of connections the pool may open.\nThe default is 10, which suits most small services.\n\n### Troubleshooting > Timeout errors\n## Timeout errors\n\nA `context deadline exceeded` error means the pool waited longer than\n`connect_timeout` for a free connection. Raise `max_connections` or find the\nhandler that leaks connections without calling `Put`.\n\n## TestPoolTimeout\n\n### test log\n# test log\n\n$ cat corpus/logs/sections.log\n\n=== RUN   TestPoolGet\n--- PASS: TestPoolGet (0.01s)\n=== RUN   TestPoolPut\n--- PASS: TestPoolPut (0.00s)\n\n=== RUN   TestPoolTimeout\n    pool_test.go:88: waited 2.001s for a connection, want at most 2s\n--- FAIL: TestPoolTimeout (2.00s)\n\n=== RUN   TestLimiterAllow with a very long first line that goes well past eighty characters so the title is cut\n--- PASS: TestLimiterAllow (0.00s)\n\npanic: runtime error: invalid memory address or nil pointer dereference\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x1029a3c]\ngoroutine 7 [running]:\nexample.com/pool.(*Pool).Close(0x0)\n\t/src/pool/pool.go:142 +0x1c\n\nFAIL\texample.com/pool\t2.214s\n\n\n> **Scope:** Queries searched the entire persistent index (query_scope: \"global\").\n"
+    },
+    {
+      "id": "t06",
+      "session": 1,
+      "tool": "ctx_batch_execute",
+      "args": {
+        "commands": "[{\"label\":\"api\",\"command\":\"cat corpus/md/02-api-reference.md\"}]",
+        "queries": "Pool.Get"
+      },
+      "isError": false,
+      "text": "Executed 1 commands (53 lines, <N.N>KB). Indexed 6 sections. Searched 1 queries.\n\n## Commands\n\n- api: `cat corpus/md/02-api-reference.md`\n\n## Indexed Sections\n\n- api (<N.N>KB)\n- API Reference (<N.N>KB)\n- API Reference > Pool.Get (<N.N>KB)\n- API Reference > Pool.Put (<N.N>KB)\n- API Reference > Shell helpers (<N.N>KB)\n- API Reference > Shell helpers > Nested fences (<N.N>KB)\n\n## Pool.Get\n\n### API Reference > Pool.Get\n## Pool.Get\n\n`Get` returns a connection from the pool, blocking until one is free.\n\n```go\nfunc (p *Pool) Get(ctx context.Context) (*Conn, error) {\n\tselect {\n\tcase c := <-p.idle:\n\t\treturn c, nil\n\tcase <-ctx.Done():\n\t\treturn nil, ctx.Err()\n\t}\n}\n```\n\n\n> **Tip:** Results are scoped to this batch only. To search across all indexed sources, use `ctx_search(queries: [...])` or call ctx_batch_execute with `query_scope: \"global\"`.\n\nSearchable terms for follow-up: connection, select, return, conn, api, heading, pool"
+    },
+    {
+      "id": "t07",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "connection pool",
+          "rate limiter",
+          "zzzz qqqq"
+        ]
+      },
+      "isError": false,
+      "text": "## connection pool\n\n--- [current-session | <DATE> | batch:api] ---\n### API Reference > Pool.Put\n\n## Pool.Put\n\nReturn a connection with `Put`. A broken connection is closed instead.\n\n```js\n// # this comment is not a heading\npool.put(conn);\n```\n\n--- [current-session | <DATE> | batch:getting started,troubleshooting,unicode] ---\n### Getting Started > Configuration\n\n## Configuration\n\nA second Configuration section: environment variables override the file.\nSet `POOL_MAX_CONNECTIONS` to change the pool size at deploy time.\n\n---\n\n## rate limiter\n\n--- [current-session | <DATE> | batch:changelog,oversized] ---\n### Changelog > v2.1.0\n\n## v2.1.0\n\n- Added `Pool.Stats` with idle, busy and wait counters.\n- The rate limiter middleware now sets `Retry-After` on 429 responses.\n- Fixed a race in `Pool.Put` when the context was cancelled during return.\n\n--- [current-session | <DATE> | batch:changelog,oversized] ---\n### Incident Report > Raw notes\n\n…per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two minutes, connection count on database drops by half. Decision: roll back everything. Full rollback complete, error rate back to baseline, latency normal. Circuit breakers paused background jobs, queue depth stable, resumed jobs after mitigation. Checkout failure rate peaked at four percent, retries succeeded for most of the rest. No data loss, all writes idempotent with request keys. Root cause confirmed as per-handler pool. Load test runs one node so it never hit the ceiling. Need a connection budget test, a database connection alert at eighty percent, a fleet pool panel, and a slower canary for data layer changes. Postmortem owner assigned, review scheduled for Thursday. Extra filler so this paragraph alone is larger than the four kilobyte chunk limit: the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the po…\n\n---\n\n## zzzz qqqq\nNo results found.\n\n> Throttle: call #1/8 in this window. 2 call(s) before soft cap. Prefer ctx_search(queries: [...]) array form for multi-query workloads — it counts as a single call."
+    },
+    {
+      "id": "t08",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "pool"
+        ],
+        "source": "changelog"
+      },
+      "isError": false,
+      "text": "## pool\n\n--- [current-session | <DATE> | batch:changelog,oversized] ---\n### Incident Report > Raw notes\n\n…ragraph with no blank lines inside it, so the paragraph splitter has nothing to split on and must keep it as a single oversized chunk. The notes were typed live during the incident call and cover the same events as the timeline in rougher form. Primary database rejecting connections at nine twelve. Pool full on api nodes within forty seconds. Median latency forty milliseconds before, eight seconds after. Pager fired on latency alert. Database CPU normal, so not load. Checking network between api subnet and database subnet, no packet loss seen. Checking database logs: too many connections errors, thousands per second. Checking max_connections: two thousand, unchanged since last quarter. Counting connections per api node: around one hundred twenty, expected ten. Looking at this morning's deploy: pool construction moved into the handler constructor, so every handler builds its own pool. Twelve handlers per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two minutes, connection count on database drops by half. Decision: roll back everything. Full rol…\n\n…k to baseline, latency normal. Circuit breakers paused background jobs, queue depth stable, resumed jobs after mitigation. Checkout failure rate peaked at four percent, retries succeeded for most of the rest. No data loss, all writes idempotent with request keys. Root cause confirmed as per-handler pool. Loa\n\n--- [current-session | <DATE> | batch:changelog,oversized] ---\n### Changelog > v2.1.0\n\n## v2.1.0\n\n- Added `Pool.Stats` with idle, busy and wait counters.\n- The rate limiter middleware now sets `Retry-After` on 429 responses.\n- Fixed a race in `Pool.Put` when the context was cancelled during return.\n\n> Throttle: call #2/8 in this window. 1 call(s) before soft cap. Prefer ctx_search(queries: [...]) array form for multi-query workloads — it counts as a single call."
+    },
+    {
+      "id": "t09",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "Pool"
+        ],
+        "contentType": "code",
+        "limit": 5
+      },
+      "isError": false,
+      "text": "## Pool\n\n--- [current-session | <DATE> | batch:api] ---\n### API Reference > Pool.Put\n\n## Pool.Put\n\nReturn a connection with `Put`. A broken connection is closed instead.\n\n```js\n// # this comment is not a heading\npool.put(conn);\n```\n\n--- [current-session | <DATE> | batch:api] ---\n### API Reference > Pool.Get\n\n## Pool.Get\n\n`Get` returns a connection from the pool, blocking until one is free.\n\n```go\nfunc (p *Pool) Get(ctx context.Context) (*Conn, error) {\n\tselect {\n\tcase c := <-p.idle:\n\t\treturn c, nil\n\tcase <-ctx.Done():\n\t\treturn nil, ctx.Err()\n\t}\n}\n```\n\n⚠ search call #3/8 in this window. Results limited to 2/query. 5 call(s) remaining before block. Batch queries: ctx_search(queries: [\"q1\",\"q2\",\"q3\"]) or use ctx_batch_execute."
+    },
+    {
+      "id": "t10",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": []
+      },
+      "isError": true,
+      "text": "Error: provide query or queries."
+    },
+    {
+      "id": "t11",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "deploy"
+        ],
+        "sort": "timeline"
+      },
+      "isError": false,
+      "text": "## deploy\n\n--- [current-session | <DATE> | batch:getting started,troubleshooting,unicode] ---\n### Internationalisation 🌍 > Emoji status 😀\n\n## Emoji status 😀\n\nDeploy finished 🚀 with zero errors ✅ and one warning ⚠️.\nGrinning 😀 faces 😀 everywhere 😀 to test surrogate pairs in snippets.\n\n⚠ search call #4/8 in this window. Results limited to 1/query. 4 call(s) remaining before block. Batch queries: ctx_search(queries: [\"q1\",\"q2\",\"q3\"]) or use ctx_batch_execute."
+    },
+    {
+      "id": "t12",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "café",
+          "データベース"
+        ]
+      },
+      "isError": false,
+      "text": "## café\n\n--- [current-session | <DATE> | batch:getting started,troubleshooting,unicode] ---\n### Internationalisation 🌍 > Café menu\n\n## Café menu\n\nThe café serves crème brûlée, naïve coffee art and jalapeño toast.\nPrices: ¥500, €4.50, £3.20.\n\n---\n\n## データベース\n\n--- [current-session | <DATE> | batch:getting started,troubleshooting,unicode] ---\n### Internationalisation 🌍 > 日本語のセクション\n\n## 日本語のセクション\n\nこれは日本語の段落です。接続プールの設定について説明します。\n検索テストのために「データベース」という単語を含めます。\n\n⚠ search call #5/8 in this window. Results limited to 1/query. 3 call(s) remaining before block. Batch queries: ctx_search(queries: [\"q1\",\"q2\",\"q3\"]) or use ctx_batch_execute."
+    },
+    {
+      "id": "t13",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "heartbeat"
+        ]
+      },
+      "isError": false,
+      "text": "## heartbeat\nNo results found.\n\n⚠ search call #6/8 in this window. Results limited to 1/query. 2 call(s) remaining before block. Batch queries: ctx_search(queries: [\"q1\",\"q2\",\"q3\"]) or use ctx_batch_execute."
+    },
+    {
+      "id": "t14",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "webhook"
+        ]
+      },
+      "isError": false,
+      "text": "## webhook\nNo results found.\n\n⚠ search call #7/8 in this window. Results limited to 1/query. 1 call(s) remaining before block. Batch queries: ctx_search(queries: [\"q1\",\"q2\",\"q3\"]) or use ctx_batch_execute."
+    },
+    {
+      "id": "t15",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "pool"
+        ]
+      },
+      "isError": false,
+      "text": "## pool\n\n--- [current-session | <DATE> | batch:getting started,troubleshooting,unicode] ---\n### Getting Started > Configuration\n\n## Configuration\n\nA second Configuration section: environment variables override the file.\nSet `POOL_MAX_CONNECTIONS` to change the pool size at deploy time.\n\n⚠ search call #8/8 in this window. Results limited to 1/query. 0 call(s) remaining before block. Batch queries: ctx_search(queries: [\"q1\",\"q2\",\"q3\"]) or use ctx_batch_execute."
+    },
+    {
+      "id": "t16",
+      "session": 1,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "pool"
+        ]
+      },
+      "isError": true,
+      "text": "BLOCKED: 9 search calls in <N>s. You're flooding context. STOP making individual search calls. Use ctx_batch_execute(commands, queries) for your next research step."
+    },
+    {
+      "id": "t17",
+      "session": 2,
+      "tool": "ctx_batch_execute",
+      "args": {
+        "commands": [
+          {
+            "label": "changelog",
+            "command": "cat corpus/md/10-changelog.md"
+          }
+        ],
+        "queries": [
+          "breaking"
+        ]
+      },
+      "isError": false,
+      "text": "Executed 1 commands (34 lines, <N.N>KB). Indexed 6 sections. Searched 1 queries.\n\n## Commands\n\n- changelog: `cat corpus/md/10-changelog.md`\n\n## Indexed Sections\n\n- changelog (<N.N>KB)\n- Changelog (<N.N>KB)\n- Changelog > v2.1.0 (<N.N>KB)\n- Changelog > v2.0.0 (<N.N>KB)\n- Changelog > v1.4.2 (<N.N>KB)\n- Changelog > v1.4.1 (<N.N>KB)\n\n## breaking\n\n### Changelog > v2.0.0\n## v2.0.0\n\nBreaking: `NewPool` takes an options struct instead of positional arguments.\nThe `max_connections` option replaces `size`, and `idle_timeout` replaces\n`ttl`. Configuration files using the old keys fail to load with a clear error\nthat names the new key. The migration guide lists every renamed option.\n\nConnections are now validated with a ping before they are handed out when\nthey have been idle for longer than `validate_after`. This removes most of the\nbroken pipe errors seen after network maintenance, at the cost of one round\ntrip on the first request after a quiet period.\n\n\n> **Tip:** Results are scoped to this batch only. To search across all indexed sources, use `ctx_search(queries: [...])` or call ctx_batch_execute with `query_scope: \"global\"`.\n\nSearchable terms for follow-up: changelog, error, pool, idle"
+    },
+    {
+      "id": "t18",
+      "session": 2,
+      "tool": "ctx_search",
+      "args": {
+        "query": "rollback"
+      },
+      "isError": true,
+      "text": "Error: provide query or queries."
+    },
+    {
+      "id": "t19",
+      "session": 2,
+      "tool": "ctx_search",
+      "args": {
+        "queries": [
+          "migration guide"
+        ]
+      },
+      "isError": false,
+      "text": "## migration guide\n\n--- [current-session | <DATE> | batch:changelog] ---\n### Changelog > v2.0.0\n\n## v2.0.0\n\nBreaking: `NewPool` takes an options struct instead of positional arguments.\nThe `max_connections` option replaces `size`, and `idle_timeout` replaces\n`ttl`. Configuration files using the old keys fail to load with a clear error\nthat names the new key. The migration guide lists every renamed option.\n\nConnections are now validated with a ping before they are handed out when\nthey have been idle for longer than `validate_after`. This removes most of the\nbroken pipe errors seen after network maintenance, at the cost of one round\ntrip on the first request after a quiet period.\n\n> Throttle: call #1/8 in this window. 2 call(s) before soft cap. Prefer ctx_search(queries: [...]) array form for multi-query workloads — it counts as a single call."
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Release Notes</title>
+  <style>body { font-family: sans-serif; } .hidden { display: none; }</style>
+  <script>window.analytics = { track: function () {} };</script>
+</head>
+<body>
+<header><div class="logo">ACME HEADER</div></header>
+<nav><ul><li><a href="/">Home</a></li><li><a href="/docs">NAV DOCS</a></li></ul></nav>
+<noscript>Enable JavaScript NOSCRIPT</noscript>
+<article>
+  <h1>Release 2.1</h1>
+  <p>This release adds <strong>pool stats</strong>, <em>faster</em> retries and removes <del>legacy</del> options.</p>
+  <h2>Highlights</h2>
+  <ul>
+    <li>New <code>Pool.Stats</code> method
+      <ul>
+        <li>idle counter</li>
+        <li>busy counter</li>
+      </ul>
+    </li>
+    <li>Rate limiter sets <code>Retry-After</code></li>
+  </ul>
+  <h2>Example</h2>
+  <pre><code class="language-go">stats := pool.Stats()
+fmt.Println(stats.Idle, stats.Busy)
+</code></pre>
+  <hr>
+  <h3>Escaping &amp; entities</h3>
+  <p>Use &lt;Pool&gt; with care: 5 * 3 = 15, a_b_c and [brackets].<br>Line two after a break.</p>
+  <p><img src="/img/chart.png" alt="Latency chart"> <a href="https://example.com/notes" title="Full notes">Full notes</a></p>
+</article>
+<script>console.log("SCRIPT BODY");</script>
+<footer>ACME FOOTER &copy; 2026</footer>
+</body>
+</html>

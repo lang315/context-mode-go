@@ -1,0 +1,105 @@
+2026-10-20T10:00:00Z req=00000 method=GET path=/orders status=200 duration=3ms bytes=120
+2026-10-20T10:00:01Z req=07919 method=GET path=/orders/42 status=200 duration=40ms bytes=251
+2026-10-20T10:00:02Z req=15838 method=GET path=/users status=201 duration=77ms bytes=382
+2026-10-20T10:00:03Z req=23757 method=GET path=/users/7/profile status=200 duration=114ms bytes=513
+2026-10-20T10:00:04Z req=31676 method=GET path=/health status=304 duration=151ms bytes=644
+2026-10-20T10:00:05Z req=39595 method=GET path=/metrics status=200 duration=188ms bytes=775
+2026-10-20T10:00:06Z req=47514 method=GET path=/checkout status=500 duration=225ms error="upstream connection reset by peer"
+2026-10-20T10:00:07Z req=55433 method=GET path=/cart/items status=200 duration=262ms bytes=1037
+2026-10-20T10:00:08Z req=63352 method=GET path=/orders status=404 duration=299ms bytes=1168
+2026-10-20T10:00:09Z req=71271 method=GET path=/orders/42 status=200 duration=336ms bytes=1299
+2026-10-20T10:00:10Z req=79190 method=GET path=/users status=429 duration=373ms error="rate limited retry_after=1s"
+2026-10-20T10:00:11Z req=87109 method=GET path=/users/7/profile status=200 duration=410ms bytes=1561
+2026-10-20T10:00:12Z req=95028 method=GET path=/health status=200 duration=447ms bytes=1692
+2026-10-20T10:00:13Z req=02947 method=GET path=/metrics status=201 duration=484ms bytes=1823
+2026-10-20T10:00:14Z req=10866 method=GET path=/checkout status=200 duration=521ms bytes=1954
+2026-10-20T10:00:15Z req=18785 method=GET path=/cart/items status=304 duration=558ms bytes=2085
+2026-10-20T10:00:16Z req=26704 method=GET path=/orders status=200 duration=595ms bytes=2216
+2026-10-20T10:00:17Z req=34623 method=GET path=/orders/42 status=500 duration=632ms error="upstream connection reset by peer"
+
+2026-10-20T10:00:19Z req=50461 method=GET path=/users/7/profile status=404 duration=706ms bytes=2609
+2026-10-20T10:00:20Z req=58380 method=GET path=/health status=200 duration=743ms bytes=2740
+2026-10-20T10:00:21Z req=66299 method=GET path=/metrics status=429 duration=780ms error="rate limited retry_after=1s"
+2026-10-20T10:00:22Z req=74218 method=GET path=/checkout status=200 duration=817ms bytes=3002
+2026-10-20T10:00:23Z req=82137 method=GET path=/cart/items status=200 duration=854ms bytes=3133
+2026-10-20T10:00:24Z req=90056 method=GET path=/orders status=201 duration=891ms bytes=3264
+2026-10-20T10:00:25Z req=97975 method=GET path=/orders/42 status=200 duration=28ms bytes=3395
+2026-10-20T10:00:26Z req=05894 method=GET path=/users status=304 duration=65ms bytes=3526
+2026-10-20T10:00:27Z req=13813 method=GET path=/users/7/profile status=200 duration=102ms bytes=3657
+2026-10-20T10:00:28Z req=21732 method=GET path=/health status=500 duration=139ms error="upstream connection reset by peer"
+2026-10-20T10:00:29Z req=29651 method=GET path=/metrics status=200 duration=176ms bytes=3919
+2026-10-20T10:00:30Z req=37570 method=GET path=/checkout status=404 duration=213ms bytes=4050
+2026-10-20T10:00:31Z req=45489 method=GET path=/cart/items status=200 duration=250ms bytes=4181
+2026-10-20T10:00:32Z req=53408 method=GET path=/orders status=429 duration=287ms error="rate limited retry_after=1s"
+2026-10-20T10:00:33Z req=61327 method=GET path=/orders/42 status=200 duration=324ms bytes=4443
+2026-10-20T10:00:34Z req=69246 method=GET path=/users status=200 duration=361ms bytes=4574
+2026-10-20T10:00:35Z req=77165 method=GET path=/users/7/profile status=201 duration=398ms bytes=4705
+
+2026-10-20T10:00:37Z req=93003 method=GET path=/metrics status=304 duration=472ms bytes=4967
+2026-10-20T10:00:38Z req=00922 method=GET path=/checkout status=200 duration=509ms bytes=5098
+2026-10-20T10:00:39Z req=08841 method=GET path=/cart/items status=500 duration=546ms error="upstream connection reset by peer"
+2026-10-20T10:00:40Z req=16760 method=GET path=/orders status=200 duration=583ms bytes=5360
+2026-10-20T10:00:41Z req=24679 method=GET path=/orders/42 status=404 duration=620ms bytes=5491
+2026-10-20T10:00:42Z req=32598 method=GET path=/users status=200 duration=657ms bytes=5622
+2026-10-20T10:00:43Z req=40517 method=GET path=/users/7/profile status=429 duration=694ms error="rate limited retry_after=1s"
+2026-10-20T10:00:44Z req=48436 method=GET path=/health status=200 duration=731ms bytes=5884
+2026-10-20T10:00:45Z req=56355 method=GET path=/metrics status=200 duration=768ms bytes=6015
+2026-10-20T10:00:46Z req=64274 method=GET path=/checkout status=201 duration=805ms bytes=6146
+2026-10-20T10:00:47Z req=72193 method=GET path=/cart/items status=200 duration=842ms bytes=6277
+2026-10-20T10:00:48Z req=80112 method=GET path=/orders status=304 duration=879ms bytes=6408
+2026-10-20T10:00:49Z req=88031 method=GET path=/orders/42 status=200 duration=16ms bytes=6539
+2026-10-20T10:00:50Z req=95950 method=GET path=/users status=500 duration=53ms error="upstream connection reset by peer"
+2026-10-20T10:00:51Z req=03869 method=GET path=/users/7/profile status=200 duration=90ms bytes=6801
+2026-10-20T10:00:52Z req=11788 method=GET path=/health status=404 duration=127ms bytes=6932
+2026-10-20T10:00:53Z req=19707 method=GET path=/metrics status=200 duration=164ms bytes=7063
+2026-10-20T10:00:54Z req=27626 method=GET path=/checkout status=429 duration=201ms error="rate limited retry_after=1s"
+2026-10-20T10:00:55Z req=35545 method=GET path=/cart/items status=200 duration=238ms bytes=7325
+2026-10-20T10:00:56Z req=43464 method=GET path=/orders status=200 duration=275ms bytes=7456
+2026-10-20T10:00:57Z req=51383 method=GET path=/orders/42 status=201 duration=312ms bytes=7587
+2026-10-20T10:00:58Z req=59302 method=GET path=/users status=200 duration=349ms bytes=7718
+2026-10-20T10:00:59Z req=67221 method=GET path=/users/7/profile status=304 duration=386ms bytes=7849
+2026-10-20T10:01:00Z req=75140 method=GET path=/health status=200 duration=423ms bytes=7980
+2026-10-20T10:01:01Z req=83059 method=GET path=/metrics status=500 duration=460ms error="upstream connection reset by peer"
+2026-10-20T10:01:02Z req=90978 method=GET path=/checkout status=200 duration=497ms bytes=8242
+2026-10-20T10:01:03Z req=98897 method=GET path=/cart/items status=404 duration=534ms bytes=8373
+2026-10-20T10:01:04Z req=06816 method=GET path=/orders status=200 duration=571ms bytes=8504
+2026-10-20T10:01:05Z req=14735 method=GET path=/orders/42 status=429 duration=608ms error="rate limited retry_after=1s"
+2026-10-20T10:01:06Z req=22654 method=GET path=/users status=200 duration=645ms bytes=8766
+2026-10-20T10:01:07Z req=30573 method=GET path=/users/7/profile status=200 duration=682ms bytes=8897
+2026-10-20T10:01:08Z req=38492 method=GET path=/health status=201 duration=719ms bytes=9028
+2026-10-20T10:01:09Z req=46411 method=GET path=/metrics status=200 duration=756ms bytes=159
+2026-10-20T10:01:10Z req=54330 method=GET path=/checkout status=304 duration=793ms bytes=290
+2026-10-20T10:01:11Z req=62249 method=GET path=/cart/items status=200 duration=830ms bytes=421
+2026-10-20T10:01:12Z req=70168 method=GET path=/orders status=500 duration=867ms error="upstream connection reset by peer"
+2026-10-20T10:01:13Z req=78087 method=GET path=/orders/42 status=200 duration=4ms bytes=683
+2026-10-20T10:01:14Z req=86006 method=GET path=/users status=404 duration=41ms bytes=814
+2026-10-20T10:01:15Z req=93925 method=GET path=/users/7/profile status=200 duration=78ms bytes=945
+2026-10-20T10:01:16Z req=01844 method=GET path=/health status=429 duration=115ms error="rate limited retry_after=1s"
+2026-10-20T10:01:17Z req=09763 method=GET path=/metrics status=200 duration=152ms bytes=1207
+2026-10-20T10:01:18Z req=17682 method=GET path=/checkout status=200 duration=189ms bytes=1338
+2026-10-20T10:01:19Z req=25601 method=GET path=/cart/items status=201 duration=226ms bytes=1469
+2026-10-20T10:01:20Z req=33520 method=GET path=/orders status=200 duration=263ms bytes=1600
+2026-10-20T10:01:21Z req=41439 method=GET path=/orders/42 status=304 duration=300ms bytes=1731
+2026-10-20T10:01:22Z req=49358 method=GET path=/users status=200 duration=337ms bytes=1862
+2026-10-20T10:01:23Z req=57277 method=GET path=/users/7/profile status=500 duration=374ms error="upstream connection reset by peer"
+2026-10-20T10:01:24Z req=65196 method=GET path=/health status=200 duration=411ms bytes=2124
+2026-10-20T10:01:25Z req=73115 method=GET path=/metrics status=404 duration=448ms bytes=2255
+2026-10-20T10:01:26Z req=81034 method=GET path=/checkout status=200 duration=485ms bytes=2386
+2026-10-20T10:01:27Z req=88953 method=GET path=/cart/items status=429 duration=522ms error="rate limited retry_after=1s"
+2026-10-20T10:01:28Z req=96872 method=GET path=/orders status=200 duration=559ms bytes=2648
+2026-10-20T10:01:29Z req=04791 method=GET path=/orders/42 status=200 duration=596ms bytes=2779
+2026-10-20T10:01:30Z req=12710 method=GET path=/users status=201 duration=633ms bytes=2910
+2026-10-20T10:01:31Z req=20629 method=GET path=/users/7/profile status=200 duration=670ms bytes=3041
+2026-10-20T10:01:32Z req=28548 method=GET path=/health status=304 duration=707ms bytes=3172
+2026-10-20T10:01:33Z req=36467 method=GET path=/metrics status=200 duration=744ms bytes=3303
+2026-10-20T10:01:34Z req=44386 method=GET path=/checkout status=500 duration=781ms error="upstream connection reset by peer"
+2026-10-20T10:01:35Z req=52305 method=GET path=/cart/items status=200 duration=818ms bytes=3565
+2026-10-20T10:01:36Z req=60224 method=GET path=/orders status=404 duration=855ms bytes=3696
+2026-10-20T10:01:37Z req=68143 method=GET path=/orders/42 status=200 duration=892ms bytes=3827
+2026-10-20T10:01:38Z req=76062 method=GET path=/users status=429 duration=29ms error="rate limited retry_after=1s"
+2026-10-20T10:01:39Z req=83981 method=GET path=/users/7/profile status=200 duration=66ms bytes=4089
+2026-10-20T10:01:40Z req=91900 method=GET path=/health status=200 duration=103ms bytes=4220
+2026-10-20T10:01:41Z req=99819 method=GET path=/metrics status=201 duration=140ms bytes=4351
+2026-10-20T10:01:42Z req=07738 method=GET path=/checkout status=200 duration=177ms bytes=4482
+2026-10-20T10:01:43Z req=15657 method=GET path=/cart/items status=304 duration=214ms bytes=4613
+2026-10-20T10:01:44Z req=23576 method=GET path=/orders status=200 duration=251ms bytes=4744

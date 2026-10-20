@@ -1,0 +1,10 @@
+2026-10-20T09:12:01Z INFO  server starting on :8080
+2026-10-20T09:12:01Z INFO  pool opened max_connections=10
+2026-10-20T09:12:02Z INFO  migrations applied version=42
+2026-10-20T09:12:05Z WARN  slow request path=/orders duration=1.2s
+2026-10-20T09:12:09Z ERROR upstream refused connection host=db-primary
+2026-10-20T09:12:09Z INFO  retrying in 500ms
+2026-10-20T09:12:10Z INFO  reconnected host=db-primary
+2026-10-20T09:12:30Z INFO  health check ok
+2026-10-20T09:13:00Z INFO  health check ok
+2026-10-20T09:13:30Z INFO  shutting down

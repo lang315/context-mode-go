@@ -1,0 +1,235 @@
+{
+  "tsCommit": "a5e6dd31",
+  "cases": [
+    {
+      "in": "connection pool",
+      "porter": "\"connection\" OR \"pool\"",
+      "trigram": "\"connection\" OR \"pool\""
+    },
+    {
+      "in": "max_connections",
+      "porter": "\"max_connections\"",
+      "trigram": "\"max_connections\""
+    },
+    {
+      "in": "idle_timeout connect_timeout",
+      "porter": "\"idle_timeout\" OR \"connect_timeout\"",
+      "trigram": "\"idle_timeout\" OR \"connect_timeout\""
+    },
+    {
+      "in": "rate limiter",
+      "porter": "\"rate\" OR \"limiter\"",
+      "trigram": "\"rate\" OR \"limiter\""
+    },
+    {
+      "in": "Retry-After",
+      "porter": "\"Retry-After\"",
+      "trigram": "\"Retry-After\""
+    },
+    {
+      "in": "heartbeat worker",
+      "porter": "\"heartbeat\" OR \"worker\"",
+      "trigram": "\"heartbeat\" OR \"worker\""
+    },
+    {
+      "in": "rollback deploy",
+      "porter": "\"rollback\" OR \"deploy\"",
+      "trigram": "\"rollback\" OR \"deploy\""
+    },
+    {
+      "in": "connections",
+      "porter": "\"connections\"",
+      "trigram": "\"connections\""
+    },
+    {
+      "in": "configuring",
+      "porter": "\"configuring\"",
+      "trigram": "\"configuring\""
+    },
+    {
+      "in": "Middlewa",
+      "porter": "\"Middlewa\"",
+      "trigram": "\"Middlewa\""
+    },
+    {
+      "in": "TestPoolTimeout",
+      "porter": "\"TestPoolTimeout\"",
+      "trigram": "\"TestPoolTimeout\""
+    },
+    {
+      "in": "nil pointer dereference",
+      "porter": "\"nil\" OR \"pointer\" OR \"dereference\"",
+      "trigram": "\"nil\" OR \"pointer\" OR \"dereference\""
+    },
+    {
+      "in": "upstream connection reset",
+      "porter": "\"upstream\" OR \"connection\" OR \"reset\"",
+      "trigram": "\"upstream\" OR \"connection\" OR \"reset\""
+    },
+    {
+      "in": "status=429",
+      "porter": "\"status=429\"",
+      "trigram": "\"status=429\""
+    },
+    {
+      "in": "café",
+      "porter": "\"café\"",
+      "trigram": "\"café\""
+    },
+    {
+      "in": "データベース",
+      "porter": "\"データベース\"",
+      "trigram": "\"データベース\""
+    },
+    {
+      "in": "😀",
+      "porter": "\"😀\"",
+      "trigram": ""
+    },
+    {
+      "in": "Ada Lovelace",
+      "porter": "\"Ada\" OR \"Lovelace\"",
+      "trigram": "\"Ada\" OR \"Lovelace\""
+    },
+    {
+      "in": "admin",
+      "porter": "\"admin\"",
+      "trigram": "\"admin\""
+    },
+    {
+      "in": "src/pool",
+      "porter": "\"src/pool\"",
+      "trigram": "\"src/pool\""
+    },
+    {
+      "in": "the and of",
+      "porter": "\"of\"",
+      "trigram": "\"the\" OR \"and\""
+    },
+    {
+      "in": "conection timout",
+      "porter": "\"conection\" OR \"timout\"",
+      "trigram": "\"conection\" OR \"timout\""
+    },
+    {
+      "in": "hearbeat",
+      "porter": "\"hearbeat\"",
+      "trigram": "\"hearbeat\""
+    },
+    {
+      "in": "authentcation",
+      "porter": "\"authentcation\"",
+      "trigram": "\"authentcation\""
+    },
+    {
+      "in": "zzzz qqqq",
+      "porter": "\"zzzz\" OR \"qqqq\"",
+      "trigram": "\"zzzz\" OR \"qqqq\""
+    },
+    {
+      "in": "quick brown fox",
+      "porter": "\"quick\" OR \"brown\" OR \"fox\"",
+      "trigram": "\"quick\" OR \"brown\" OR \"fox\""
+    },
+    {
+      "in": "sentinelword",
+      "porter": "\"sentinelword\"",
+      "trigram": "\"sentinelword\""
+    },
+    {
+      "in": "EXPLAIN ANALYZE",
+      "porter": "\"EXPLAIN\" OR \"ANALYZE\"",
+      "trigram": "\"EXPLAIN\" OR \"ANALYZE\""
+    },
+    {
+      "in": "pool",
+      "porter": "\"pool\"",
+      "trigram": "\"pool\""
+    },
+    {
+      "in": "pool",
+      "porter": "\"pool\"",
+      "trigram": "\"pool\""
+    },
+    {
+      "in": "connection",
+      "porter": "\"connection\"",
+      "trigram": "\"connection\""
+    },
+    {
+      "in": "connection",
+      "porter": "\"connection\"",
+      "trigram": "\"connection\""
+    },
+    {
+      "in": "ECONNREFUSED",
+      "porter": "\"ECONNREFUSED\"",
+      "trigram": "\"ECONNREFUSED\""
+    },
+    {
+      "in": "\"quoted phrase\" (parens) AND NOT pool",
+      "porter": "\"quoted\" OR \"phrase\" OR \"parens\" OR \"pool\"",
+      "trigram": "\"quoted\" OR \"phrase\" OR \"parens\" OR \"pool\""
+    },
+    {
+      "in": "a b",
+      "porter": "\"a\" OR \"b\"",
+      "trigram": ""
+    },
+    {
+      "in": "webhook",
+      "porter": "\"webhook\"",
+      "trigram": "\"webhook\""
+    },
+    {
+      "in": "",
+      "porter": "\"\"",
+      "trigram": ""
+    },
+    {
+      "in": "   ",
+      "porter": "\"\"",
+      "trigram": ""
+    },
+    {
+      "in": "foo:bar baz^2 ~fuzzy",
+      "porter": "\"foo\" OR \"bar\" OR \"baz\" OR \"2\" OR \"fuzzy\"",
+      "trigram": "\"foobar\" OR \"baz2\" OR \"fuzzy\""
+    },
+    {
+      "in": "NEAR near Near",
+      "porter": "\"\"",
+      "trigram": "\"NEAR\""
+    },
+    {
+      "in": "Error error ERROR",
+      "porter": "\"Error\"",
+      "trigram": "\"Error\""
+    },
+    {
+      "in": "x y zz",
+      "porter": "\"x\" OR \"y\" OR \"zz\"",
+      "trigram": ""
+    },
+    {
+      "in": "café's naïve",
+      "porter": "\"café\" OR \"s\" OR \"naïve\"",
+      "trigram": "\"cafés\" OR \"naïve\""
+    },
+    {
+      "in": "path/to/file.go",
+      "porter": "\"path/to/file.go\"",
+      "trigram": "\"path/to/file.go\""
+    },
+    {
+      "in": "a-b_c d.e",
+      "porter": "\"a-b_c\" OR \"d.e\"",
+      "trigram": "\"a-b_c\" OR \"d.e\""
+    },
+    {
+      "in": "(nested (parens))",
+      "porter": "\"nested\" OR \"parens\"",
+      "trigram": "\"nested\" OR \"parens\""
+    }
+  ]
+}

@@ -1,0 +1,834 @@
+{
+  "tsCommit": "a5e6dd31",
+  "files": [
+    {
+      "path": "md/01-getting-started.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "md/02-api-reference.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "md/03-long-code.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "md/04-rules.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "md/05-oversized.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "md/06-no-heading.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "md/07-deep-nesting.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "md/08-unicode.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "md/09-troubleshooting.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "md/10-changelog.md",
+      "kind": "markdown"
+    },
+    {
+      "path": "logs/long.log",
+      "kind": "plain"
+    },
+    {
+      "path": "logs/sections.log",
+      "kind": "plain"
+    },
+    {
+      "path": "logs/short.log",
+      "kind": "plain"
+    },
+    {
+      "path": "json/config.json",
+      "kind": "json"
+    },
+    {
+      "path": "json/large.json",
+      "kind": "json"
+    },
+    {
+      "path": "json/users.json",
+      "kind": "json"
+    }
+  ],
+  "cases": [
+    {
+      "id": "q01",
+      "query": "connection pool",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/02-api-reference.md::API Reference > Pool.Put",
+          "contentType": "code",
+          "highlighted": "## \u0002Pool\u0003.Put\n\nReturn a \u0002connection\u0003 with `Put`. A broken \u0002connection\u0003 is closed instead.\n\n```js\n// # this comment is not a heading\n\u0002pool\u0003.put(conn);\n```"
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration",
+          "contentType": "prose",
+          "highlighted": "## Configuration\n\nA second Configuration section: environment variables override the file.\nSet `\u0002POOL\u0003_MAX_\u0002CONNECTIONS\u0003` to change the \u0002pool\u0003 size at deploy time."
+        },
+        {
+          "key": "json/config.json::database > pool > max_connections",
+          "contentType": "code",
+          "highlighted": "20"
+        }
+      ]
+    },
+    {
+      "id": "q02",
+      "query": "max_connections",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "json/config.json::database > pool > max_connections",
+          "contentType": "code",
+          "highlighted": "20"
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration",
+          "contentType": "prose",
+          "highlighted": "## Configuration\n\nSet `\u0002max_connections\u0003` to the number of connections the pool may open.\nThe default is 10, which suits most small services."
+        },
+        {
+          "key": "md/09-troubleshooting.md::Troubleshooting > Timeout errors",
+          "contentType": "prose",
+          "highlighted": "## Timeout errors\n\nA `context deadline exceeded` error means the pool waited longer than\n`connect_timeout` for a free connection. Raise `\u0002max_connections\u0003` or find the\nhandler that leaks connections without calling `Put`."
+        }
+      ]
+    },
+    {
+      "id": "q03",
+      "query": "idle_timeout connect_timeout",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration > Timeouts",
+          "contentType": "prose",
+          "highlighted": "### Timeouts\n\nThe `\u0002idle_timeout\u0003` closes connections that sit unused. The `\u0002connect_timeout\u0003`\nbounds how long a request waits for a free connection before it fails."
+        },
+        {
+          "key": "json/config.json::database > pool > idle_timeout",
+          "contentType": "code",
+          "highlighted": "\"5m\""
+        },
+        {
+          "key": "json/config.json::database > pool > connect_timeout",
+          "contentType": "code",
+          "highlighted": "2.5"
+        }
+      ]
+    },
+    {
+      "id": "q04",
+      "query": "rate limiter",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/03-long-code.md::Rate Limiter Source (1)",
+          "contentType": "code",
+          "highlighted": "# \u0002Rate\u0003 \u0002Limiter\u0003 Source\n\nThe full token bucket implementation is kept in one fenced block so it is never split.\n\n```go\npackage ratelimit\n\nimport (\n\t\"errors\"\n\t\"sync\"\n\t\"time\"\n)\n\n// ErrLimited is returned when the bucket has no tokens left.\nvar ErrLimited = errors.New(\"ratelimit: too many requests\")\n\n// Bucket is a token bucket \u0002rate\u0003 \u0002limiter\u0003.\ntype Bucket struct {\n\tmu       sync.Mutex\n\tcapacity int\n\ttokens   int\n\trefill   time.Duration\n\tlast     time.Time\n\tnow      func() time.Time\n}\n\n// NewBucket returns a full bucket that adds one token per refill interval.\nfunc NewBucket(capacity int, refill time.Duration) *Bucket {\n\treturn &Bucket{\n\t\tcapacity: capacity,\n\t\ttokens:   capacity,\n\t\trefill:   refill,\n\t\tlast:     time.Now(),\n\t\tnow:      time.Now,\n\t}\n}\n\n// Take removes one token or returns ErrLimited.\nfunc (b *Bucket) Take() error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens == 0 {\n\t\treturn ErrLimited\n\t}\n\tb.tokens--\n\treturn nil\n}\n\n// TakeN removes n tokens at once or none of them.\nfunc (b *Bucket) TakeN(n int) error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens < n {\n\t\treturn ErrLimited\n\t}\n\tb.tokens -= n\n\treturn nil\n}\n\n// Available reports the tokens left after refilling.\nfunc (b *Bucket) Available() int {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\treturn b.tokens\n}\n\n// add refills tokens for the time elapsed since the last call.\nfunc (b *Bucket) add() {\n\tnow := b.now()\n\telapsed := now.Sub(b.last)\n\tif elapsed < b.refill {\n\t\treturn\n\t}\n\tgained := int(elapsed / b.refill)\n\tb.tokens += gained\n\tif b.tokens > b.capacity {\n\t\tb.tokens = b.capacity\n\t}\n\tb.last = b.last.Add(time.Duration(gained) * b.refill)\n}\n\n// \u0002Limiter\u0003 keeps one bucket per client key.\ntype \u0002Limiter\u0003 struct {\n\tmu       sync.Mutex\n\tbuckets  map[string]*Bucket\n\tcapacity int\n\trefill   time.Duration\n}\n\n// NewLimiter returns a \u0002limiter\u0003 that creates buckets lazily.\nfunc NewLimiter(capacity int, refill time.Duration) *\u0002Limiter\u0003 {\n\treturn &\u0002Limiter\u0003{\n\t\tbuckets:  make(map[string]*Bucket),\n\t\tcapacity: capacity,\n\t\trefill:   refill,\n\t}\n}\n\n// Allow takes one token from the bucket for key.\nfunc (l *\u0002Limiter\u0003) Allow(key string) bool {\n\treturn l.bucket(key).Take() == nil\n}\n\n// bucket returns the bucket for key, creating it on first use.\nfunc (l *\u0002Limiter\u0003) bucket(key string) *Bucket {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tb, ok := l.buckets[key]\n\tif !ok {\n\t\tb = NewBucket(l.capacity, l.refill)\n\t\tl.buckets[key] = b\n\t}\n\treturn b\n}\n\n// Sweep drops buckets that are full again, so idle clients free memory.\nfunc (l *\u0002Limiter\u0003) Sweep() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tdropped := 0\n\tfor key, b := range l.buckets {\n\t\tif b.Available() == l.capacity {\n\t\t\tdelete(l.buckets, key)\n\t\t\tdropped++\n\t\t}\n\t}\n\treturn dropped\n}\n\n// Len reports how many client buckets are live.\nfunc (l *\u0002Limiter\u0003) Len() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\treturn len(l.buckets)\n}\n\n// Middleware rejects requests over the \u0002limit\u0003 with status 429.\nfunc Middleware(l *\u0002Limiter\u0003, next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tkey := clientKey(r)\n\t\tif !l.Allow(key) {\n\t\t\tw.Header().Set(\"Retry-After\", \"1\")\n\t\t\thttp.Error(w, ErrLimited.Error(), http.StatusTooManyRequests)\n\t\t\treturn\n\t\t}\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\n\n// clientKey picks the forwarded address when a trusted proxy set one.\nfunc clientKey(r *http.Request) string {\n\tif fwd := r.Header.Get(\"X-Forwarded-For\"); fwd != \"\" {\n\t\tif i := strings.IndexByte(fwd, ','); i >= 0 {\n\t\t\treturn strings.TrimSpace(fwd[:i])\n\t\t}\n\t\treturn strings.TrimSpace(fwd)\n\t}\n\thost, _, err := net.SplitHostPort(r.RemoteAddr)\n\tif err != nil {\n\t\treturn r.RemoteAddr\n\t}\n\treturn host\n}\n\n// Stats is a snapshot of \u0002limiter\u0003 counters for the metrics endpoint.\ntype Stats struct {\n\tClients  int `json:\"clients\"`\n\tCapacity int `json:\"capacity\"`\n\tRefillMS int `json:\"refill_ms\"`\n}\n\n// Snapshot reports the current \u0002limiter\u0003 counters.\nfunc (l *\u0002Limiter\u0003) Snapshot() Stats {\n\treturn Stats{\n\t\tClients:  l.Len(),\n\t\tCapacity: l.capacity,\n\t\tRefillMS: int(l.refill / time.Millisecond),\n\t}\n}"
+        },
+        {
+          "key": "md/03-long-code.md::Rate Limiter Source (2)",
+          "contentType": "code",
+          "highlighted": "// StartSweeper runs Sweep on every tick until stop is closed.\nfunc (l *\u0002Limiter\u0003) StartSweeper(every time.Duration, stop <-chan struct{}) {\n\tt := time.NewTicker(every)\n\tgo func() {\n\t\tdefer t.Stop()\n\t\tfor {\n\t\t\tselect {\n\t\t\tcase <-t.C:\n\t\t\t\tl.Sweep()\n\t\t\tcase <-stop:\n\t\t\t\treturn\n\t\t\t}\n\t\t}\n\t}()\n}\n```"
+        },
+        {
+          "key": "md/03-long-code.md::Rate Limiter Source > Usage",
+          "contentType": "prose",
+          "highlighted": "## Usage\n\nCall `Allow` with the client address before serving each request."
+        }
+      ]
+    },
+    {
+      "id": "q05",
+      "query": "Retry-After",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/10-changelog.md::Changelog > v2.1.0",
+          "contentType": "prose",
+          "highlighted": "## v2.1.0\n\n- Added `Pool.Stats` with idle, busy and wait counters.\n- The rate limiter middleware now sets `\u0002Retry-After\u0003` on 429 responses.\n- Fixed a race in `Pool.Put` when the context was cancelled during return."
+        },
+        {
+          "key": "md/03-long-code.md::Rate Limiter Source (1)",
+          "contentType": "code",
+          "highlighted": "# Rate Limiter Source\n\nThe full token bucket implementation is kept in one fenced block so it is never split.\n\n```go\npackage ratelimit\n\nimport (\n\t\"errors\"\n\t\"sync\"\n\t\"time\"\n)\n\n// ErrLimited is returned when the bucket has no tokens left.\nvar ErrLimited = errors.New(\"ratelimit: too many requests\")\n\n// Bucket is a token bucket rate limiter.\ntype Bucket struct {\n\tmu       sync.Mutex\n\tcapacity int\n\ttokens   int\n\trefill   time.Duration\n\tlast     time.Time\n\tnow      func() time.Time\n}\n\n// NewBucket returns a full bucket that adds one token per refill interval.\nfunc NewBucket(capacity int, refill time.Duration) *Bucket {\n\treturn &Bucket{\n\t\tcapacity: capacity,\n\t\ttokens:   capacity,\n\t\trefill:   refill,\n\t\tlast:     time.Now(),\n\t\tnow:      time.Now,\n\t}\n}\n\n// Take removes one token or returns ErrLimited.\nfunc (b *Bucket) Take() error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens == 0 {\n\t\treturn ErrLimited\n\t}\n\tb.tokens--\n\treturn nil\n}\n\n// TakeN removes n tokens at once or none of them.\nfunc (b *Bucket) TakeN(n int) error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens < n {\n\t\treturn ErrLimited\n\t}\n\tb.tokens -= n\n\treturn nil\n}\n\n// Available reports the tokens left after refilling.\nfunc (b *Bucket) Available() int {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\treturn b.tokens\n}\n\n// add refills tokens for the time elapsed since the last call.\nfunc (b *Bucket) add() {\n\tnow := b.now()\n\telapsed := now.Sub(b.last)\n\tif elapsed < b.refill {\n\t\treturn\n\t}\n\tgained := int(elapsed / b.refill)\n\tb.tokens += gained\n\tif b.tokens > b.capacity {\n\t\tb.tokens = b.capacity\n\t}\n\tb.last = b.last.Add(time.Duration(gained) * b.refill)\n}\n\n// Limiter keeps one bucket per client key.\ntype Limiter struct {\n\tmu       sync.Mutex\n\tbuckets  map[string]*Bucket\n\tcapacity int\n\trefill   time.Duration\n}\n\n// NewLimiter returns a limiter that creates buckets lazily.\nfunc NewLimiter(capacity int, refill time.Duration) *Limiter {\n\treturn &Limiter{\n\t\tbuckets:  make(map[string]*Bucket),\n\t\tcapacity: capacity,\n\t\trefill:   refill,\n\t}\n}\n\n// Allow takes one token from the bucket for key.\nfunc (l *Limiter) Allow(key string) bool {\n\treturn l.bucket(key).Take() == nil\n}\n\n// bucket returns the bucket for key, creating it on first use.\nfunc (l *Limiter) bucket(key string) *Bucket {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tb, ok := l.buckets[key]\n\tif !ok {\n\t\tb = NewBucket(l.capacity, l.refill)\n\t\tl.buckets[key] = b\n\t}\n\treturn b\n}\n\n// Sweep drops buckets that are full again, so idle clients free memory.\nfunc (l *Limiter) Sweep() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tdropped := 0\n\tfor key, b := range l.buckets {\n\t\tif b.Available() == l.capacity {\n\t\t\tdelete(l.buckets, key)\n\t\t\tdropped++\n\t\t}\n\t}\n\treturn dropped\n}\n\n// Len reports how many client buckets are live.\nfunc (l *Limiter) Len() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\treturn len(l.buckets)\n}\n\n// Middleware rejects requests over the limit with status 429.\nfunc Middleware(l *Limiter, next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tkey := clientKey(r)\n\t\tif !l.Allow(key) {\n\t\t\tw.Header().Set(\"\u0002Retry-After\u0003\", \"1\")\n\t\t\thttp.Error(w, ErrLimited.Error(), http.StatusTooManyRequests)\n\t\t\treturn\n\t\t}\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\n\n// clientKey picks the forwarded address when a trusted proxy set one.\nfunc clientKey(r *http.Request) string {\n\tif fwd := r.Header.Get(\"X-Forwarded-For\"); fwd != \"\" {\n\t\tif i := strings.IndexByte(fwd, ','); i >= 0 {\n\t\t\treturn strings.TrimSpace(fwd[:i])\n\t\t}\n\t\treturn strings.TrimSpace(fwd)\n\t}\n\thost, _, err := net.SplitHostPort(r.RemoteAddr)\n\tif err != nil {\n\t\treturn r.RemoteAddr\n\t}\n\treturn host\n}\n\n// Stats is a snapshot of limiter counters for the metrics endpoint.\ntype Stats struct {\n\tClients  int `json:\"clients\"`\n\tCapacity int `json:\"capacity\"`\n\tRefillMS int `json:\"refill_ms\"`\n}\n\n// Snapshot reports the current limiter counters.\nfunc (l *Limiter) Snapshot() Stats {\n\treturn Stats{\n\t\tClients:  l.Len(),\n\t\tCapacity: l.capacity,\n\t\tRefillMS: int(l.refill / time.Millisecond),\n\t}\n}"
+        },
+        {
+          "key": "logs/long.log::Lines 19-38",
+          "contentType": "prose",
+          "highlighted": "\n2026-10-20T10:00:19Z req=50461 method=GET path=/users/7/profile status=404 duration=706ms bytes=2609\n2026-10-20T10:00:20Z req=58380 method=GET path=/health status=200 duration=743ms bytes=2740\n2026-10-20T10:00:21Z req=66299 method=GET path=/metrics status=429 duration=780ms error=\"rate limited \u0002retry_after\u0003=1s\"\n2026-10-20T10:00:22Z req=74218 method=GET path=/checkout status=200 duration=817ms bytes=3002\n2026-10-20T10:00:23Z req=82137 method=GET path=/cart/items status=200 duration=854ms bytes=3133\n2026-10-20T10:00:24Z req=90056 method=GET path=/orders status=201 duration=891ms bytes=3264\n2026-10-20T10:00:25Z req=97975 method=GET path=/orders/42 status=200 duration=28ms bytes=3395\n2026-10-20T10:00:26Z req=05894 method=GET path=/users status=304 duration=65ms bytes=3526\n2026-10-20T10:00:27Z req=13813 method=GET path=/users/7/profile status=200 duration=102ms bytes=3657\n2026-10-20T10:00:28Z req=21732 method=GET path=/health status=500 duration=139ms error=\"upstream connection reset by peer\"\n2026-10-20T10:00:29Z req=29651 method=GET path=/metrics status=200 duration=176ms bytes=3919\n2026-10-20T10:00:30Z req=37570 method=GET path=/checkout status=404 duration=213ms bytes=4050\n2026-10-20T10:00:31Z req=45489 method=GET path=/cart/items status=200 duration=250ms bytes=4181\n2026-10-20T10:00:32Z req=53408 method=GET path=/orders status=429 duration=287ms error=\"rate limited \u0002retry_after\u0003=1s\"\n2026-10-20T10:00:33Z req=61327 method=GET path=/orders/42 status=200 duration=324ms bytes=4443\n2026-10-20T10:00:34Z req=69246 method=GET path=/users status=200 duration=361ms bytes=4574\n2026-10-20T10:00:35Z req=77165 method=GET path=/users/7/profile status=201 duration=398ms bytes=4705\n\n2026-10-20T10:00:37Z req=93003 method=GET path=/metrics status=304 duration=472ms bytes=4967"
+        }
+      ]
+    },
+    {
+      "id": "q06",
+      "query": "heartbeat worker",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/07-deep-nesting.md::Architecture > Components > Scheduler > Workers",
+          "contentType": "prose",
+          "highlighted": "#### \u0002Workers\u0003\n\n\u0002Workers\u0003 pull jobs from the queue and report \u0002heartbeats\u0003."
+        },
+        {
+          "key": "md/07-deep-nesting.md::Appendix > Glossary",
+          "contentType": "prose",
+          "highlighted": "## Glossary\n\nA \u0002heartbeat\u0003 is a periodic liveness signal from a \u0002worker\u0003."
+        },
+        {
+          "key": "md/07-deep-nesting.md::Architecture > Deployment",
+          "contentType": "prose",
+          "highlighted": "## Deployment\n\nDeployment uses a rolling restart of \u0002workers\u0003."
+        }
+      ]
+    },
+    {
+      "id": "q07",
+      "query": "rollback deploy",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/05-oversized.md::Incident Report > Summary",
+          "contentType": "prose",
+          "highlighted": "## Summary\n\nPer-handler pools exceeded the database connection ceiling; \u0002rollback\u0003 fixed it."
+        },
+        {
+          "key": "md/08-unicode.md::Internationalisation 🌍 > Emoji status 😀",
+          "contentType": "prose",
+          "highlighted": "## Emoji status 😀\n\n\u0002Deploy\u0003 finished 🚀 with zero errors ✅ and one warning ⚠️.\nGrinning 😀 faces 😀 everywhere 😀 to test surrogate pairs in snippets."
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration",
+          "contentType": "prose",
+          "highlighted": "## Configuration\n\nA second Configuration section: environment variables override the file.\nSet `POOL_MAX_CONNECTIONS` to change the pool size at \u0002deploy\u0003 time."
+        }
+      ]
+    },
+    {
+      "id": "q08",
+      "query": "connections",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "json/config.json::database > pool > max_connections",
+          "contentType": "code",
+          "highlighted": "20"
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration",
+          "contentType": "prose",
+          "highlighted": "## Configuration\n\nSet `max_\u0002connections\u0003` to the number of \u0002connections\u0003 the pool may open.\nThe default is 10, which suits most small services."
+        },
+        {
+          "key": "md/09-troubleshooting.md::Troubleshooting > Timeout errors",
+          "contentType": "prose",
+          "highlighted": "## Timeout errors\n\nA `context deadline exceeded` error means the pool waited longer than\n`\u0002connect\u0003_timeout` for a free \u0002connection\u0003. Raise `max_\u0002connections\u0003` or find the\nhandler that leaks \u0002connections\u0003 without calling `Put`."
+        }
+      ]
+    },
+    {
+      "id": "q09",
+      "query": "configuring",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration",
+          "contentType": "prose",
+          "highlighted": "## \u0002Configuration\u0003\n\nA second \u0002Configuration\u0003 section: environment variables override the file.\nSet `POOL_MAX_CONNECTIONS` to change the pool size at deploy time."
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration > Timeouts > Retry policy",
+          "contentType": "prose",
+          "highlighted": "#### Retry policy\n\nFailed connects are retried three times with exponential backoff."
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration > Timeouts",
+          "contentType": "prose",
+          "highlighted": "### Timeouts\n\nThe `idle_timeout` closes connections that sit unused. The `connect_timeout`\nbounds how long a request waits for a free connection before it fails."
+        }
+      ]
+    },
+    {
+      "id": "q10",
+      "query": "Middlewa",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/10-changelog.md::Changelog > v2.1.0",
+          "contentType": "prose",
+          "highlighted": "## v2.1.0\n\n- Added `Pool.Stats` with idle, busy and wait counters.\n- The rate limiter \u0002middlewa\u0003re now sets `Retry-After` on 429 responses.\n- Fixed a race in `Pool.Put` when the context was cancelled during return."
+        },
+        {
+          "key": "md/03-long-code.md::Rate Limiter Source (1)",
+          "contentType": "code",
+          "highlighted": "# Rate Limiter Source\n\nThe full token bucket implementation is kept in one fenced block so it is never split.\n\n```go\npackage ratelimit\n\nimport (\n\t\"errors\"\n\t\"sync\"\n\t\"time\"\n)\n\n// ErrLimited is returned when the bucket has no tokens left.\nvar ErrLimited = errors.New(\"ratelimit: too many requests\")\n\n// Bucket is a token bucket rate limiter.\ntype Bucket struct {\n\tmu       sync.Mutex\n\tcapacity int\n\ttokens   int\n\trefill   time.Duration\n\tlast     time.Time\n\tnow      func() time.Time\n}\n\n// NewBucket returns a full bucket that adds one token per refill interval.\nfunc NewBucket(capacity int, refill time.Duration) *Bucket {\n\treturn &Bucket{\n\t\tcapacity: capacity,\n\t\ttokens:   capacity,\n\t\trefill:   refill,\n\t\tlast:     time.Now(),\n\t\tnow:      time.Now,\n\t}\n}\n\n// Take removes one token or returns ErrLimited.\nfunc (b *Bucket) Take() error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens == 0 {\n\t\treturn ErrLimited\n\t}\n\tb.tokens--\n\treturn nil\n}\n\n// TakeN removes n tokens at once or none of them.\nfunc (b *Bucket) TakeN(n int) error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens < n {\n\t\treturn ErrLimited\n\t}\n\tb.tokens -= n\n\treturn nil\n}\n\n// Available reports the tokens left after refilling.\nfunc (b *Bucket) Available() int {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\treturn b.tokens\n}\n\n// add refills tokens for the time elapsed since the last call.\nfunc (b *Bucket) add() {\n\tnow := b.now()\n\telapsed := now.Sub(b.last)\n\tif elapsed < b.refill {\n\t\treturn\n\t}\n\tgained := int(elapsed / b.refill)\n\tb.tokens += gained\n\tif b.tokens > b.capacity {\n\t\tb.tokens = b.capacity\n\t}\n\tb.last = b.last.Add(time.Duration(gained) * b.refill)\n}\n\n// Limiter keeps one bucket per client key.\ntype Limiter struct {\n\tmu       sync.Mutex\n\tbuckets  map[string]*Bucket\n\tcapacity int\n\trefill   time.Duration\n}\n\n// NewLimiter returns a limiter that creates buckets lazily.\nfunc NewLimiter(capacity int, refill time.Duration) *Limiter {\n\treturn &Limiter{\n\t\tbuckets:  make(map[string]*Bucket),\n\t\tcapacity: capacity,\n\t\trefill:   refill,\n\t}\n}\n\n// Allow takes one token from the bucket for key.\nfunc (l *Limiter) Allow(key string) bool {\n\treturn l.bucket(key).Take() == nil\n}\n\n// bucket returns the bucket for key, creating it on first use.\nfunc (l *Limiter) bucket(key string) *Bucket {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tb, ok := l.buckets[key]\n\tif !ok {\n\t\tb = NewBucket(l.capacity, l.refill)\n\t\tl.buckets[key] = b\n\t}\n\treturn b\n}\n\n// Sweep drops buckets that are full again, so idle clients free memory.\nfunc (l *Limiter) Sweep() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tdropped := 0\n\tfor key, b := range l.buckets {\n\t\tif b.Available() == l.capacity {\n\t\t\tdelete(l.buckets, key)\n\t\t\tdropped++\n\t\t}\n\t}\n\treturn dropped\n}\n\n// Len reports how many client buckets are live.\nfunc (l *Limiter) Len() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\treturn len(l.buckets)\n}\n\n// \u0002Middlewa\u0003re rejects requests over the limit with status 429.\nfunc \u0002Middlewa\u0003re(l *Limiter, next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tkey := clientKey(r)\n\t\tif !l.Allow(key) {\n\t\t\tw.Header().Set(\"Retry-After\", \"1\")\n\t\t\thttp.Error(w, ErrLimited.Error(), http.StatusTooManyRequests)\n\t\t\treturn\n\t\t}\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\n\n// clientKey picks the forwarded address when a trusted proxy set one.\nfunc clientKey(r *http.Request) string {\n\tif fwd := r.Header.Get(\"X-Forwarded-For\"); fwd != \"\" {\n\t\tif i := strings.IndexByte(fwd, ','); i >= 0 {\n\t\t\treturn strings.TrimSpace(fwd[:i])\n\t\t}\n\t\treturn strings.TrimSpace(fwd)\n\t}\n\thost, _, err := net.SplitHostPort(r.RemoteAddr)\n\tif err != nil {\n\t\treturn r.RemoteAddr\n\t}\n\treturn host\n}\n\n// Stats is a snapshot of limiter counters for the metrics endpoint.\ntype Stats struct {\n\tClients  int `json:\"clients\"`\n\tCapacity int `json:\"capacity\"`\n\tRefillMS int `json:\"refill_ms\"`\n}\n\n// Snapshot reports the current limiter counters.\nfunc (l *Limiter) Snapshot() Stats {\n\treturn Stats{\n\t\tClients:  l.Len(),\n\t\tCapacity: l.capacity,\n\t\tRefillMS: int(l.refill / time.Millisecond),\n\t}\n}"
+        }
+      ]
+    },
+    {
+      "id": "q11",
+      "query": "TestPoolTimeout",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "logs/sections.log::=== RUN   TestPoolTimeout",
+          "contentType": "prose",
+          "highlighted": "=== RUN   \u0002TestPoolTimeout\u0003\n    pool_test.go:88: waited 2.001s for a connection, want at most 2s\n--- FAIL: \u0002TestPoolTimeout\u0003 (2.00s)"
+        }
+      ]
+    },
+    {
+      "id": "q12",
+      "query": "nil pointer dereference",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "logs/sections.log::panic: runtime error: invalid memory address or nil pointer dereference",
+          "contentType": "prose",
+          "highlighted": "panic: runtime error: invalid memory address or \u0002nil\u0003 \u0002pointer\u0003 \u0002dereference\u0003\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x1029a3c]\ngoroutine 7 [running]:\nexample.com/pool.(*Pool).Close(0x0)\n\t/src/pool/pool.go:142 +0x1c"
+        },
+        {
+          "key": "md/02-api-reference.md::API Reference > Pool.Get",
+          "contentType": "code",
+          "highlighted": "## Pool.Get\n\n`Get` returns a connection from the pool, blocking until one is free.\n\n```go\nfunc (p *Pool) Get(ctx context.Context) (*Conn, error) {\n\tselect {\n\tcase c := <-p.idle:\n\t\treturn c, \u0002nil\u0003\n\tcase <-ctx.Done():\n\t\treturn \u0002nil\u0003, ctx.Err()\n\t}\n}\n```"
+        },
+        {
+          "key": "md/03-long-code.md::Rate Limiter Source (1)",
+          "contentType": "code",
+          "highlighted": "# Rate Limiter Source\n\nThe full token bucket implementation is kept in one fenced block so it is never split.\n\n```go\npackage ratelimit\n\nimport (\n\t\"errors\"\n\t\"sync\"\n\t\"time\"\n)\n\n// ErrLimited is returned when the bucket has no tokens left.\nvar ErrLimited = errors.New(\"ratelimit: too many requests\")\n\n// Bucket is a token bucket rate limiter.\ntype Bucket struct {\n\tmu       sync.Mutex\n\tcapacity int\n\ttokens   int\n\trefill   time.Duration\n\tlast     time.Time\n\tnow      func() time.Time\n}\n\n// NewBucket returns a full bucket that adds one token per refill interval.\nfunc NewBucket(capacity int, refill time.Duration) *Bucket {\n\treturn &Bucket{\n\t\tcapacity: capacity,\n\t\ttokens:   capacity,\n\t\trefill:   refill,\n\t\tlast:     time.Now(),\n\t\tnow:      time.Now,\n\t}\n}\n\n// Take removes one token or returns ErrLimited.\nfunc (b *Bucket) Take() error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens == 0 {\n\t\treturn ErrLimited\n\t}\n\tb.tokens--\n\treturn \u0002nil\u0003\n}\n\n// TakeN removes n tokens at once or none of them.\nfunc (b *Bucket) TakeN(n int) error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens < n {\n\t\treturn ErrLimited\n\t}\n\tb.tokens -= n\n\treturn \u0002nil\u0003\n}\n\n// Available reports the tokens left after refilling.\nfunc (b *Bucket) Available() int {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\treturn b.tokens\n}\n\n// add refills tokens for the time elapsed since the last call.\nfunc (b *Bucket) add() {\n\tnow := b.now()\n\telapsed := now.Sub(b.last)\n\tif elapsed < b.refill {\n\t\treturn\n\t}\n\tgained := int(elapsed / b.refill)\n\tb.tokens += gained\n\tif b.tokens > b.capacity {\n\t\tb.tokens = b.capacity\n\t}\n\tb.last = b.last.Add(time.Duration(gained) * b.refill)\n}\n\n// Limiter keeps one bucket per client key.\ntype Limiter struct {\n\tmu       sync.Mutex\n\tbuckets  map[string]*Bucket\n\tcapacity int\n\trefill   time.Duration\n}\n\n// NewLimiter returns a limiter that creates buckets lazily.\nfunc NewLimiter(capacity int, refill time.Duration) *Limiter {\n\treturn &Limiter{\n\t\tbuckets:  make(map[string]*Bucket),\n\t\tcapacity: capacity,\n\t\trefill:   refill,\n\t}\n}\n\n// Allow takes one token from the bucket for key.\nfunc (l *Limiter) Allow(key string) bool {\n\treturn l.bucket(key).Take() == \u0002nil\u0003\n}\n\n// bucket returns the bucket for key, creating it on first use.\nfunc (l *Limiter) bucket(key string) *Bucket {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tb, ok := l.buckets[key]\n\tif !ok {\n\t\tb = NewBucket(l.capacity, l.refill)\n\t\tl.buckets[key] = b\n\t}\n\treturn b\n}\n\n// Sweep drops buckets that are full again, so idle clients free memory.\nfunc (l *Limiter) Sweep() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tdropped := 0\n\tfor key, b := range l.buckets {\n\t\tif b.Available() == l.capacity {\n\t\t\tdelete(l.buckets, key)\n\t\t\tdropped++\n\t\t}\n\t}\n\treturn dropped\n}\n\n// Len reports how many client buckets are live.\nfunc (l *Limiter) Len() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\treturn len(l.buckets)\n}\n\n// Middleware rejects requests over the limit with status 429.\nfunc Middleware(l *Limiter, next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tkey := clientKey(r)\n\t\tif !l.Allow(key) {\n\t\t\tw.Header().Set(\"Retry-After\", \"1\")\n\t\t\thttp.Error(w, ErrLimited.Error(), http.StatusTooManyRequests)\n\t\t\treturn\n\t\t}\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\n\n// clientKey picks the forwarded address when a trusted proxy set one.\nfunc clientKey(r *http.Request) string {\n\tif fwd := r.Header.Get(\"X-Forwarded-For\"); fwd != \"\" {\n\t\tif i := strings.IndexByte(fwd, ','); i >= 0 {\n\t\t\treturn strings.TrimSpace(fwd[:i])\n\t\t}\n\t\treturn strings.TrimSpace(fwd)\n\t}\n\thost, _, err := net.SplitHostPort(r.RemoteAddr)\n\tif err != \u0002nil\u0003 {\n\t\treturn r.RemoteAddr\n\t}\n\treturn host\n}\n\n// Stats is a snapshot of limiter counters for the metrics endpoint.\ntype Stats struct {\n\tClients  int `json:\"clients\"`\n\tCapacity int `json:\"capacity\"`\n\tRefillMS int `json:\"refill_ms\"`\n}\n\n// Snapshot reports the current limiter counters.\nfunc (l *Limiter) Snapshot() Stats {\n\treturn Stats{\n\t\tClients:  l.Len(),\n\t\tCapacity: l.capacity,\n\t\tRefillMS: int(l.refill / time.Millisecond),\n\t}\n}"
+        }
+      ]
+    },
+    {
+      "id": "q13",
+      "query": "upstream connection reset",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "logs/long.log::2026-10-20T10:00:54Z req=27626 method=GET path=/checkout status=429 duration=201",
+          "contentType": "prose",
+          "highlighted": "2026-10-20T10:00:54Z req=27626 method=GET path=/checkout status=429 duration=201ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:55Z req=35545 method=GET path=/cart/items status=200 duration=238ms bytes=7325\n2026-10-20T10:00:56Z req=43464 method=GET path=/orders status=200 duration=275ms bytes=7456\n2026-10-20T10:00:57Z req=51383 method=GET path=/orders/42 status=201 duration=312ms bytes=7587\n2026-10-20T10:00:58Z req=59302 method=GET path=/users status=200 duration=349ms bytes=7718\n2026-10-20T10:00:59Z req=67221 method=GET path=/users/7/profile status=304 duration=386ms bytes=7849\n2026-10-20T10:01:00Z req=75140 method=GET path=/health status=200 duration=423ms bytes=7980\n2026-10-20T10:01:01Z req=83059 method=GET path=/metrics status=500 duration=460ms error=\"\u0002upstream\u0003 \u0002connection\u0003 \u0002reset\u0003 by peer\"\n2026-10-20T10:01:02Z req=90978 method=GET path=/checkout status=200 duration=497ms bytes=8242\n2026-10-20T10:01:03Z req=98897 method=GET path=/cart/items status=404 duration=534ms bytes=8373\n2026-10-20T10:01:04Z req=06816 method=GET path=/orders status=200 duration=571ms bytes=8504\n2026-10-20T10:01:05Z req=14735 method=GET path=/orders/42 status=429 duration=608ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:01:06Z req=22654 method=GET path=/users status=200 duration=645ms bytes=8766\n2026-10-20T10:01:07Z req=30573 method=GET path=/users/7/profile status=200 duration=682ms bytes=8897\n2026-10-20T10:01:08Z req=38492 method=GET path=/health status=201 duration=719ms bytes=9028\n2026-10-20T10:01:09Z req=46411 method=GET path=/metrics status=200 duration=756ms bytes=159\n2026-10-20T10:01:10Z req=54330 method=GET path=/checkout status=304 duration=793ms bytes=290\n2026-10-20T10:01:11Z req=62249 method=GET path=/cart/items status=200 duration=830ms bytes=421\n2026-10-20T10:01:12Z req=70168 method=GET path=/orders status=500 duration=867ms error=\"\u0002upstream\u0003 \u0002connection\u0003 \u0002reset\u0003 by peer\"\n2026-10-20T10:01:13Z req=78087 method=GET path=/orders/42 status=200 duration=4ms bytes=683"
+        },
+        {
+          "key": "logs/long.log::Lines 37-56",
+          "contentType": "prose",
+          "highlighted": "\n2026-10-20T10:00:37Z req=93003 method=GET path=/metrics status=304 duration=472ms bytes=4967\n2026-10-20T10:00:38Z req=00922 method=GET path=/checkout status=200 duration=509ms bytes=5098\n2026-10-20T10:00:39Z req=08841 method=GET path=/cart/items status=500 duration=546ms error=\"\u0002upstream\u0003 \u0002connection\u0003 \u0002reset\u0003 by peer\"\n2026-10-20T10:00:40Z req=16760 method=GET path=/orders status=200 duration=583ms bytes=5360\n2026-10-20T10:00:41Z req=24679 method=GET path=/orders/42 status=404 duration=620ms bytes=5491\n2026-10-20T10:00:42Z req=32598 method=GET path=/users status=200 duration=657ms bytes=5622\n2026-10-20T10:00:43Z req=40517 method=GET path=/users/7/profile status=429 duration=694ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:44Z req=48436 method=GET path=/health status=200 duration=731ms bytes=5884\n2026-10-20T10:00:45Z req=56355 method=GET path=/metrics status=200 duration=768ms bytes=6015\n2026-10-20T10:00:46Z req=64274 method=GET path=/checkout status=201 duration=805ms bytes=6146\n2026-10-20T10:00:47Z req=72193 method=GET path=/cart/items status=200 duration=842ms bytes=6277\n2026-10-20T10:00:48Z req=80112 method=GET path=/orders status=304 duration=879ms bytes=6408\n2026-10-20T10:00:49Z req=88031 method=GET path=/orders/42 status=200 duration=16ms bytes=6539\n2026-10-20T10:00:50Z req=95950 method=GET path=/users status=500 duration=53ms error=\"\u0002upstream\u0003 \u0002connection\u0003 \u0002reset\u0003 by peer\"\n2026-10-20T10:00:51Z req=03869 method=GET path=/users/7/profile status=200 duration=90ms bytes=6801\n2026-10-20T10:00:52Z req=11788 method=GET path=/health status=404 duration=127ms bytes=6932\n2026-10-20T10:00:53Z req=19707 method=GET path=/metrics status=200 duration=164ms bytes=7063\n2026-10-20T10:00:54Z req=27626 method=GET path=/checkout status=429 duration=201ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:55Z req=35545 method=GET path=/cart/items status=200 duration=238ms bytes=7325"
+        },
+        {
+          "key": "logs/long.log::2026-10-20T10:00:00Z req=00000 method=GET path=/orders status=200 duration=3ms b",
+          "contentType": "prose",
+          "highlighted": "2026-10-20T10:00:00Z req=00000 method=GET path=/orders status=200 duration=3ms bytes=120\n2026-10-20T10:00:01Z req=07919 method=GET path=/orders/42 status=200 duration=40ms bytes=251\n2026-10-20T10:00:02Z req=15838 method=GET path=/users status=201 duration=77ms bytes=382\n2026-10-20T10:00:03Z req=23757 method=GET path=/users/7/profile status=200 duration=114ms bytes=513\n2026-10-20T10:00:04Z req=31676 method=GET path=/health status=304 duration=151ms bytes=644\n2026-10-20T10:00:05Z req=39595 method=GET path=/metrics status=200 duration=188ms bytes=775\n2026-10-20T10:00:06Z req=47514 method=GET path=/checkout status=500 duration=225ms error=\"\u0002upstream\u0003 \u0002connection\u0003 \u0002reset\u0003 by peer\"\n2026-10-20T10:00:07Z req=55433 method=GET path=/cart/items status=200 duration=262ms bytes=1037\n2026-10-20T10:00:08Z req=63352 method=GET path=/orders status=404 duration=299ms bytes=1168\n2026-10-20T10:00:09Z req=71271 method=GET path=/orders/42 status=200 duration=336ms bytes=1299\n2026-10-20T10:00:10Z req=79190 method=GET path=/users status=429 duration=373ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:11Z req=87109 method=GET path=/users/7/profile status=200 duration=410ms bytes=1561\n2026-10-20T10:00:12Z req=95028 method=GET path=/health status=200 duration=447ms bytes=1692\n2026-10-20T10:00:13Z req=02947 method=GET path=/metrics status=201 duration=484ms bytes=1823\n2026-10-20T10:00:14Z req=10866 method=GET path=/checkout status=200 duration=521ms bytes=1954\n2026-10-20T10:00:15Z req=18785 method=GET path=/cart/items status=304 duration=558ms bytes=2085\n2026-10-20T10:00:16Z req=26704 method=GET path=/orders status=200 duration=595ms bytes=2216\n2026-10-20T10:00:17Z req=34623 method=GET path=/orders/42 status=500 duration=632ms error=\"\u0002upstream\u0003 \u0002connection\u0003 \u0002reset\u0003 by peer\"\n\n2026-10-20T10:00:19Z req=50461 method=GET path=/users/7/profile status=404 duration=706ms bytes=2609"
+        }
+      ]
+    },
+    {
+      "id": "q14",
+      "query": "status=429",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "logs/long.log::2026-10-20T10:00:54Z req=27626 method=GET path=/checkout status=429 duration=201",
+          "contentType": "prose",
+          "highlighted": "2026-10-20T10:00:54Z req=27626 method=GET path=/checkout \u0002status=429\u0003 duration=201ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:55Z req=35545 method=GET path=/cart/items status=200 duration=238ms bytes=7325\n2026-10-20T10:00:56Z req=43464 method=GET path=/orders status=200 duration=275ms bytes=7456\n2026-10-20T10:00:57Z req=51383 method=GET path=/orders/42 status=201 duration=312ms bytes=7587\n2026-10-20T10:00:58Z req=59302 method=GET path=/users status=200 duration=349ms bytes=7718\n2026-10-20T10:00:59Z req=67221 method=GET path=/users/7/profile status=304 duration=386ms bytes=7849\n2026-10-20T10:01:00Z req=75140 method=GET path=/health status=200 duration=423ms bytes=7980\n2026-10-20T10:01:01Z req=83059 method=GET path=/metrics status=500 duration=460ms error=\"upstream connection reset by peer\"\n2026-10-20T10:01:02Z req=90978 method=GET path=/checkout status=200 duration=497ms bytes=8242\n2026-10-20T10:01:03Z req=98897 method=GET path=/cart/items status=404 duration=534ms bytes=8373\n2026-10-20T10:01:04Z req=06816 method=GET path=/orders status=200 duration=571ms bytes=8504\n2026-10-20T10:01:05Z req=14735 method=GET path=/orders/42 \u0002status=429\u0003 duration=608ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:01:06Z req=22654 method=GET path=/users status=200 duration=645ms bytes=8766\n2026-10-20T10:01:07Z req=30573 method=GET path=/users/7/profile status=200 duration=682ms bytes=8897\n2026-10-20T10:01:08Z req=38492 method=GET path=/health status=201 duration=719ms bytes=9028\n2026-10-20T10:01:09Z req=46411 method=GET path=/metrics status=200 duration=756ms bytes=159\n2026-10-20T10:01:10Z req=54330 method=GET path=/checkout status=304 duration=793ms bytes=290\n2026-10-20T10:01:11Z req=62249 method=GET path=/cart/items status=200 duration=830ms bytes=421\n2026-10-20T10:01:12Z req=70168 method=GET path=/orders status=500 duration=867ms error=\"upstream connection reset by peer\"\n2026-10-20T10:01:13Z req=78087 method=GET path=/orders/42 status=200 duration=4ms bytes=683"
+        },
+        {
+          "key": "logs/long.log::Lines 19-38",
+          "contentType": "prose",
+          "highlighted": "\n2026-10-20T10:00:19Z req=50461 method=GET path=/users/7/profile status=404 duration=706ms bytes=2609\n2026-10-20T10:00:20Z req=58380 method=GET path=/health status=200 duration=743ms bytes=2740\n2026-10-20T10:00:21Z req=66299 method=GET path=/metrics \u0002status=429\u0003 duration=780ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:22Z req=74218 method=GET path=/checkout status=200 duration=817ms bytes=3002\n2026-10-20T10:00:23Z req=82137 method=GET path=/cart/items status=200 duration=854ms bytes=3133\n2026-10-20T10:00:24Z req=90056 method=GET path=/orders status=201 duration=891ms bytes=3264\n2026-10-20T10:00:25Z req=97975 method=GET path=/orders/42 status=200 duration=28ms bytes=3395\n2026-10-20T10:00:26Z req=05894 method=GET path=/users status=304 duration=65ms bytes=3526\n2026-10-20T10:00:27Z req=13813 method=GET path=/users/7/profile status=200 duration=102ms bytes=3657\n2026-10-20T10:00:28Z req=21732 method=GET path=/health status=500 duration=139ms error=\"upstream connection reset by peer\"\n2026-10-20T10:00:29Z req=29651 method=GET path=/metrics status=200 duration=176ms bytes=3919\n2026-10-20T10:00:30Z req=37570 method=GET path=/checkout status=404 duration=213ms bytes=4050\n2026-10-20T10:00:31Z req=45489 method=GET path=/cart/items status=200 duration=250ms bytes=4181\n2026-10-20T10:00:32Z req=53408 method=GET path=/orders \u0002status=429\u0003 duration=287ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:33Z req=61327 method=GET path=/orders/42 status=200 duration=324ms bytes=4443\n2026-10-20T10:00:34Z req=69246 method=GET path=/users status=200 duration=361ms bytes=4574\n2026-10-20T10:00:35Z req=77165 method=GET path=/users/7/profile status=201 duration=398ms bytes=4705\n\n2026-10-20T10:00:37Z req=93003 method=GET path=/metrics status=304 duration=472ms bytes=4967"
+        },
+        {
+          "key": "logs/long.log::Lines 37-56",
+          "contentType": "prose",
+          "highlighted": "\n2026-10-20T10:00:37Z req=93003 method=GET path=/metrics status=304 duration=472ms bytes=4967\n2026-10-20T10:00:38Z req=00922 method=GET path=/checkout status=200 duration=509ms bytes=5098\n2026-10-20T10:00:39Z req=08841 method=GET path=/cart/items status=500 duration=546ms error=\"upstream connection reset by peer\"\n2026-10-20T10:00:40Z req=16760 method=GET path=/orders status=200 duration=583ms bytes=5360\n2026-10-20T10:00:41Z req=24679 method=GET path=/orders/42 status=404 duration=620ms bytes=5491\n2026-10-20T10:00:42Z req=32598 method=GET path=/users status=200 duration=657ms bytes=5622\n2026-10-20T10:00:43Z req=40517 method=GET path=/users/7/profile \u0002status=429\u0003 duration=694ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:44Z req=48436 method=GET path=/health status=200 duration=731ms bytes=5884\n2026-10-20T10:00:45Z req=56355 method=GET path=/metrics status=200 duration=768ms bytes=6015\n2026-10-20T10:00:46Z req=64274 method=GET path=/checkout status=201 duration=805ms bytes=6146\n2026-10-20T10:00:47Z req=72193 method=GET path=/cart/items status=200 duration=842ms bytes=6277\n2026-10-20T10:00:48Z req=80112 method=GET path=/orders status=304 duration=879ms bytes=6408\n2026-10-20T10:00:49Z req=88031 method=GET path=/orders/42 status=200 duration=16ms bytes=6539\n2026-10-20T10:00:50Z req=95950 method=GET path=/users status=500 duration=53ms error=\"upstream connection reset by peer\"\n2026-10-20T10:00:51Z req=03869 method=GET path=/users/7/profile status=200 duration=90ms bytes=6801\n2026-10-20T10:00:52Z req=11788 method=GET path=/health status=404 duration=127ms bytes=6932\n2026-10-20T10:00:53Z req=19707 method=GET path=/metrics status=200 duration=164ms bytes=7063\n2026-10-20T10:00:54Z req=27626 method=GET path=/checkout \u0002status=429\u0003 duration=201ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:55Z req=35545 method=GET path=/cart/items status=200 duration=238ms bytes=7325"
+        }
+      ]
+    },
+    {
+      "id": "q15",
+      "query": "café",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/08-unicode.md::Internationalisation 🌍 > Café menu",
+          "contentType": "prose",
+          "highlighted": "## \u0002Café\u0003 menu\n\nThe \u0002café\u0003 serves crème brûlée, naïve coffee art and jalapeño toast.\nPrices: ¥500, €4.50, £3.20."
+        },
+        {
+          "key": "json/config.json::unicode",
+          "contentType": "code",
+          "highlighted": "\"\u0002café\u0003 ☕ 日本\""
+        }
+      ]
+    },
+    {
+      "id": "q16",
+      "query": "データベース",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/08-unicode.md::Internationalisation 🌍 > 日本語のセクション",
+          "contentType": "prose",
+          "highlighted": "## 日本語のセクション\n\nこれは日本語の段落です。接続プールの設定について説明します。\n検索テストのために「\u0002データベース\u0003」という単語を含めます。"
+        }
+      ]
+    },
+    {
+      "id": "q17",
+      "query": "😀",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": []
+    },
+    {
+      "id": "q18",
+      "query": "Ada Lovelace",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "json/users.json::(root)",
+          "contentType": "code",
+          "highlighted": "[\n  {\n    \"id\": 101,\n    \"name\": \"\u0002Ada\u0003 \u0002Lovelace\u0003\",\n    \"role\": \"admin\",\n    \"address\": {\n      \"city\": \"London\",\n      \"zip\": \"N1\"\n    },\n    \"tags\": [\n      \"math\",\n      \"engines\"\n    ]\n  },\n  {\n    \"id\": 102,\n    \"name\": \"Grace Hopper\",\n    \"role\": \"editor\",\n    \"address\": {\n      \"city\": \"New York\",\n      \"zip\": \"10001\"\n    },\n    \"tags\": [\n      \"compilers\"\n    ]\n  },\n  {\n    \"id\": 103,\n    \"name\": \"Alan Turing\",\n    \"role\": \"viewer\",\n    \"address\": {\n      \"city\": \"Manchester\",\n      \"zip\": \"M1\"\n    },\n    \"tags\": []\n  },\n  {\n    \"id\": 104,\n    \"name\": \"Edsger Dijkstra\",\n    \"role\": \"editor\",\n    \"address\": {\n      \"city\": \"Nuenen\",\n      \"zip\": \"5671\"\n    },\n    \"tags\": [\n      \"paths\",\n      \"semaphores\"\n    ]\n  },\n  {\n    \"id\": 105,\n    \"name\": \"Barbara Liskov\",\n    \"role\": \"admin\",\n    \"address\": {\n      \"city\": \"Boston\",\n      \"zip\": \"02108\"\n    },\n    \"tags\": [\n      \"substitution\"\n    ]\n  },\n  {\n    \"id\": 106,\n    \"name\": \"Ken Thompson\",\n    \"role\": \"viewer\",\n    \"address\": {\n      \"city\": \"Murray Hill\",\n      \"zip\": \"07974\"\n    },\n    \"tags\": [\n      \"unix\",\n      \"regex\"\n    ]\n  },\n  {\n    \"id\": 107,\n    \"name\": \"Margaret Hamilton\",\n    \"role\": \"admin\",\n    \"address\": {\n      \"city\": \"Cambridge\",\n      \"zip\": \"02139\"\n    },\n    \"tags\": [\n      \"apollo\"\n    ]\n  },\n  {\n    \"id\": 108,\n    \"name\": \"Donald Knuth\",\n    \"role\": \"viewer\",\n    \"address\": {\n      \"city\": \"Stanford\",\n      \"zip\": \"94305\"\n    },\n    \"tags\": [\n      \"tex\",\n      \"algorithms\"\n    ]\n  }\n]"
+        },
+        {
+          "key": "json/large.json::(root) > src/pool/file_00.go…src/limiter/file_31.sql",
+          "contentType": "code",
+          "highlighted": "[\n  {\n    \"path\": \"src/pool/file_00.go\",\n    \"size\": 64,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 1,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/limiter/file_01.md\",\n    \"size\": 7983,\n    \"owner\": \"grace\",\n    \"lines\": 132,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_02.json\",\n    \"size\": 15902,\n    \"owner\": \"alan\",\n    \"lines\": 263,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_03.sql\",\n    \"size\": 23821,\n    \"owner\": \"ken\",\n    \"lines\": 394,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_04.go\",\n    \"size\": 31740,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 525,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_05.md\",\n    \"size\": 39659,\n    \"owner\": \"grace\",\n    \"lines\": 656,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_06.json\",\n    \"size\": 47578,\n    \"owner\": \"alan\",\n    \"lines\": 787,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_07.sql\",\n    \"size\": 5497,\n    \"owner\": \"ken\",\n    \"lines\": 18,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_08.go\",\n    \"size\": 13416,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 149,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_09.md\",\n    \"size\": 21335,\n    \"owner\": \"grace\",\n    \"lines\": 280,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/pool/file_10.json\",\n    \"size\": 29254,\n    \"owner\": \"alan\",\n    \"lines\": 411,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_11.sql\",\n    \"size\": 37173,\n    \"owner\": \"ken\",\n    \"lines\": 542,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_12.go\",\n    \"size\": 45092,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 673,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_13.md\",\n    \"size\": 3011,\n    \"owner\": \"grace\",\n    \"lines\": 804,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_14.json\",\n    \"size\": 10930,\n    \"owner\": \"alan\",\n    \"lines\": 35,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_15.sql\",\n    \"size\": 18849,\n    \"owner\": \"ken\",\n    \"lines\": 166,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_16.go\",\n    \"size\": 26768,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 297,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_17.md\",\n    \"size\": 34687,\n    \"owner\": \"grace\",\n    \"lines\": 428,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_18.json\",\n    \"size\": 42606,\n    \"owner\": \"alan\",\n    \"lines\": 559,\n    \"generated\": true\n  },\n  {\n    \"path\": \"test/fixtures/file_19.sql\",\n    \"size\": 525,\n    \"owner\": \"ken\",\n    \"lines\": 690,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_20.go\",\n    \"size\": 8444,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 821,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_21.md\",\n    \"size\": 16363,\n    \"owner\": \"grace\",\n    \"lines\": 52,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_22.json\",\n    \"size\": 24282,\n    \"owner\": \"alan\",\n    \"lines\": 183,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_23.sql\",\n    \"size\": 32201,\n    \"owner\": \"ken\",\n    \"lines\": 314,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_24.go\",\n    \"size\": 40120,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 445,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_25.md\",\n    \"size\": 48039,\n    \"owner\": \"grace\",\n    \"lines\": 576,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_26.json\",\n    \"size\": 5958,\n    \"owner\": \"alan\",\n    \"lines\": 707,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_27.sql\",\n    \"size\": 13877,\n    \"owner\": \"ken\",\n    \"lines\": 838,\n    \"generated\": true\n  },\n  {\n    \"path\": \"docs/file_28.go\",\n    \"size\": 21796,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 69,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_29.md\",\n    \"size\": 29715,\n    \"owner\": \"grace\",\n    \"lines\": 200,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_30.json\",\n    \"size\": 37634,\n    \"owner\": \"alan\",\n    \"lines\": 331,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_31.sql\",\n    \"size\": 45553,\n    \"owner\": \"ken\",\n    \"lines\": 462,\n    \"generated\": false\n  }\n]"
+        },
+        {
+          "key": "json/large.json::(root) > src/http/file_32.go…src/http/file_47.sql",
+          "contentType": "code",
+          "highlighted": "[\n  {\n    \"path\": \"src/http/file_32.go\",\n    \"size\": 3472,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 593,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_33.md\",\n    \"size\": 11391,\n    \"owner\": \"grace\",\n    \"lines\": 724,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_34.json\",\n    \"size\": 19310,\n    \"owner\": \"alan\",\n    \"lines\": 855,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_35.sql\",\n    \"size\": 27229,\n    \"owner\": \"ken\",\n    \"lines\": 86,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_36.go\",\n    \"size\": 35148,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 217,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/http/file_37.md\",\n    \"size\": 43067,\n    \"owner\": \"grace\",\n    \"lines\": 348,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_38.json\",\n    \"size\": 986,\n    \"owner\": \"alan\",\n    \"lines\": 479,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_39.sql\",\n    \"size\": 8905,\n    \"owner\": \"ken\",\n    \"lines\": 610,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_40.go\",\n    \"size\": 16824,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 741,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_41.md\",\n    \"size\": 24743,\n    \"owner\": \"grace\",\n    \"lines\": 872,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_42.json\",\n    \"size\": 32662,\n    \"owner\": \"alan\",\n    \"lines\": 103,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_43.sql\",\n    \"size\": 40581,\n    \"owner\": \"ken\",\n    \"lines\": 234,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_44.go\",\n    \"size\": 48500,\n    \"owner\": \"\u0002ada\u0003\",\n    \"lines\": 365,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_45.md\",\n    \"size\": 6419,\n    \"owner\": \"grace\",\n    \"lines\": 496,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/limiter/file_46.json\",\n    \"size\": 14338,\n    \"owner\": \"alan\",\n    \"lines\": 627,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_47.sql\",\n    \"size\": 22257,\n    \"owner\": \"ken\",\n    \"lines\": 758,\n    \"generated\": false\n  }\n]"
+        }
+      ]
+    },
+    {
+      "id": "q19",
+      "query": "admin",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "json/users.json::(root)",
+          "contentType": "code",
+          "highlighted": "[\n  {\n    \"id\": 101,\n    \"name\": \"Ada Lovelace\",\n    \"role\": \"\u0002admin\u0003\",\n    \"address\": {\n      \"city\": \"London\",\n      \"zip\": \"N1\"\n    },\n    \"tags\": [\n      \"math\",\n      \"engines\"\n    ]\n  },\n  {\n    \"id\": 102,\n    \"name\": \"Grace Hopper\",\n    \"role\": \"editor\",\n    \"address\": {\n      \"city\": \"New York\",\n      \"zip\": \"10001\"\n    },\n    \"tags\": [\n      \"compilers\"\n    ]\n  },\n  {\n    \"id\": 103,\n    \"name\": \"Alan Turing\",\n    \"role\": \"viewer\",\n    \"address\": {\n      \"city\": \"Manchester\",\n      \"zip\": \"M1\"\n    },\n    \"tags\": []\n  },\n  {\n    \"id\": 104,\n    \"name\": \"Edsger Dijkstra\",\n    \"role\": \"editor\",\n    \"address\": {\n      \"city\": \"Nuenen\",\n      \"zip\": \"5671\"\n    },\n    \"tags\": [\n      \"paths\",\n      \"semaphores\"\n    ]\n  },\n  {\n    \"id\": 105,\n    \"name\": \"Barbara Liskov\",\n    \"role\": \"\u0002admin\u0003\",\n    \"address\": {\n      \"city\": \"Boston\",\n      \"zip\": \"02108\"\n    },\n    \"tags\": [\n      \"substitution\"\n    ]\n  },\n  {\n    \"id\": 106,\n    \"name\": \"Ken Thompson\",\n    \"role\": \"viewer\",\n    \"address\": {\n      \"city\": \"Murray Hill\",\n      \"zip\": \"07974\"\n    },\n    \"tags\": [\n      \"unix\",\n      \"regex\"\n    ]\n  },\n  {\n    \"id\": 107,\n    \"name\": \"Margaret Hamilton\",\n    \"role\": \"\u0002admin\u0003\",\n    \"address\": {\n      \"city\": \"Cambridge\",\n      \"zip\": \"02139\"\n    },\n    \"tags\": [\n      \"apollo\"\n    ]\n  },\n  {\n    \"id\": 108,\n    \"name\": \"Donald Knuth\",\n    \"role\": \"viewer\",\n    \"address\": {\n      \"city\": \"Stanford\",\n      \"zip\": \"94305\"\n    },\n    \"tags\": [\n      \"tex\",\n      \"algorithms\"\n    ]\n  }\n]"
+        }
+      ]
+    },
+    {
+      "id": "q20",
+      "query": "src/pool",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "json/large.json::(root) > src/pool/file_00.go…src/limiter/file_31.sql",
+          "contentType": "code",
+          "highlighted": "[\n  {\n    \"path\": \"\u0002src/pool\u0003/file_00.go\",\n    \"size\": 64,\n    \"owner\": \"ada\",\n    \"lines\": 1,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/limiter/file_01.md\",\n    \"size\": 7983,\n    \"owner\": \"grace\",\n    \"lines\": 132,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_02.json\",\n    \"size\": 15902,\n    \"owner\": \"alan\",\n    \"lines\": 263,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_03.sql\",\n    \"size\": 23821,\n    \"owner\": \"ken\",\n    \"lines\": 394,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_04.go\",\n    \"size\": 31740,\n    \"owner\": \"ada\",\n    \"lines\": 525,\n    \"generated\": false\n  },\n  {\n    \"path\": \"\u0002src/pool\u0003/file_05.md\",\n    \"size\": 39659,\n    \"owner\": \"grace\",\n    \"lines\": 656,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_06.json\",\n    \"size\": 47578,\n    \"owner\": \"alan\",\n    \"lines\": 787,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_07.sql\",\n    \"size\": 5497,\n    \"owner\": \"ken\",\n    \"lines\": 18,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_08.go\",\n    \"size\": 13416,\n    \"owner\": \"ada\",\n    \"lines\": 149,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_09.md\",\n    \"size\": 21335,\n    \"owner\": \"grace\",\n    \"lines\": 280,\n    \"generated\": true\n  },\n  {\n    \"path\": \"\u0002src/pool\u0003/file_10.json\",\n    \"size\": 29254,\n    \"owner\": \"alan\",\n    \"lines\": 411,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_11.sql\",\n    \"size\": 37173,\n    \"owner\": \"ken\",\n    \"lines\": 542,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_12.go\",\n    \"size\": 45092,\n    \"owner\": \"ada\",\n    \"lines\": 673,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_13.md\",\n    \"size\": 3011,\n    \"owner\": \"grace\",\n    \"lines\": 804,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_14.json\",\n    \"size\": 10930,\n    \"owner\": \"alan\",\n    \"lines\": 35,\n    \"generated\": false\n  },\n  {\n    \"path\": \"\u0002src/pool\u0003/file_15.sql\",\n    \"size\": 18849,\n    \"owner\": \"ken\",\n    \"lines\": 166,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_16.go\",\n    \"size\": 26768,\n    \"owner\": \"ada\",\n    \"lines\": 297,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_17.md\",\n    \"size\": 34687,\n    \"owner\": \"grace\",\n    \"lines\": 428,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_18.json\",\n    \"size\": 42606,\n    \"owner\": \"alan\",\n    \"lines\": 559,\n    \"generated\": true\n  },\n  {\n    \"path\": \"test/fixtures/file_19.sql\",\n    \"size\": 525,\n    \"owner\": \"ken\",\n    \"lines\": 690,\n    \"generated\": false\n  },\n  {\n    \"path\": \"\u0002src/pool\u0003/file_20.go\",\n    \"size\": 8444,\n    \"owner\": \"ada\",\n    \"lines\": 821,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_21.md\",\n    \"size\": 16363,\n    \"owner\": \"grace\",\n    \"lines\": 52,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_22.json\",\n    \"size\": 24282,\n    \"owner\": \"alan\",\n    \"lines\": 183,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_23.sql\",\n    \"size\": 32201,\n    \"owner\": \"ken\",\n    \"lines\": 314,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_24.go\",\n    \"size\": 40120,\n    \"owner\": \"ada\",\n    \"lines\": 445,\n    \"generated\": false\n  },\n  {\n    \"path\": \"\u0002src/pool\u0003/file_25.md\",\n    \"size\": 48039,\n    \"owner\": \"grace\",\n    \"lines\": 576,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_26.json\",\n    \"size\": 5958,\n    \"owner\": \"alan\",\n    \"lines\": 707,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_27.sql\",\n    \"size\": 13877,\n    \"owner\": \"ken\",\n    \"lines\": 838,\n    \"generated\": true\n  },\n  {\n    \"path\": \"docs/file_28.go\",\n    \"size\": 21796,\n    \"owner\": \"ada\",\n    \"lines\": 69,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_29.md\",\n    \"size\": 29715,\n    \"owner\": \"grace\",\n    \"lines\": 200,\n    \"generated\": false\n  },\n  {\n    \"path\": \"\u0002src/pool\u0003/file_30.json\",\n    \"size\": 37634,\n    \"owner\": \"alan\",\n    \"lines\": 331,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_31.sql\",\n    \"size\": 45553,\n    \"owner\": \"ken\",\n    \"lines\": 462,\n    \"generated\": false\n  }\n]"
+        },
+        {
+          "key": "logs/sections.log::panic: runtime error: invalid memory address or nil pointer dereference",
+          "contentType": "prose",
+          "highlighted": "panic: runtime error: invalid memory address or nil pointer dereference\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x1029a3c]\ngoroutine 7 [running]:\nexample.com/pool.(*Pool).Close(0x0)\n\t/\u0002src/pool\u0003/pool.go:142 +0x1c"
+        },
+        {
+          "key": "json/large.json::(root) > src/http/file_32.go…src/http/file_47.sql",
+          "contentType": "code",
+          "highlighted": "[\n  {\n    \"path\": \"src/http/file_32.go\",\n    \"size\": 3472,\n    \"owner\": \"ada\",\n    \"lines\": 593,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_33.md\",\n    \"size\": 11391,\n    \"owner\": \"grace\",\n    \"lines\": 724,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_34.json\",\n    \"size\": 19310,\n    \"owner\": \"alan\",\n    \"lines\": 855,\n    \"generated\": false\n  },\n  {\n    \"path\": \"\u0002src/pool\u0003/file_35.sql\",\n    \"size\": 27229,\n    \"owner\": \"ken\",\n    \"lines\": 86,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_36.go\",\n    \"size\": 35148,\n    \"owner\": \"ada\",\n    \"lines\": 217,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/http/file_37.md\",\n    \"size\": 43067,\n    \"owner\": \"grace\",\n    \"lines\": 348,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_38.json\",\n    \"size\": 986,\n    \"owner\": \"alan\",\n    \"lines\": 479,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_39.sql\",\n    \"size\": 8905,\n    \"owner\": \"ken\",\n    \"lines\": 610,\n    \"generated\": false\n  },\n  {\n    \"path\": \"\u0002src/pool\u0003/file_40.go\",\n    \"size\": 16824,\n    \"owner\": \"ada\",\n    \"lines\": 741,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_41.md\",\n    \"size\": 24743,\n    \"owner\": \"grace\",\n    \"lines\": 872,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_42.json\",\n    \"size\": 32662,\n    \"owner\": \"alan\",\n    \"lines\": 103,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_43.sql\",\n    \"size\": 40581,\n    \"owner\": \"ken\",\n    \"lines\": 234,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_44.go\",\n    \"size\": 48500,\n    \"owner\": \"ada\",\n    \"lines\": 365,\n    \"generated\": false\n  },\n  {\n    \"path\": \"\u0002src/pool\u0003/file_45.md\",\n    \"size\": 6419,\n    \"owner\": \"grace\",\n    \"lines\": 496,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/limiter/file_46.json\",\n    \"size\": 14338,\n    \"owner\": \"alan\",\n    \"lines\": 627,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_47.sql\",\n    \"size\": 22257,\n    \"owner\": \"ken\",\n    \"lines\": 758,\n    \"generated\": false\n  }\n]"
+        }
+      ]
+    },
+    {
+      "id": "q21",
+      "query": "the and of",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/01-getting-started.md::Getting Started",
+          "contentType": "prose",
+          "highlighted": "# Getting Started\n\nWelcome to the connection pool library. It keeps a small set \u0002of\u0003 database\nconnections open and hands them out to request handlers."
+        },
+        {
+          "key": "md/05-oversized.md::Incident Report > Timeline",
+          "contentType": "prose",
+          "highlighted": "## Timeline\n\nAt 09:12 UTC the primary database began rejecting new connections. The connection pool on every API node filled within forty seconds, and request latency climbed from a median \u0002of\u0003 40 ms to more than eight seconds. The on-call engineer was paged by the latency alert at 09:14 and acknowledged it at 09:16. Early dashboards showed the database CPU at normal levels, which pointed away from a load problem and toward a configuration or network fault.\n\nAt 09:20 the team noticed that the database had reached its max_connections ceiling. Each API node opened far more connections than its configured pool size, because a deploy earlier that morning had changed the pool from a shared instance to one pool per request handler. With twelve handlers per node and sixty nodes, the fleet tried to hold more than seven thousand connections against a ceiling \u0002of\u0003 two thousand.\n\nAt 09:31 the deploy was rolled back on half \u0002of\u0003 the fleet as a test. Connection counts on the database dropped immediately and latency on the rolled-back nodes returned to normal within two minutes. The rest \u0002of\u0003 the fleet was rolled back at 09:38. Error rates fell to baseline by 09:45, and the incident was declared mitigated at 09:50 after fifteen minutes \u0002of\u0003 stable metrics.\n\nDuring the incident roughly four percent \u0002of\u0003 checkout requests failed outright and another eleven percent completed only after client retries. Background jobs that depend on the same database were paused automatically by their circuit breakers, which kept the job queue from growing without bound. No data was lost, because every write path is idempotent and the clients retried with the same request keys.\n\nThe root cause was the per-handler pool introduced by the deploy. The change passed review because the diff looked like a small refactor, and the load test environment runs a single node, where the extra pools stayed well under the connection ceiling. Nothing in the test suite asserted the total number \u0002of\u0003 connections a node may open, so the regression only appeared at fleet scale.\n\nContributing factors include the missing connection budget alert on the database, a dashboard that showed pool usage per node but not per fleet, and a rollout policy that allowed the deploy to reach every node in under ten minutes. A slower canary phase would have limited the blast radius to a handful \u0002of\u0003 nodes before the ceiling was reached.\n\nFollow-up actions: add a test that fails when a node opens more connections than its budget, alert when the database passes eighty percent \u0002of\u0003 max_connections, add a fleet-wide pool usage panel, and slow the default rollout to a one-hour canary for changes that touch the data access layer. Owners and due dates are tracked in the reliability backlog."
+        },
+        {
+          "key": "md/05-oversized.md::Incident Report > Raw notes",
+          "contentType": "prose",
+          "highlighted": "## Raw notes\n\nThis section is one very long paragraph with no blank lines inside it, so the paragraph splitter has nothing to split on and must keep it as a single oversized chunk. The notes were typed live during the incident call and cover the same events as the timeline in rougher form. Primary database rejecting connections at nine twelve. Pool full on api nodes within forty seconds. Median latency forty milliseconds before, eight seconds after. Pager fired on latency alert. Database CPU normal, so not load. Checking network between api subnet and database subnet, no packet loss seen. Checking database logs: too many connections errors, thousands per second. Checking max_connections: two thousand, unchanged since last quarter. Counting connections per api node: around one hundred twenty, expected ten. Looking at this morning's deploy: pool construction moved into the handler constructor, so every handler builds its own pool. Twelve handlers per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two minutes, connection count on database drops by half. Decision: roll back everything. Full rollback complete, error rate back to baseline, latency normal. Circuit breakers paused background jobs, queue depth stable, resumed jobs after mitigation. Checkout failure rate peaked at four percent, retries succeeded for most \u0002of\u0003 the rest. No data loss, all writes idempotent with request keys. Root cause confirmed as per-handler pool. Load test runs one node so it never hit the ceiling. Need a connection budget test, a database connection alert at eighty percent, a fleet pool panel, and a slower canary for data layer changes. Postmortem owner assigned, review scheduled for Thursday. Extra filler so this paragraph alone is larger than the four kilobyte chunk limit: the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills. End \u0002of\u0003 raw notes and the word sentinelword marks the very end."
+        }
+      ]
+    },
+    {
+      "id": "q22",
+      "query": "conection timout",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/09-troubleshooting.md::Troubleshooting > Timeout errors",
+          "contentType": "prose",
+          "highlighted": "## \u0002Timeout\u0003 errors\n\nA `context deadline exceeded` error means the pool waited longer than\n`\u0002connect\u0003_\u0002timeout\u0003` for a free \u0002connection\u0003. Raise `max_\u0002connections\u0003` or find the\nhandler that leaks \u0002connections\u0003 without calling `Put`."
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration > Timeouts",
+          "contentType": "prose",
+          "highlighted": "### \u0002Timeouts\u0003\n\nThe `idle_\u0002timeout\u0003` closes \u0002connections\u0003 that sit unused. The `\u0002connect\u0003_\u0002timeout\u0003`\nbounds how long a request waits for a free \u0002connection\u0003 before it fails."
+        },
+        {
+          "key": "json/config.json::database > pool > connect_timeout",
+          "contentType": "code",
+          "highlighted": "2.5"
+        }
+      ]
+    },
+    {
+      "id": "q23",
+      "query": "hearbeat",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/07-deep-nesting.md::Appendix > Glossary",
+          "contentType": "prose",
+          "highlighted": "## Glossary\n\nA \u0002heartbeat\u0003 is a periodic liveness signal from a worker."
+        },
+        {
+          "key": "md/07-deep-nesting.md::Architecture > Components > Scheduler > Workers",
+          "contentType": "prose",
+          "highlighted": "#### Workers\n\nWorkers pull jobs from the queue and report \u0002heartbeats\u0003."
+        }
+      ]
+    },
+    {
+      "id": "q24",
+      "query": "authentcation",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/09-troubleshooting.md::Troubleshooting > Authentication",
+          "contentType": "prose",
+          "highlighted": "## \u0002Authentication\u0003\n\nClients see `password \u0002authentication\u0003 failed` when credentials rotate.\nReload the secret and restart the workers."
+        }
+      ]
+    },
+    {
+      "id": "q25",
+      "query": "zzzz qqqq",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": []
+    },
+    {
+      "id": "q26",
+      "query": "quick brown fox",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/05-oversized.md::Incident Report > Raw notes",
+          "contentType": "prose",
+          "highlighted": "## Raw notes\n\nThis section is one very long paragraph with no blank lines inside it, so the paragraph splitter has nothing to split on and must keep it as a single oversized chunk. The notes were typed live during the incident call and cover the same events as the timeline in rougher form. Primary database rejecting connections at nine twelve. Pool full on api nodes within forty seconds. Median latency forty milliseconds before, eight seconds after. Pager fired on latency alert. Database CPU normal, so not load. Checking network between api subnet and database subnet, no packet loss seen. Checking database logs: too many connections errors, thousands per second. Checking max_connections: two thousand, unchanged since last quarter. Counting connections per api node: around one hundred twenty, expected ten. Looking at this morning's deploy: pool construction moved into the handler constructor, so every handler builds its own pool. Twelve handlers per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two minutes, connection count on database drops by half. Decision: roll back everything. Full rollback complete, error rate back to baseline, latency normal. Circuit breakers paused background jobs, queue depth stable, resumed jobs after mitigation. Checkout failure rate peaked at four percent, retries succeeded for most of the rest. No data loss, all writes idempotent with request keys. Root cause confirmed as per-handler pool. Load test runs one node so it never hit the ceiling. Need a connection budget test, a database connection alert at eighty percent, a fleet pool panel, and a slower canary for data layer changes. Postmortem owner assigned, review scheduled for Thursday. Extra filler so this paragraph alone is larger than the four kilobyte chunk limit: the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills, the \u0002quick\u0003 \u0002brown\u0003 \u0002fox\u0003 jumps over the lazy dog while the pool drains and refills. End of raw notes and the word sentinelword marks the very end."
+        }
+      ]
+    },
+    {
+      "id": "q27",
+      "query": "sentinelword",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/05-oversized.md::Incident Report > Raw notes",
+          "contentType": "prose",
+          "highlighted": "## Raw notes\n\nThis section is one very long paragraph with no blank lines inside it, so the paragraph splitter has nothing to split on and must keep it as a single oversized chunk. The notes were typed live during the incident call and cover the same events as the timeline in rougher form. Primary database rejecting connections at nine twelve. Pool full on api nodes within forty seconds. Median latency forty milliseconds before, eight seconds after. Pager fired on latency alert. Database CPU normal, so not load. Checking network between api subnet and database subnet, no packet loss seen. Checking database logs: too many connections errors, thousands per second. Checking max_connections: two thousand, unchanged since last quarter. Counting connections per api node: around one hundred twenty, expected ten. Looking at this morning's deploy: pool construction moved into the handler constructor, so every handler builds its own pool. Twelve handlers per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two minutes, connection count on database drops by half. Decision: roll back everything. Full rollback complete, error rate back to baseline, latency normal. Circuit breakers paused background jobs, queue depth stable, resumed jobs after mitigation. Checkout failure rate peaked at four percent, retries succeeded for most of the rest. No data loss, all writes idempotent with request keys. Root cause confirmed as per-handler pool. Load test runs one node so it never hit the ceiling. Need a connection budget test, a database connection alert at eighty percent, a fleet pool panel, and a slower canary for data layer changes. Postmortem owner assigned, review scheduled for Thursday. Extra filler so this paragraph alone is larger than the four kilobyte chunk limit: the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills. End of raw notes and the word \u0002sentinelword\u0003 marks the very end."
+        }
+      ]
+    },
+    {
+      "id": "q28",
+      "query": "EXPLAIN ANALYZE",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/09-troubleshooting.md::Troubleshooting > Slow queries",
+          "contentType": "code",
+          "highlighted": "## Slow queries\n\nEnable the slow query log and look for missing indexes. Queries that scan\nlarge tables hold a connection for the whole scan, which starves the pool.\n\n```sql\n\u0002EXPLAIN\u0003 \u0002ANALYZE\u0003 SELECT * FROM orders WHERE customer_id = 42;\n```"
+        }
+      ]
+    },
+    {
+      "id": "q29",
+      "query": "pool",
+      "limit": 3,
+      "source": "md/0",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/02-api-reference.md::API Reference > Pool.Put",
+          "contentType": "code",
+          "highlighted": "## \u0002Pool\u0003.Put\n\nReturn a connection with `Put`. A broken connection is closed instead.\n\n```js\n// # this comment is not a heading\n\u0002pool\u0003.put(conn);\n```"
+        },
+        {
+          "key": "md/02-api-reference.md::API Reference > Pool.Get",
+          "contentType": "code",
+          "highlighted": "## \u0002Pool\u0003.Get\n\n`Get` returns a connection from the \u0002pool\u0003, blocking until one is free.\n\n```go\nfunc (p *\u0002Pool\u0003) Get(ctx context.Context) (*Conn, error) {\n\tselect {\n\tcase c := <-p.idle:\n\t\treturn c, nil\n\tcase <-ctx.Done():\n\t\treturn nil, ctx.Err()\n\t}\n}\n```"
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration",
+          "contentType": "prose",
+          "highlighted": "## Configuration\n\nA second Configuration section: environment variables override the file.\nSet `\u0002POOL\u0003_MAX_CONNECTIONS` to change the \u0002pool\u0003 size at deploy time."
+        }
+      ]
+    },
+    {
+      "id": "q30",
+      "query": "pool",
+      "limit": 3,
+      "source": "",
+      "contentType": "code",
+      "mode": "like",
+      "results": [
+        {
+          "key": "json/config.json::database > pool > max_connections",
+          "contentType": "code",
+          "highlighted": "20"
+        },
+        {
+          "key": "json/config.json::database > pool > idle_timeout",
+          "contentType": "code",
+          "highlighted": "\"5m\""
+        },
+        {
+          "key": "json/config.json::database > pool > connect_timeout",
+          "contentType": "code",
+          "highlighted": "2.5"
+        }
+      ]
+    },
+    {
+      "id": "q31",
+      "query": "connection",
+      "limit": 5,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "json/config.json::database > pool > max_connections",
+          "contentType": "code",
+          "highlighted": "20"
+        },
+        {
+          "key": "md/09-troubleshooting.md::Troubleshooting > Connection refused",
+          "contentType": "prose",
+          "highlighted": "## \u0002Connection\u0003 refused\n\nIf clients log `ECONNREFUSED` or \"\u0002connection\u0003 refused\", the database is not\nlistening on the configured port. Check the host, the port and the firewall."
+        },
+        {
+          "key": "md/09-troubleshooting.md::Troubleshooting > Timeout errors",
+          "contentType": "prose",
+          "highlighted": "## Timeout errors\n\nA `context deadline exceeded` error means the pool waited longer than\n`\u0002connect\u0003_timeout` for a free \u0002connection\u0003. Raise `max_\u0002connections\u0003` or find the\nhandler that leaks \u0002connections\u0003 without calling `Put`."
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started",
+          "contentType": "prose",
+          "highlighted": "# Getting Started\n\nWelcome to the \u0002connection\u0003 pool library. It keeps a small set of database\n\u0002connections\u0003 open and hands them out to request handlers."
+        },
+        {
+          "key": "md/01-getting-started.md::Getting Started > Configuration > Timeouts",
+          "contentType": "prose",
+          "highlighted": "### Timeouts\n\nThe `idle_timeout` closes \u0002connections\u0003 that sit unused. The `\u0002connect\u0003_timeout`\nbounds how long a request waits for a free \u0002connection\u0003 before it fails."
+        }
+      ]
+    },
+    {
+      "id": "q32",
+      "query": "connection",
+      "limit": 3,
+      "source": "logs/sections.log",
+      "contentType": "",
+      "mode": "exact",
+      "results": [
+        {
+          "key": "logs/sections.log::=== RUN   TestPoolTimeout",
+          "contentType": "prose",
+          "highlighted": "=== RUN   TestPoolTimeout\n    pool_test.go:88: waited 2.001s for a \u0002connection\u0003, want at most 2s\n--- FAIL: TestPoolTimeout (2.00s)"
+        }
+      ]
+    },
+    {
+      "id": "q33",
+      "query": "ECONNREFUSED",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/09-troubleshooting.md::Troubleshooting > Connection refused",
+          "contentType": "prose",
+          "highlighted": "## Connection refused\n\nIf clients log `\u0002ECONNREFUSED\u0003` or \"connection refused\", the database is not\nlistening on the configured port. Check the host, the port and the firewall."
+        }
+      ]
+    },
+    {
+      "id": "q34",
+      "query": "\"quoted phrase\" (parens) AND NOT pool",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "json/config.json::database > pool > max_connections",
+          "contentType": "code",
+          "highlighted": "20"
+        },
+        {
+          "key": "json/config.json::database > pool > idle_timeout",
+          "contentType": "code",
+          "highlighted": "\"5m\""
+        },
+        {
+          "key": "logs/sections.log::FAIL\texample.com/pool\t2.214s",
+          "contentType": "prose",
+          "highlighted": "FAIL\texample.com/\u0002pool\u0003\t2.214s"
+        }
+      ]
+    },
+    {
+      "id": "q35",
+      "query": "a b",
+      "limit": 3,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "md/03-long-code.md::Rate Limiter Source (1)",
+          "contentType": "code",
+          "highlighted": "# Rate Limiter Source\n\nThe full token bucket implementation is kept in one fenced block so it is never split.\n\n```go\npackage ratelimit\n\nimport (\n\t\"errors\"\n\t\"sync\"\n\t\"time\"\n)\n\n// ErrLimited is returned when the bucket has no tokens left.\nvar ErrLimited = errors.New(\"ratelimit: too many requests\")\n\n// Bucket is \u0002a\u0003 token bucket rate limiter.\ntype Bucket struct {\n\tmu       sync.Mutex\n\tcapacity int\n\ttokens   int\n\trefill   time.Duration\n\tlast     time.Time\n\tnow      func() time.Time\n}\n\n// NewBucket returns \u0002a\u0003 full bucket that adds one token per refill interval.\nfunc NewBucket(capacity int, refill time.Duration) *Bucket {\n\treturn &Bucket{\n\t\tcapacity: capacity,\n\t\ttokens:   capacity,\n\t\trefill:   refill,\n\t\tlast:     time.Now(),\n\t\tnow:      time.Now,\n\t}\n}\n\n// Take removes one token or returns ErrLimited.\nfunc (\u0002b\u0003 *Bucket) Take() error {\n\t\u0002b\u0003.mu.Lock()\n\tdefer \u0002b\u0003.mu.Unlock()\n\t\u0002b\u0003.add()\n\tif \u0002b\u0003.tokens == 0 {\n\t\treturn ErrLimited\n\t}\n\t\u0002b\u0003.tokens--\n\treturn nil\n}\n\n// TakeN removes n tokens at once or none of them.\nfunc (\u0002b\u0003 *Bucket) TakeN(n int) error {\n\t\u0002b\u0003.mu.Lock()\n\tdefer \u0002b\u0003.mu.Unlock()\n\t\u0002b\u0003.add()\n\tif \u0002b\u0003.tokens < n {\n\t\treturn ErrLimited\n\t}\n\t\u0002b\u0003.tokens -= n\n\treturn nil\n}\n\n// Available reports the tokens left after refilling.\nfunc (\u0002b\u0003 *Bucket) Available() int {\n\t\u0002b\u0003.mu.Lock()\n\tdefer \u0002b\u0003.mu.Unlock()\n\t\u0002b\u0003.add()\n\treturn \u0002b\u0003.tokens\n}\n\n// add refills tokens for the time elapsed since the last call.\nfunc (\u0002b\u0003 *Bucket) add() {\n\tnow := \u0002b\u0003.now()\n\telapsed := now.Sub(\u0002b\u0003.last)\n\tif elapsed < \u0002b\u0003.refill {\n\t\treturn\n\t}\n\tgained := int(elapsed / \u0002b\u0003.refill)\n\t\u0002b\u0003.tokens += gained\n\tif \u0002b\u0003.tokens > \u0002b\u0003.capacity {\n\t\t\u0002b\u0003.tokens = \u0002b\u0003.capacity\n\t}\n\t\u0002b\u0003.last = \u0002b\u0003.last.Add(time.Duration(gained) * \u0002b\u0003.refill)\n}\n\n// Limiter keeps one bucket per client key.\ntype Limiter struct {\n\tmu       sync.Mutex\n\tbuckets  map[string]*Bucket\n\tcapacity int\n\trefill   time.Duration\n}\n\n// NewLimiter returns \u0002a\u0003 limiter that creates buckets lazily.\nfunc NewLimiter(capacity int, refill time.Duration) *Limiter {\n\treturn &Limiter{\n\t\tbuckets:  make(map[string]*Bucket),\n\t\tcapacity: capacity,\n\t\trefill:   refill,\n\t}\n}\n\n// Allow takes one token from the bucket for key.\nfunc (l *Limiter) Allow(key string) bool {\n\treturn l.bucket(key).Take() == nil\n}\n\n// bucket returns the bucket for key, creating it on first use.\nfunc (l *Limiter) bucket(key string) *Bucket {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\t\u0002b\u0003, ok := l.buckets[key]\n\tif !ok {\n\t\t\u0002b\u0003 = NewBucket(l.capacity, l.refill)\n\t\tl.buckets[key] = \u0002b\u0003\n\t}\n\treturn \u0002b\u0003\n}\n\n// Sweep drops buckets that are full again, so idle clients free memory.\nfunc (l *Limiter) Sweep() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tdropped := 0\n\tfor key, \u0002b\u0003 := range l.buckets {\n\t\tif \u0002b\u0003.Available() == l.capacity {\n\t\t\tdelete(l.buckets, key)\n\t\t\tdropped++\n\t\t}\n\t}\n\treturn dropped\n}\n\n// Len reports how many client buckets are live.\nfunc (l *Limiter) Len() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\treturn len(l.buckets)\n}\n\n// Middleware rejects requests over the limit with status 429.\nfunc Middleware(l *Limiter, next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tkey := clientKey(r)\n\t\tif !l.Allow(key) {\n\t\t\tw.Header().Set(\"Retry-After\", \"1\")\n\t\t\thttp.Error(w, ErrLimited.Error(), http.StatusTooManyRequests)\n\t\t\treturn\n\t\t}\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\n\n// clientKey picks the forwarded address when \u0002a\u0003 trusted proxy set one.\nfunc clientKey(r *http.Request) string {\n\tif fwd := r.Header.Get(\"X-Forwarded-For\"); fwd != \"\" {\n\t\tif i := strings.IndexByte(fwd, ','); i >= 0 {\n\t\t\treturn strings.TrimSpace(fwd[:i])\n\t\t}\n\t\treturn strings.TrimSpace(fwd)\n\t}\n\thost, _, err := net.SplitHostPort(r.RemoteAddr)\n\tif err != nil {\n\t\treturn r.RemoteAddr\n\t}\n\treturn host\n}\n\n// Stats is \u0002a\u0003 snapshot of limiter counters for the metrics endpoint.\ntype Stats struct {\n\tClients  int `json:\"clients\"`\n\tCapacity int `json:\"capacity\"`\n\tRefillMS int `json:\"refill_ms\"`\n}\n\n// Snapshot reports the current limiter counters.\nfunc (l *Limiter) Snapshot() Stats {\n\treturn Stats{\n\t\tClients:  l.Len(),\n\t\tCapacity: l.capacity,\n\t\tRefillMS: int(l.refill / time.Millisecond),\n\t}\n}"
+        },
+        {
+          "key": "logs/long.log::2026-10-20T10:00:00Z req=00000 method=GET path=/orders status=200 duration=3ms b",
+          "contentType": "prose",
+          "highlighted": "2026-10-20T10:00:00Z req=00000 method=GET path=/orders status=200 duration=3ms bytes=120\n2026-10-20T10:00:01Z req=07919 method=GET path=/orders/42 status=200 duration=40ms bytes=251\n2026-10-20T10:00:02Z req=15838 method=GET path=/users status=201 duration=77ms bytes=382\n2026-10-20T10:00:03Z req=23757 method=GET path=/users/7/profile status=200 duration=114ms bytes=513\n2026-10-20T10:00:04Z req=31676 method=GET path=/health status=304 duration=151ms bytes=644\n2026-10-20T10:00:05Z req=39595 method=GET path=/metrics status=200 duration=188ms bytes=775\n2026-10-20T10:00:06Z req=47514 method=GET path=/checkout status=500 duration=225ms error=\"upstream connection reset by peer\"\n2026-10-20T10:00:07Z req=55433 method=GET path=/cart/items status=200 duration=262ms bytes=1037\n2026-10-20T10:00:08Z req=63352 method=GET path=/orders status=404 duration=299ms bytes=1168\n2026-10-20T10:00:09Z req=71271 method=GET path=/orders/42 status=200 duration=336ms bytes=1299\n2026-10-20T10:00:10Z req=79190 method=GET path=/users status=429 duration=373ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:11Z req=87109 method=GET path=/users/7/profile status=200 duration=410ms bytes=1561\n2026-10-20T10:00:12Z req=95028 method=GET path=/health status=200 duration=447ms bytes=1692\n2026-10-20T10:00:13Z req=02947 method=GET path=/metrics status=201 duration=484ms bytes=1823\n2026-10-20T10:00:14Z req=10866 method=GET path=/checkout status=200 duration=521ms bytes=1954\n2026-10-20T10:00:15Z req=18785 method=GET path=/cart/items status=304 duration=558ms bytes=2085\n2026-10-20T10:00:16Z req=26704 method=GET path=/orders status=200 duration=595ms bytes=2216\n2026-10-20T10:00:17Z req=34623 method=GET path=/orders/42 status=500 duration=632ms error=\"upstream connection reset by peer\"\n\n2026-10-20T10:00:19Z req=50461 method=GET path=/users/7/profile status=404 duration=706ms bytes=2609"
+        },
+        {
+          "key": "logs/sections.log::=== RUN   TestLimiterAllow with a very long first line that goes well past eight",
+          "contentType": "prose",
+          "highlighted": "=== RUN   TestLimiterAllow with \u0002a\u0003 very long first line that goes well past eighty characters so the title is cut\n--- PASS: TestLimiterAllow (0.00s)"
+        }
+      ]
+    },
+    {
+      "id": "q36",
+      "query": "webhook",
+      "limit": 1,
+      "source": "",
+      "contentType": "",
+      "mode": "like",
+      "results": [
+        {
+          "key": "json/config.json::features > webhooks > endpoints",
+          "contentType": "code",
+          "highlighted": "[]"
+        }
+      ]
+    }
+  ]
+}

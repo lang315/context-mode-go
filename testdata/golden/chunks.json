@@ -1,0 +1,685 @@
+{
+  "tsCommit": "a5e6dd31",
+  "files": [
+    {
+      "path": "md/01-getting-started.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "Getting Started",
+          "content": "# Getting Started\n\nWelcome to the connection pool library. It keeps a small set of database\nconnections open and hands them out to request handlers.",
+          "hasCode": false
+        },
+        {
+          "title": "Getting Started > Installation",
+          "content": "## Installation\n\nInstall the package with your package manager and import it in your service.\nThe library has no runtime dependencies beyond the database driver.",
+          "hasCode": false
+        },
+        {
+          "title": "Getting Started > Configuration",
+          "content": "## Configuration\n\nSet `max_connections` to the number of connections the pool may open.\nThe default is 10, which suits most small services.",
+          "hasCode": false
+        },
+        {
+          "title": "Getting Started > Configuration > Timeouts",
+          "content": "### Timeouts\n\nThe `idle_timeout` closes connections that sit unused. The `connect_timeout`\nbounds how long a request waits for a free connection before it fails.",
+          "hasCode": false
+        },
+        {
+          "title": "Getting Started > Configuration > Timeouts > Retry policy",
+          "content": "#### Retry policy\n\nFailed connects are retried three times with exponential backoff.",
+          "hasCode": false
+        },
+        {
+          "title": "Getting Started > Configuration",
+          "content": "## Configuration\n\nA second Configuration section: environment variables override the file.\nSet `POOL_MAX_CONNECTIONS` to change the pool size at deploy time.",
+          "hasCode": false
+        },
+        {
+          "title": "Getting Started > Next steps",
+          "content": "## Next steps\n\nRead the API reference and the troubleshooting guide.",
+          "hasCode": false
+        }
+      ],
+      "terms": [
+        "configuration",
+        "connection",
+        "database",
+        "library",
+        "request",
+        "small",
+        "open",
+        "connections",
+        "pool",
+        "set"
+      ]
+    },
+    {
+      "path": "md/02-api-reference.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "API Reference",
+          "content": "# API Reference",
+          "hasCode": false
+        },
+        {
+          "title": "API Reference > Pool.Get",
+          "content": "## Pool.Get\n\n`Get` returns a connection from the pool, blocking until one is free.\n\n```go\nfunc (p *Pool) Get(ctx context.Context) (*Conn, error) {\n\tselect {\n\tcase c := <-p.idle:\n\t\treturn c, nil\n\tcase <-ctx.Done():\n\t\treturn nil, ctx.Err()\n\t}\n}\n```",
+          "hasCode": true
+        },
+        {
+          "title": "API Reference > Pool.Put",
+          "content": "## Pool.Put\n\nReturn a connection with `Put`. A broken connection is closed instead.\n\n```js\n// # this comment is not a heading\npool.put(conn);\n```",
+          "hasCode": true
+        },
+        {
+          "title": "API Reference > Shell helpers",
+          "content": "## Shell helpers\n\n```bash\n# Start the pool exporter\n# ## also not a heading\n./exporter --listen :9090\n```",
+          "hasCode": true
+        },
+        {
+          "title": "API Reference > Shell helpers > Nested fences",
+          "content": "### Nested fences\n\n````markdown\n```sql\nSELECT count(*) FROM connections;\n```\n````\n\nText after the four-backtick fence.\n\n```\nunterminated fence at end of file\n# Not a heading inside an open fence",
+          "hasCode": true
+        }
+      ],
+      "terms": [
+        "connection",
+        "select",
+        "return",
+        "conn",
+        "heading",
+        "pool"
+      ]
+    },
+    {
+      "path": "md/03-long-code.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "Rate Limiter Source (1)",
+          "content": "# Rate Limiter Source\n\nThe full token bucket implementation is kept in one fenced block so it is never split.\n\n```go\npackage ratelimit\n\nimport (\n\t\"errors\"\n\t\"sync\"\n\t\"time\"\n)\n\n// ErrLimited is returned when the bucket has no tokens left.\nvar ErrLimited = errors.New(\"ratelimit: too many requests\")\n\n// Bucket is a token bucket rate limiter.\ntype Bucket struct {\n\tmu       sync.Mutex\n\tcapacity int\n\ttokens   int\n\trefill   time.Duration\n\tlast     time.Time\n\tnow      func() time.Time\n}\n\n// NewBucket returns a full bucket that adds one token per refill interval.\nfunc NewBucket(capacity int, refill time.Duration) *Bucket {\n\treturn &Bucket{\n\t\tcapacity: capacity,\n\t\ttokens:   capacity,\n\t\trefill:   refill,\n\t\tlast:     time.Now(),\n\t\tnow:      time.Now,\n\t}\n}\n\n// Take removes one token or returns ErrLimited.\nfunc (b *Bucket) Take() error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens == 0 {\n\t\treturn ErrLimited\n\t}\n\tb.tokens--\n\treturn nil\n}\n\n// TakeN removes n tokens at once or none of them.\nfunc (b *Bucket) TakeN(n int) error {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\tif b.tokens < n {\n\t\treturn ErrLimited\n\t}\n\tb.tokens -= n\n\treturn nil\n}\n\n// Available reports the tokens left after refilling.\nfunc (b *Bucket) Available() int {\n\tb.mu.Lock()\n\tdefer b.mu.Unlock()\n\tb.add()\n\treturn b.tokens\n}\n\n// add refills tokens for the time elapsed since the last call.\nfunc (b *Bucket) add() {\n\tnow := b.now()\n\telapsed := now.Sub(b.last)\n\tif elapsed < b.refill {\n\t\treturn\n\t}\n\tgained := int(elapsed / b.refill)\n\tb.tokens += gained\n\tif b.tokens > b.capacity {\n\t\tb.tokens = b.capacity\n\t}\n\tb.last = b.last.Add(time.Duration(gained) * b.refill)\n}\n\n// Limiter keeps one bucket per client key.\ntype Limiter struct {\n\tmu       sync.Mutex\n\tbuckets  map[string]*Bucket\n\tcapacity int\n\trefill   time.Duration\n}\n\n// NewLimiter returns a limiter that creates buckets lazily.\nfunc NewLimiter(capacity int, refill time.Duration) *Limiter {\n\treturn &Limiter{\n\t\tbuckets:  make(map[string]*Bucket),\n\t\tcapacity: capacity,\n\t\trefill:   refill,\n\t}\n}\n\n// Allow takes one token from the bucket for key.\nfunc (l *Limiter) Allow(key string) bool {\n\treturn l.bucket(key).Take() == nil\n}\n\n// bucket returns the bucket for key, creating it on first use.\nfunc (l *Limiter) bucket(key string) *Bucket {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tb, ok := l.buckets[key]\n\tif !ok {\n\t\tb = NewBucket(l.capacity, l.refill)\n\t\tl.buckets[key] = b\n\t}\n\treturn b\n}\n\n// Sweep drops buckets that are full again, so idle clients free memory.\nfunc (l *Limiter) Sweep() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\tdropped := 0\n\tfor key, b := range l.buckets {\n\t\tif b.Available() == l.capacity {\n\t\t\tdelete(l.buckets, key)\n\t\t\tdropped++\n\t\t}\n\t}\n\treturn dropped\n}\n\n// Len reports how many client buckets are live.\nfunc (l *Limiter) Len() int {\n\tl.mu.Lock()\n\tdefer l.mu.Unlock()\n\treturn len(l.buckets)\n}\n\n// Middleware rejects requests over the limit with status 429.\nfunc Middleware(l *Limiter, next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tkey := clientKey(r)\n\t\tif !l.Allow(key) {\n\t\t\tw.Header().Set(\"Retry-After\", \"1\")\n\t\t\thttp.Error(w, ErrLimited.Error(), http.StatusTooManyRequests)\n\t\t\treturn\n\t\t}\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\n\n// clientKey picks the forwarded address when a trusted proxy set one.\nfunc clientKey(r *http.Request) string {\n\tif fwd := r.Header.Get(\"X-Forwarded-For\"); fwd != \"\" {\n\t\tif i := strings.IndexByte(fwd, ','); i >= 0 {\n\t\t\treturn strings.TrimSpace(fwd[:i])\n\t\t}\n\t\treturn strings.TrimSpace(fwd)\n\t}\n\thost, _, err := net.SplitHostPort(r.RemoteAddr)\n\tif err != nil {\n\t\treturn r.RemoteAddr\n\t}\n\treturn host\n}\n\n// Stats is a snapshot of limiter counters for the metrics endpoint.\ntype Stats struct {\n\tClients  int `json:\"clients\"`\n\tCapacity int `json:\"capacity\"`\n\tRefillMS int `json:\"refill_ms\"`\n}\n\n// Snapshot reports the current limiter counters.\nfunc (l *Limiter) Snapshot() Stats {\n\treturn Stats{\n\t\tClients:  l.Len(),\n\t\tCapacity: l.capacity,\n\t\tRefillMS: int(l.refill / time.Millisecond),\n\t}\n}",
+          "hasCode": true
+        },
+        {
+          "title": "Rate Limiter Source (2)",
+          "content": "// StartSweeper runs Sweep on every tick until stop is closed.\nfunc (l *Limiter) StartSweeper(every time.Duration, stop <-chan struct{}) {\n\tt := time.NewTicker(every)\n\tgo func() {\n\t\tdefer t.Stop()\n\t\tfor {\n\t\t\tselect {\n\t\t\tcase <-t.C:\n\t\t\t\tl.Sweep()\n\t\t\tcase <-stop:\n\t\t\t\treturn\n\t\t\t}\n\t\t}\n\t}()\n}\n```",
+          "hasCode": true
+        },
+        {
+          "title": "Rate Limiter Source > Usage",
+          "content": "## Usage\n\nCall `Allow` with the client address before serving each request.",
+          "hasCode": false
+        }
+      ],
+      "terms": [
+        "duration",
+        "limiter",
+        "request",
+        "address",
+        "struct",
+        "return",
+        "client",
+        "defer",
+        "allow",
+        "sweep",
+        "time",
+        "func",
+        "call"
+      ]
+    },
+    {
+      "path": "md/04-rules.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "Untitled",
+          "content": "Preface text before any heading or rule.",
+          "hasCode": false
+        },
+        {
+          "title": "Untitled",
+          "content": "Text between dashes and stars.",
+          "hasCode": false
+        },
+        {
+          "title": "Untitled",
+          "content": "Text after the star rule.",
+          "hasCode": false
+        },
+        {
+          "title": "Untitled",
+          "content": "Text after the underscore rule.\n\n- - -\n\nSpaced dashes are a list item, not a rule here.",
+          "hasCode": false
+        },
+        {
+          "title": "Heading after rules",
+          "content": "# Heading after rules\n\nRule with trailing spaces above.",
+          "hasCode": false
+        },
+        {
+          "title": "Heading after rules",
+          "content": "Final words after a rule inside a heading section.",
+          "hasCode": false
+        }
+      ],
+      "terms": [
+        "dashes",
+        "heading"
+      ]
+    },
+    {
+      "path": "md/05-oversized.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "Incident Report",
+          "content": "# Incident Report",
+          "hasCode": false
+        },
+        {
+          "title": "Incident Report > Timeline",
+          "content": "## Timeline\n\nAt 09:12 UTC the primary database began rejecting new connections. The connection pool on every API node filled within forty seconds, and request latency climbed from a median of 40 ms to more than eight seconds. The on-call engineer was paged by the latency alert at 09:14 and acknowledged it at 09:16. Early dashboards showed the database CPU at normal levels, which pointed away from a load problem and toward a configuration or network fault.\n\nAt 09:20 the team noticed that the database had reached its max_connections ceiling. Each API node opened far more connections than its configured pool size, because a deploy earlier that morning had changed the pool from a shared instance to one pool per request handler. With twelve handlers per node and sixty nodes, the fleet tried to hold more than seven thousand connections against a ceiling of two thousand.\n\nAt 09:31 the deploy was rolled back on half of the fleet as a test. Connection counts on the database dropped immediately and latency on the rolled-back nodes returned to normal within two minutes. The rest of the fleet was rolled back at 09:38. Error rates fell to baseline by 09:45, and the incident was declared mitigated at 09:50 after fifteen minutes of stable metrics.\n\nDuring the incident roughly four percent of checkout requests failed outright and another eleven percent completed only after client retries. Background jobs that depend on the same database were paused automatically by their circuit breakers, which kept the job queue from growing without bound. No data was lost, because every write path is idempotent and the clients retried with the same request keys.\n\nThe root cause was the per-handler pool introduced by the deploy. The change passed review because the diff looked like a small refactor, and the load test environment runs a single node, where the extra pools stayed well under the connection ceiling. Nothing in the test suite asserted the total number of connections a node may open, so the regression only appeared at fleet scale.\n\nContributing factors include the missing connection budget alert on the database, a dashboard that showed pool usage per node but not per fleet, and a rollout policy that allowed the deploy to reach every node in under ten minutes. A slower canary phase would have limited the blast radius to a handful of nodes before the ceiling was reached.\n\nFollow-up actions: add a test that fails when a node opens more connections than its budget, alert when the database passes eighty percent of max_connections, add a fleet-wide pool usage panel, and slow the default rollout to a one-hour canary for changes that touch the data access layer. Owners and due dates are tracked in the reliability backlog.",
+          "hasCode": false
+        },
+        {
+          "title": "Incident Report > Raw notes",
+          "content": "## Raw notes\n\nThis section is one very long paragraph with no blank lines inside it, so the paragraph splitter has nothing to split on and must keep it as a single oversized chunk. The notes were typed live during the incident call and cover the same events as the timeline in rougher form. Primary database rejecting connections at nine twelve. Pool full on api nodes within forty seconds. Median latency forty milliseconds before, eight seconds after. Pager fired on latency alert. Database CPU normal, so not load. Checking network between api subnet and database subnet, no packet loss seen. Checking database logs: too many connections errors, thousands per second. Checking max_connections: two thousand, unchanged since last quarter. Counting connections per api node: around one hundred twenty, expected ten. Looking at this morning's deploy: pool construction moved into the handler constructor, so every handler builds its own pool. Twelve handlers per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two minutes, connection count on database drops by half. Decision: roll back everything. Full rollback complete, error rate back to baseline, latency normal. Circuit breakers paused background jobs, queue depth stable, resumed jobs after mitigation. Checkout failure rate peaked at four percent, retries succeeded for most of the rest. No data loss, all writes idempotent with request keys. Root cause confirmed as per-handler pool. Load test runs one node so it never hit the ceiling. Need a connection budget test, a database connection alert at eighty percent, a fleet pool panel, and a slower canary for data layer changes. Postmortem owner assigned, review scheduled for Thursday. Extra filler so this paragraph alone is larger than the four kilobyte chunk limit: the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills, the quick brown fox jumps over the lazy dog while the pool drains and refills. End of raw notes and the word sentinelword marks the very end.",
+          "hasCode": false
+        },
+        {
+          "title": "Incident Report > Summary",
+          "content": "## Summary\n\nPer-handler pools exceeded the database connection ceiling; rollback fixed it.",
+          "hasCode": false
+        }
+      ],
+      "terms": [
+        "max_connections",
+        "connections",
+        "background",
+        "idempotent",
+        "rejecting",
+        "timeline",
+        "handlers",
+        "thousand",
+        "baseline",
+        "checkout",
+        "breakers",
+        "rollback",
+        "primary",
+        "seconds",
+        "request",
+        "latency",
+        "network",
+        "morning",
+        "handler",
+        "minutes",
+        "percent",
+        "retries",
+        "circuit",
+        "nothing",
+        "changes",
+        "within",
+        "median",
+        "normal",
+        "deploy",
+        "twelve",
+        "rolled",
+        "stable",
+        "during",
+        "paused",
+        "review",
+        "single",
+        "budget",
+        "slower",
+        "canary",
+        "before"
+      ]
+    },
+    {
+      "path": "md/06-no-heading.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "Untitled",
+          "content": "This document starts without any heading.\nThe chunk title for this text should fall back to Untitled.\n\nIt has a second paragraph about webhook delivery and signature checks.\n\n#NoSpace is not a heading because it has no space.\n####### seven hashes are not a heading either.",
+          "hasCode": false
+        },
+        {
+          "title": "Late Heading",
+          "content": "# Late Heading\n\nContent under the late heading mentions webhook retries.",
+          "hasCode": false
+        }
+      ],
+      "terms": []
+    },
+    {
+      "path": "md/07-deep-nesting.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "Architecture",
+          "content": "# Architecture\n\nTop level overview of the scheduler service.",
+          "hasCode": false
+        },
+        {
+          "title": "Architecture > Components",
+          "content": "## Components",
+          "hasCode": false
+        },
+        {
+          "title": "Architecture > Components > Scheduler",
+          "content": "### Scheduler",
+          "hasCode": false
+        },
+        {
+          "title": "Architecture > Components > Scheduler > Queue",
+          "content": "#### Queue\n\nThe queue stores pending jobs in priority order.\n\n##### Level five is body text\n\nStill inside the Queue section.",
+          "hasCode": false
+        },
+        {
+          "title": "Architecture > Components > Scheduler > Workers",
+          "content": "#### Workers\n\nWorkers pull jobs from the queue and report heartbeats.",
+          "hasCode": false
+        },
+        {
+          "title": "Architecture > Components > Storage",
+          "content": "### Storage\n\nThe storage layer persists job state to SQLite.",
+          "hasCode": false
+        },
+        {
+          "title": "Architecture > Deployment",
+          "content": "## Deployment\n\nDeployment uses a rolling restart of workers.",
+          "hasCode": false
+        },
+        {
+          "title": "Appendix",
+          "content": "# Appendix",
+          "hasCode": false
+        },
+        {
+          "title": "Appendix > Glossary",
+          "content": "## Glossary\n\nA heartbeat is a periodic liveness signal from a worker.",
+          "hasCode": false
+        }
+      ],
+      "terms": [
+        "scheduler",
+        "workers",
+        "level",
+        "queue",
+        "jobs"
+      ]
+    },
+    {
+      "path": "md/08-unicode.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "Internationalisation 🌍",
+          "content": "# Internationalisation 🌍",
+          "hasCode": false
+        },
+        {
+          "title": "Internationalisation 🌍 > Café menu",
+          "content": "## Café menu\n\nThe café serves crème brûlée, naïve coffee art and jalapeño toast.\nPrices: ¥500, €4.50, £3.20.",
+          "hasCode": false
+        },
+        {
+          "title": "Internationalisation 🌍 > 日本語のセクション",
+          "content": "## 日本語のセクション\n\nこれは日本語の段落です。接続プールの設定について説明します。\n検索テストのために「データベース」という単語を含めます。",
+          "hasCode": false
+        },
+        {
+          "title": "Internationalisation 🌍 > Emoji status 😀",
+          "content": "## Emoji status 😀\n\nDeploy finished 🚀 with zero errors ✅ and one warning ⚠️.\nGrinning 😀 faces 😀 everywhere 😀 to test surrogate pairs in snippets.",
+          "hasCode": false
+        },
+        {
+          "title": "Internationalisation 🌍 > Ελληνικά και Русский",
+          "content": "## Ελληνικά και Русский\n\nΗ σύνδεση με τη βάση δεδομένων απέτυχε.\nСоединение с базой данных установлено успешно.",
+          "hasCode": false
+        }
+      ],
+      "terms": []
+    },
+    {
+      "path": "md/09-troubleshooting.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "Troubleshooting",
+          "content": "# Troubleshooting",
+          "hasCode": false
+        },
+        {
+          "title": "Troubleshooting > Connection refused",
+          "content": "## Connection refused\n\nIf clients log `ECONNREFUSED` or \"connection refused\", the database is not\nlistening on the configured port. Check the host, the port and the firewall.",
+          "hasCode": false
+        },
+        {
+          "title": "Troubleshooting > Timeout errors",
+          "content": "## Timeout errors\n\nA `context deadline exceeded` error means the pool waited longer than\n`connect_timeout` for a free connection. Raise `max_connections` or find the\nhandler that leaks connections without calling `Put`.",
+          "hasCode": false
+        },
+        {
+          "title": "Troubleshooting > Authentication",
+          "content": "## Authentication\n\nClients see `password authentication failed` when credentials rotate.\nReload the secret and restart the workers.",
+          "hasCode": false
+        },
+        {
+          "title": "Troubleshooting > Slow queries",
+          "content": "## Slow queries\n\nEnable the slow query log and look for missing indexes. Queries that scan\nlarge tables hold a connection for the whole scan, which starves the pool.\n\n```sql\nEXPLAIN ANALYZE SELECT * FROM orders WHERE customer_id = 42;\n```",
+          "hasCode": true
+        }
+      ],
+      "terms": [
+        "clients",
+        "pool",
+        "log",
+        "connection"
+      ]
+    },
+    {
+      "path": "md/10-changelog.md",
+      "kind": "markdown",
+      "chunks": [
+        {
+          "title": "Changelog",
+          "content": "# Changelog",
+          "hasCode": false
+        },
+        {
+          "title": "Changelog > v2.1.0",
+          "content": "## v2.1.0\n\n- Added `Pool.Stats` with idle, busy and wait counters.\n- The rate limiter middleware now sets `Retry-After` on 429 responses.\n- Fixed a race in `Pool.Put` when the context was cancelled during return.",
+          "hasCode": false
+        },
+        {
+          "title": "Changelog > v2.0.0",
+          "content": "## v2.0.0\n\nBreaking: `NewPool` takes an options struct instead of positional arguments.\nThe `max_connections` option replaces `size`, and `idle_timeout` replaces\n`ttl`. Configuration files using the old keys fail to load with a clear error\nthat names the new key. The migration guide lists every renamed option.\n\nConnections are now validated with a ping before they are handed out when\nthey have been idle for longer than `validate_after`. This removes most of the\nbroken pipe errors seen after network maintenance, at the cost of one round\ntrip on the first request after a quiet period.",
+          "hasCode": false
+        },
+        {
+          "title": "Changelog > v1.4.2",
+          "content": "## v1.4.2\n\n- Security: redact passwords from connection strings in error messages.\n- Fixed `connect_timeout` being ignored when the DNS lookup itself hung.",
+          "hasCode": false
+        },
+        {
+          "title": "Changelog > v1.4.1",
+          "content": "## v1.4.1\n\n- Fixed a goroutine leak in the health checker when the pool was closed twice.",
+          "hasCode": false
+        }
+      ],
+      "terms": [
+        "error",
+        "pool",
+        "idle"
+      ]
+    },
+    {
+      "path": "logs/long.log",
+      "kind": "plain",
+      "chunks": [
+        {
+          "title": "2026-10-20T10:00:00Z req=00000 method=GET path=/orders status=200 duration=3ms b",
+          "content": "2026-10-20T10:00:00Z req=00000 method=GET path=/orders status=200 duration=3ms bytes=120\n2026-10-20T10:00:01Z req=07919 method=GET path=/orders/42 status=200 duration=40ms bytes=251\n2026-10-20T10:00:02Z req=15838 method=GET path=/users status=201 duration=77ms bytes=382\n2026-10-20T10:00:03Z req=23757 method=GET path=/users/7/profile status=200 duration=114ms bytes=513\n2026-10-20T10:00:04Z req=31676 method=GET path=/health status=304 duration=151ms bytes=644\n2026-10-20T10:00:05Z req=39595 method=GET path=/metrics status=200 duration=188ms bytes=775\n2026-10-20T10:00:06Z req=47514 method=GET path=/checkout status=500 duration=225ms error=\"upstream connection reset by peer\"\n2026-10-20T10:00:07Z req=55433 method=GET path=/cart/items status=200 duration=262ms bytes=1037\n2026-10-20T10:00:08Z req=63352 method=GET path=/orders status=404 duration=299ms bytes=1168\n2026-10-20T10:00:09Z req=71271 method=GET path=/orders/42 status=200 duration=336ms bytes=1299\n2026-10-20T10:00:10Z req=79190 method=GET path=/users status=429 duration=373ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:11Z req=87109 method=GET path=/users/7/profile status=200 duration=410ms bytes=1561\n2026-10-20T10:00:12Z req=95028 method=GET path=/health status=200 duration=447ms bytes=1692\n2026-10-20T10:00:13Z req=02947 method=GET path=/metrics status=201 duration=484ms bytes=1823\n2026-10-20T10:00:14Z req=10866 method=GET path=/checkout status=200 duration=521ms bytes=1954\n2026-10-20T10:00:15Z req=18785 method=GET path=/cart/items status=304 duration=558ms bytes=2085\n2026-10-20T10:00:16Z req=26704 method=GET path=/orders status=200 duration=595ms bytes=2216\n2026-10-20T10:00:17Z req=34623 method=GET path=/orders/42 status=500 duration=632ms error=\"upstream connection reset by peer\"\n\n2026-10-20T10:00:19Z req=50461 method=GET path=/users/7/profile status=404 duration=706ms bytes=2609",
+          "hasCode": false
+        },
+        {
+          "title": "Lines 19-38",
+          "content": "\n2026-10-20T10:00:19Z req=50461 method=GET path=/users/7/profile status=404 duration=706ms bytes=2609\n2026-10-20T10:00:20Z req=58380 method=GET path=/health status=200 duration=743ms bytes=2740\n2026-10-20T10:00:21Z req=66299 method=GET path=/metrics status=429 duration=780ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:22Z req=74218 method=GET path=/checkout status=200 duration=817ms bytes=3002\n2026-10-20T10:00:23Z req=82137 method=GET path=/cart/items status=200 duration=854ms bytes=3133\n2026-10-20T10:00:24Z req=90056 method=GET path=/orders status=201 duration=891ms bytes=3264\n2026-10-20T10:00:25Z req=97975 method=GET path=/orders/42 status=200 duration=28ms bytes=3395\n2026-10-20T10:00:26Z req=05894 method=GET path=/users status=304 duration=65ms bytes=3526\n2026-10-20T10:00:27Z req=13813 method=GET path=/users/7/profile status=200 duration=102ms bytes=3657\n2026-10-20T10:00:28Z req=21732 method=GET path=/health status=500 duration=139ms error=\"upstream connection reset by peer\"\n2026-10-20T10:00:29Z req=29651 method=GET path=/metrics status=200 duration=176ms bytes=3919\n2026-10-20T10:00:30Z req=37570 method=GET path=/checkout status=404 duration=213ms bytes=4050\n2026-10-20T10:00:31Z req=45489 method=GET path=/cart/items status=200 duration=250ms bytes=4181\n2026-10-20T10:00:32Z req=53408 method=GET path=/orders status=429 duration=287ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:33Z req=61327 method=GET path=/orders/42 status=200 duration=324ms bytes=4443\n2026-10-20T10:00:34Z req=69246 method=GET path=/users status=200 duration=361ms bytes=4574\n2026-10-20T10:00:35Z req=77165 method=GET path=/users/7/profile status=201 duration=398ms bytes=4705\n\n2026-10-20T10:00:37Z req=93003 method=GET path=/metrics status=304 duration=472ms bytes=4967",
+          "hasCode": false
+        },
+        {
+          "title": "Lines 37-56",
+          "content": "\n2026-10-20T10:00:37Z req=93003 method=GET path=/metrics status=304 duration=472ms bytes=4967\n2026-10-20T10:00:38Z req=00922 method=GET path=/checkout status=200 duration=509ms bytes=5098\n2026-10-20T10:00:39Z req=08841 method=GET path=/cart/items status=500 duration=546ms error=\"upstream connection reset by peer\"\n2026-10-20T10:00:40Z req=16760 method=GET path=/orders status=200 duration=583ms bytes=5360\n2026-10-20T10:00:41Z req=24679 method=GET path=/orders/42 status=404 duration=620ms bytes=5491\n2026-10-20T10:00:42Z req=32598 method=GET path=/users status=200 duration=657ms bytes=5622\n2026-10-20T10:00:43Z req=40517 method=GET path=/users/7/profile status=429 duration=694ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:44Z req=48436 method=GET path=/health status=200 duration=731ms bytes=5884\n2026-10-20T10:00:45Z req=56355 method=GET path=/metrics status=200 duration=768ms bytes=6015\n2026-10-20T10:00:46Z req=64274 method=GET path=/checkout status=201 duration=805ms bytes=6146\n2026-10-20T10:00:47Z req=72193 method=GET path=/cart/items status=200 duration=842ms bytes=6277\n2026-10-20T10:00:48Z req=80112 method=GET path=/orders status=304 duration=879ms bytes=6408\n2026-10-20T10:00:49Z req=88031 method=GET path=/orders/42 status=200 duration=16ms bytes=6539\n2026-10-20T10:00:50Z req=95950 method=GET path=/users status=500 duration=53ms error=\"upstream connection reset by peer\"\n2026-10-20T10:00:51Z req=03869 method=GET path=/users/7/profile status=200 duration=90ms bytes=6801\n2026-10-20T10:00:52Z req=11788 method=GET path=/health status=404 duration=127ms bytes=6932\n2026-10-20T10:00:53Z req=19707 method=GET path=/metrics status=200 duration=164ms bytes=7063\n2026-10-20T10:00:54Z req=27626 method=GET path=/checkout status=429 duration=201ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:55Z req=35545 method=GET path=/cart/items status=200 duration=238ms bytes=7325",
+          "hasCode": false
+        },
+        {
+          "title": "2026-10-20T10:00:54Z req=27626 method=GET path=/checkout status=429 duration=201",
+          "content": "2026-10-20T10:00:54Z req=27626 method=GET path=/checkout status=429 duration=201ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:00:55Z req=35545 method=GET path=/cart/items status=200 duration=238ms bytes=7325\n2026-10-20T10:00:56Z req=43464 method=GET path=/orders status=200 duration=275ms bytes=7456\n2026-10-20T10:00:57Z req=51383 method=GET path=/orders/42 status=201 duration=312ms bytes=7587\n2026-10-20T10:00:58Z req=59302 method=GET path=/users status=200 duration=349ms bytes=7718\n2026-10-20T10:00:59Z req=67221 method=GET path=/users/7/profile status=304 duration=386ms bytes=7849\n2026-10-20T10:01:00Z req=75140 method=GET path=/health status=200 duration=423ms bytes=7980\n2026-10-20T10:01:01Z req=83059 method=GET path=/metrics status=500 duration=460ms error=\"upstream connection reset by peer\"\n2026-10-20T10:01:02Z req=90978 method=GET path=/checkout status=200 duration=497ms bytes=8242\n2026-10-20T10:01:03Z req=98897 method=GET path=/cart/items status=404 duration=534ms bytes=8373\n2026-10-20T10:01:04Z req=06816 method=GET path=/orders status=200 duration=571ms bytes=8504\n2026-10-20T10:01:05Z req=14735 method=GET path=/orders/42 status=429 duration=608ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:01:06Z req=22654 method=GET path=/users status=200 duration=645ms bytes=8766\n2026-10-20T10:01:07Z req=30573 method=GET path=/users/7/profile status=200 duration=682ms bytes=8897\n2026-10-20T10:01:08Z req=38492 method=GET path=/health status=201 duration=719ms bytes=9028\n2026-10-20T10:01:09Z req=46411 method=GET path=/metrics status=200 duration=756ms bytes=159\n2026-10-20T10:01:10Z req=54330 method=GET path=/checkout status=304 duration=793ms bytes=290\n2026-10-20T10:01:11Z req=62249 method=GET path=/cart/items status=200 duration=830ms bytes=421\n2026-10-20T10:01:12Z req=70168 method=GET path=/orders status=500 duration=867ms error=\"upstream connection reset by peer\"\n2026-10-20T10:01:13Z req=78087 method=GET path=/orders/42 status=200 duration=4ms bytes=683",
+          "hasCode": false
+        },
+        {
+          "title": "2026-10-20T10:01:12Z req=70168 method=GET path=/orders status=500 duration=867ms",
+          "content": "2026-10-20T10:01:12Z req=70168 method=GET path=/orders status=500 duration=867ms error=\"upstream connection reset by peer\"\n2026-10-20T10:01:13Z req=78087 method=GET path=/orders/42 status=200 duration=4ms bytes=683\n2026-10-20T10:01:14Z req=86006 method=GET path=/users status=404 duration=41ms bytes=814\n2026-10-20T10:01:15Z req=93925 method=GET path=/users/7/profile status=200 duration=78ms bytes=945\n2026-10-20T10:01:16Z req=01844 method=GET path=/health status=429 duration=115ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:01:17Z req=09763 method=GET path=/metrics status=200 duration=152ms bytes=1207\n2026-10-20T10:01:18Z req=17682 method=GET path=/checkout status=200 duration=189ms bytes=1338\n2026-10-20T10:01:19Z req=25601 method=GET path=/cart/items status=201 duration=226ms bytes=1469\n2026-10-20T10:01:20Z req=33520 method=GET path=/orders status=200 duration=263ms bytes=1600\n2026-10-20T10:01:21Z req=41439 method=GET path=/orders/42 status=304 duration=300ms bytes=1731\n2026-10-20T10:01:22Z req=49358 method=GET path=/users status=200 duration=337ms bytes=1862\n2026-10-20T10:01:23Z req=57277 method=GET path=/users/7/profile status=500 duration=374ms error=\"upstream connection reset by peer\"\n2026-10-20T10:01:24Z req=65196 method=GET path=/health status=200 duration=411ms bytes=2124\n2026-10-20T10:01:25Z req=73115 method=GET path=/metrics status=404 duration=448ms bytes=2255\n2026-10-20T10:01:26Z req=81034 method=GET path=/checkout status=200 duration=485ms bytes=2386\n2026-10-20T10:01:27Z req=88953 method=GET path=/cart/items status=429 duration=522ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:01:28Z req=96872 method=GET path=/orders status=200 duration=559ms bytes=2648\n2026-10-20T10:01:29Z req=04791 method=GET path=/orders/42 status=200 duration=596ms bytes=2779\n2026-10-20T10:01:30Z req=12710 method=GET path=/users status=201 duration=633ms bytes=2910\n2026-10-20T10:01:31Z req=20629 method=GET path=/users/7/profile status=200 duration=670ms bytes=3041",
+          "hasCode": false
+        },
+        {
+          "title": "2026-10-20T10:01:30Z req=12710 method=GET path=/users status=201 duration=633ms ",
+          "content": "2026-10-20T10:01:30Z req=12710 method=GET path=/users status=201 duration=633ms bytes=2910\n2026-10-20T10:01:31Z req=20629 method=GET path=/users/7/profile status=200 duration=670ms bytes=3041\n2026-10-20T10:01:32Z req=28548 method=GET path=/health status=304 duration=707ms bytes=3172\n2026-10-20T10:01:33Z req=36467 method=GET path=/metrics status=200 duration=744ms bytes=3303\n2026-10-20T10:01:34Z req=44386 method=GET path=/checkout status=500 duration=781ms error=\"upstream connection reset by peer\"\n2026-10-20T10:01:35Z req=52305 method=GET path=/cart/items status=200 duration=818ms bytes=3565\n2026-10-20T10:01:36Z req=60224 method=GET path=/orders status=404 duration=855ms bytes=3696\n2026-10-20T10:01:37Z req=68143 method=GET path=/orders/42 status=200 duration=892ms bytes=3827\n2026-10-20T10:01:38Z req=76062 method=GET path=/users status=429 duration=29ms error=\"rate limited retry_after=1s\"\n2026-10-20T10:01:39Z req=83981 method=GET path=/users/7/profile status=200 duration=66ms bytes=4089\n2026-10-20T10:01:40Z req=91900 method=GET path=/health status=200 duration=103ms bytes=4220\n2026-10-20T10:01:41Z req=99819 method=GET path=/metrics status=201 duration=140ms bytes=4351\n2026-10-20T10:01:42Z req=07738 method=GET path=/checkout status=200 duration=177ms bytes=4482\n2026-10-20T10:01:43Z req=15657 method=GET path=/cart/items status=304 duration=214ms bytes=4613\n2026-10-20T10:01:44Z req=23576 method=GET path=/orders status=200 duration=251ms bytes=4744\n",
+          "hasCode": false
+        }
+      ],
+      "terms": [
+        "50461",
+        "706ms",
+        "93003",
+        "472ms",
+        "27626",
+        "201ms",
+        "35545",
+        "238ms",
+        "70168",
+        "867ms",
+        "78087",
+        "12710",
+        "633ms",
+        "20629",
+        "670ms",
+        "2609",
+        "4967",
+        "7325",
+        "2910",
+        "3041",
+        "00z",
+        "01z",
+        "02z",
+        "03z",
+        "04z",
+        "05z",
+        "06z",
+        "07z",
+        "08z",
+        "09z",
+        "10z",
+        "11z",
+        "14z",
+        "15z",
+        "16z",
+        "17z",
+        "20z",
+        "21z",
+        "22z",
+        "23z"
+      ]
+    },
+    {
+      "path": "logs/sections.log",
+      "kind": "plain",
+      "chunks": [
+        {
+          "title": "=== RUN   TestPoolGet",
+          "content": "=== RUN   TestPoolGet\n--- PASS: TestPoolGet (0.01s)\n=== RUN   TestPoolPut\n--- PASS: TestPoolPut (0.00s)",
+          "hasCode": false
+        },
+        {
+          "title": "=== RUN   TestPoolTimeout",
+          "content": "=== RUN   TestPoolTimeout\n    pool_test.go:88: waited 2.001s for a connection, want at most 2s\n--- FAIL: TestPoolTimeout (2.00s)",
+          "hasCode": false
+        },
+        {
+          "title": "=== RUN   TestLimiterAllow with a very long first line that goes well past eight",
+          "content": "=== RUN   TestLimiterAllow with a very long first line that goes well past eighty characters so the title is cut\n--- PASS: TestLimiterAllow (0.00s)",
+          "hasCode": false
+        },
+        {
+          "title": "panic: runtime error: invalid memory address or nil pointer dereference",
+          "content": "panic: runtime error: invalid memory address or nil pointer dereference\n[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x1029a3c]\ngoroutine 7 [running]:\nexample.com/pool.(*Pool).Close(0x0)\n\t/src/pool/pool.go:142 +0x1c",
+          "hasCode": false
+        },
+        {
+          "title": "FAIL\texample.com/pool\t2.214s",
+          "content": "FAIL\texample.com/pool\t2.214s",
+          "hasCode": false
+        }
+      ],
+      "terms": [
+        "example",
+        "pass",
+        "fail",
+        "pool",
+        "com",
+        "---",
+        "00s"
+      ]
+    },
+    {
+      "path": "logs/short.log",
+      "kind": "plain",
+      "chunks": [
+        {
+          "title": "Output",
+          "content": "2026-10-20T09:12:01Z INFO  server starting on :8080\n2026-10-20T09:12:01Z INFO  pool opened max_connections=10\n2026-10-20T09:12:02Z INFO  migrations applied version=42\n2026-10-20T09:12:05Z WARN  slow request path=/orders duration=1.2s\n2026-10-20T09:12:09Z ERROR upstream refused connection host=db-primary\n2026-10-20T09:12:09Z INFO  retrying in 500ms\n2026-10-20T09:12:10Z INFO  reconnected host=db-primary\n2026-10-20T09:12:30Z INFO  health check ok\n2026-10-20T09:13:00Z INFO  health check ok\n2026-10-20T09:13:30Z INFO  shutting down\n",
+          "hasCode": false
+        }
+      ],
+      "terms": []
+    },
+    {
+      "path": "json/config.json",
+      "kind": "json",
+      "chunks": [
+        {
+          "title": "2",
+          "content": "\"keys that look like array indexes come first in JS\"",
+          "hasCode": true
+        },
+        {
+          "title": "10",
+          "content": "\"numeric-looking key\"",
+          "hasCode": true
+        },
+        {
+          "title": "service",
+          "content": "\"orders-api\"",
+          "hasCode": true
+        },
+        {
+          "title": "version",
+          "content": "3",
+          "hasCode": true
+        },
+        {
+          "title": "debug",
+          "content": "false",
+          "hasCode": true
+        },
+        {
+          "title": "owner",
+          "content": "null",
+          "hasCode": true
+        },
+        {
+          "title": "database > host",
+          "content": "\"db-primary.internal\"",
+          "hasCode": true
+        },
+        {
+          "title": "database > port",
+          "content": "5432",
+          "hasCode": true
+        },
+        {
+          "title": "database > pool > max_connections",
+          "content": "20",
+          "hasCode": true
+        },
+        {
+          "title": "database > pool > idle_timeout",
+          "content": "\"5m\"",
+          "hasCode": true
+        },
+        {
+          "title": "database > pool > connect_timeout",
+          "content": "2.5",
+          "hasCode": true
+        },
+        {
+          "title": "database > pool > retry",
+          "content": "{\n  \"attempts\": 3,\n  \"backoff\": \"exponential\",\n  \"jitter\": 0.001\n}",
+          "hasCode": true
+        },
+        {
+          "title": "database > replicas",
+          "content": "[\n  \"db-replica-1.internal\",\n  \"db-replica-2.internal\"\n]",
+          "hasCode": true
+        },
+        {
+          "title": "features > rate_limit",
+          "content": "{\n  \"enabled\": true,\n  \"capacity\": 100,\n  \"refill_ms\": 250\n}",
+          "hasCode": true
+        },
+        {
+          "title": "features > webhooks > enabled",
+          "content": "false",
+          "hasCode": true
+        },
+        {
+          "title": "features > webhooks > endpoints",
+          "content": "[]",
+          "hasCode": true
+        },
+        {
+          "title": "matrix",
+          "content": "[\n  [\n    1,\n    2,\n    3\n  ],\n  [\n    4,\n    5,\n    6\n  ]\n]",
+          "hasCode": true
+        },
+        {
+          "title": "points",
+          "content": "[\n  {\n    \"x\": 1,\n    \"y\": 2\n  },\n  {\n    \"x\": 3,\n    \"y\": 4\n  },\n  {\n    \"x\": 5,\n    \"y\": 6\n  }\n]",
+          "hasCode": true
+        },
+        {
+          "title": "unicode",
+          "content": "\"café ☕ 日本\"",
+          "hasCode": true
+        }
+      ],
+      "terms": [
+        "internal",
+        "false"
+      ]
+    },
+    {
+      "path": "json/large.json",
+      "kind": "json",
+      "chunks": [
+        {
+          "title": "(root) > src/pool/file_00.go…src/limiter/file_31.sql",
+          "content": "[\n  {\n    \"path\": \"src/pool/file_00.go\",\n    \"size\": 64,\n    \"owner\": \"ada\",\n    \"lines\": 1,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/limiter/file_01.md\",\n    \"size\": 7983,\n    \"owner\": \"grace\",\n    \"lines\": 132,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_02.json\",\n    \"size\": 15902,\n    \"owner\": \"alan\",\n    \"lines\": 263,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_03.sql\",\n    \"size\": 23821,\n    \"owner\": \"ken\",\n    \"lines\": 394,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_04.go\",\n    \"size\": 31740,\n    \"owner\": \"ada\",\n    \"lines\": 525,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_05.md\",\n    \"size\": 39659,\n    \"owner\": \"grace\",\n    \"lines\": 656,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_06.json\",\n    \"size\": 47578,\n    \"owner\": \"alan\",\n    \"lines\": 787,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_07.sql\",\n    \"size\": 5497,\n    \"owner\": \"ken\",\n    \"lines\": 18,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_08.go\",\n    \"size\": 13416,\n    \"owner\": \"ada\",\n    \"lines\": 149,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_09.md\",\n    \"size\": 21335,\n    \"owner\": \"grace\",\n    \"lines\": 280,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/pool/file_10.json\",\n    \"size\": 29254,\n    \"owner\": \"alan\",\n    \"lines\": 411,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_11.sql\",\n    \"size\": 37173,\n    \"owner\": \"ken\",\n    \"lines\": 542,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_12.go\",\n    \"size\": 45092,\n    \"owner\": \"ada\",\n    \"lines\": 673,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_13.md\",\n    \"size\": 3011,\n    \"owner\": \"grace\",\n    \"lines\": 804,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_14.json\",\n    \"size\": 10930,\n    \"owner\": \"alan\",\n    \"lines\": 35,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_15.sql\",\n    \"size\": 18849,\n    \"owner\": \"ken\",\n    \"lines\": 166,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_16.go\",\n    \"size\": 26768,\n    \"owner\": \"ada\",\n    \"lines\": 297,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_17.md\",\n    \"size\": 34687,\n    \"owner\": \"grace\",\n    \"lines\": 428,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_18.json\",\n    \"size\": 42606,\n    \"owner\": \"alan\",\n    \"lines\": 559,\n    \"generated\": true\n  },\n  {\n    \"path\": \"test/fixtures/file_19.sql\",\n    \"size\": 525,\n    \"owner\": \"ken\",\n    \"lines\": 690,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_20.go\",\n    \"size\": 8444,\n    \"owner\": \"ada\",\n    \"lines\": 821,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_21.md\",\n    \"size\": 16363,\n    \"owner\": \"grace\",\n    \"lines\": 52,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_22.json\",\n    \"size\": 24282,\n    \"owner\": \"alan\",\n    \"lines\": 183,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_23.sql\",\n    \"size\": 32201,\n    \"owner\": \"ken\",\n    \"lines\": 314,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_24.go\",\n    \"size\": 40120,\n    \"owner\": \"ada\",\n    \"lines\": 445,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_25.md\",\n    \"size\": 48039,\n    \"owner\": \"grace\",\n    \"lines\": 576,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_26.json\",\n    \"size\": 5958,\n    \"owner\": \"alan\",\n    \"lines\": 707,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_27.sql\",\n    \"size\": 13877,\n    \"owner\": \"ken\",\n    \"lines\": 838,\n    \"generated\": true\n  },\n  {\n    \"path\": \"docs/file_28.go\",\n    \"size\": 21796,\n    \"owner\": \"ada\",\n    \"lines\": 69,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_29.md\",\n    \"size\": 29715,\n    \"owner\": \"grace\",\n    \"lines\": 200,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_30.json\",\n    \"size\": 37634,\n    \"owner\": \"alan\",\n    \"lines\": 331,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_31.sql\",\n    \"size\": 45553,\n    \"owner\": \"ken\",\n    \"lines\": 462,\n    \"generated\": false\n  }\n]",
+          "hasCode": true
+        },
+        {
+          "title": "(root) > src/http/file_32.go…src/http/file_47.sql",
+          "content": "[\n  {\n    \"path\": \"src/http/file_32.go\",\n    \"size\": 3472,\n    \"owner\": \"ada\",\n    \"lines\": 593,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_33.md\",\n    \"size\": 11391,\n    \"owner\": \"grace\",\n    \"lines\": 724,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_34.json\",\n    \"size\": 19310,\n    \"owner\": \"alan\",\n    \"lines\": 855,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_35.sql\",\n    \"size\": 27229,\n    \"owner\": \"ken\",\n    \"lines\": 86,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_36.go\",\n    \"size\": 35148,\n    \"owner\": \"ada\",\n    \"lines\": 217,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/http/file_37.md\",\n    \"size\": 43067,\n    \"owner\": \"grace\",\n    \"lines\": 348,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_38.json\",\n    \"size\": 986,\n    \"owner\": \"alan\",\n    \"lines\": 479,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_39.sql\",\n    \"size\": 8905,\n    \"owner\": \"ken\",\n    \"lines\": 610,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_40.go\",\n    \"size\": 16824,\n    \"owner\": \"ada\",\n    \"lines\": 741,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/limiter/file_41.md\",\n    \"size\": 24743,\n    \"owner\": \"grace\",\n    \"lines\": 872,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_42.json\",\n    \"size\": 32662,\n    \"owner\": \"alan\",\n    \"lines\": 103,\n    \"generated\": false\n  },\n  {\n    \"path\": \"docs/file_43.sql\",\n    \"size\": 40581,\n    \"owner\": \"ken\",\n    \"lines\": 234,\n    \"generated\": false\n  },\n  {\n    \"path\": \"test/fixtures/file_44.go\",\n    \"size\": 48500,\n    \"owner\": \"ada\",\n    \"lines\": 365,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/pool/file_45.md\",\n    \"size\": 6419,\n    \"owner\": \"grace\",\n    \"lines\": 496,\n    \"generated\": true\n  },\n  {\n    \"path\": \"src/limiter/file_46.json\",\n    \"size\": 14338,\n    \"owner\": \"alan\",\n    \"lines\": 627,\n    \"generated\": false\n  },\n  {\n    \"path\": \"src/http/file_47.sql\",\n    \"size\": 22257,\n    \"owner\": \"ken\",\n    \"lines\": 758,\n    \"generated\": false\n  }\n]",
+          "hasCode": true
+        }
+      ],
+      "terms": []
+    },
+    {
+      "path": "json/users.json",
+      "kind": "json",
+      "chunks": [
+        {
+          "title": "(root)",
+          "content": "[\n  {\n    \"id\": 101,\n    \"name\": \"Ada Lovelace\",\n    \"role\": \"admin\",\n    \"address\": {\n      \"city\": \"London\",\n      \"zip\": \"N1\"\n    },\n    \"tags\": [\n      \"math\",\n      \"engines\"\n    ]\n  },\n  {\n    \"id\": 102,\n    \"name\": \"Grace Hopper\",\n    \"role\": \"editor\",\n    \"address\": {\n      \"city\": \"New York\",\n      \"zip\": \"10001\"\n    },\n    \"tags\": [\n      \"compilers\"\n    ]\n  },\n  {\n    \"id\": 103,\n    \"name\": \"Alan Turing\",\n    \"role\": \"viewer\",\n    \"address\": {\n      \"city\": \"Manchester\",\n      \"zip\": \"M1\"\n    },\n    \"tags\": []\n  },\n  {\n    \"id\": 104,\n    \"name\": \"Edsger Dijkstra\",\n    \"role\": \"editor\",\n    \"address\": {\n      \"city\": \"Nuenen\",\n      \"zip\": \"5671\"\n    },\n    \"tags\": [\n      \"paths\",\n      \"semaphores\"\n    ]\n  },\n  {\n    \"id\": 105,\n    \"name\": \"Barbara Liskov\",\n    \"role\": \"admin\",\n    \"address\": {\n      \"city\": \"Boston\",\n      \"zip\": \"02108\"\n    },\n    \"tags\": [\n      \"substitution\"\n    ]\n  },\n  {\n    \"id\": 106,\n    \"name\": \"Ken Thompson\",\n    \"role\": \"viewer\",\n    \"address\": {\n      \"city\": \"Murray Hill\",\n      \"zip\": \"07974\"\n    },\n    \"tags\": [\n      \"unix\",\n      \"regex\"\n    ]\n  },\n  {\n    \"id\": 107,\n    \"name\": \"Margaret Hamilton\",\n    \"role\": \"admin\",\n    \"address\": {\n      \"city\": \"Cambridge\",\n      \"zip\": \"02139\"\n    },\n    \"tags\": [\n      \"apollo\"\n    ]\n  },\n  {\n    \"id\": 108,\n    \"name\": \"Donald Knuth\",\n    \"role\": \"viewer\",\n    \"address\": {\n      \"city\": \"Stanford\",\n      \"zip\": \"94305\"\n    },\n    \"tags\": [\n      \"tex\",\n      \"algorithms\"\n    ]\n  }\n]",
+          "hasCode": true
+        }
+      ],
+      "terms": []
+    }
+  ]
+}

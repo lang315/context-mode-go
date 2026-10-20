@@ -1,0 +1,30 @@
+{
+  "service": "orders-api",
+  "version": 3,
+  "debug": false,
+  "owner": null,
+  "database": {
+    "host": "db-primary.internal",
+    "port": 5432,
+    "pool": {
+      "max_connections": 20,
+      "idle_timeout": "5m",
+      "connect_timeout": 2.5,
+      "retry": { "attempts": 3, "backoff": "exponential", "jitter": 1e-3 }
+    },
+    "replicas": ["db-replica-1.internal", "db-replica-2.internal"]
+  },
+  "features": {
+    "rate_limit": { "enabled": true, "capacity": 100, "refill_ms": 250 },
+    "webhooks": { "enabled": false, "endpoints": [] }
+  },
+  "matrix": [[1, 2, 3], [4, 5, 6]],
+  "points": [
+    { "x": 1, "y": 2 },
+    { "x": 3, "y": 4 },
+    { "x": 5, "y": 6 }
+  ],
+  "unicode": "café ☕ 日本",
+  "10": "numeric-looking key",
+  "2": "keys that look like array indexes come first in JS"
+}
