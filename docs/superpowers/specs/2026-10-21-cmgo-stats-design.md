@@ -33,7 +33,7 @@ This builds on the core, hooks and session-memory specs. The TS reference is `a5
 
    Unit tests pin each definition.
 2. **Stats go to the right session:** server statistics are attributed to the Claude Code session that owns the server process (§1.2), with two concurrent sessions in one project in the test.
-3. **Statusline speed:** p95 ≤ 10 ms over 200 runs against a DB with 100 sessions and 50,000 events (`bench/hook-latency.py` gains the case). It never writes to the DB.
+3. **Statusline speed:** p95 ≤ 10 ms over 200 runs against a DB with 100 sessions and 50,000 events (`bench/hook-latency.py` gains the case). The cost must not grow with the number of `tool_stats` rows: the lifetime sum reads `stats_totals`. It never writes the main DB file.
 4. **No idle writes:** the idle-write criterion still holds. Counters are written only when a tool call finishes.
 
 ### Out of scope / dropped
@@ -50,34 +50,51 @@ CREATE TABLE tool_stats (
   cc_pid INTEGER NOT NULL,          -- Claude Code process that owns the server (§1.2), 0 if unknown
   project TEXT NOT NULL,
   tool TEXT NOT NULL,
+  window TEXT NOT NULL DEFAULT '',   -- session id the call was attributed to at write time ('' when none)
   calls INTEGER NOT NULL DEFAULT 0,
   bytes_returned INTEGER NOT NULL DEFAULT 0,
   bytes_kept INTEGER NOT NULL DEFAULT 0,
   started_at TEXT NOT NULL,         -- server start, UTC 'YYYY-MM-DD HH:MM:SS'
-  window TEXT NOT NULL DEFAULT '',   -- started_at of the linked session at write time ('' when none)
   updated_at TEXT NOT NULL,
   PRIMARY KEY (server_id, tool, window)
 );
-CREATE INDEX tool_stats_cc ON tool_stats(cc_pid, updated_at);
+CREATE INDEX tool_stats_window ON tool_stats(window);
 CREATE INDEX tool_stats_project ON tool_stats(project);
+CREATE TABLE stats_totals (         -- running lifetime sums, one row per project
+  project TEXT PRIMARY KEY,
+  calls INTEGER NOT NULL DEFAULT 0,
+  bytes_returned INTEGER NOT NULL DEFAULT 0,
+  bytes_kept INTEGER NOT NULL DEFAULT 0,
+  first_at TEXT NOT NULL
+);
 ALTER TABLE session_meta ADD COLUMN cc_pid INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE session_meta ADD COLUMN linked_at TEXT NOT NULL DEFAULT '';  -- UTC with milliseconds, set by SetSessionCC
+CREATE INDEX session_meta_cc ON session_meta(cc_pid, project, linked_at);
+CREATE INDEX session_events_redirect ON session_events(bytes_avoided) WHERE category = 'redirect';
 ```
 Sub-project 3 adds no schema change, so this is migration 3.
 
 ### 1.2 Linking a server to a session
 Hooks, the statusline and `cmgo serve` all run under the same Claude Code process. The MCP server is never told its session id, because Claude Code does not export `CLAUDE_SESSION_ID` to MCP servers (R4 §A.2).
 
-- **Finding `cc_pid`:** walk the parent chain from the current process, up to 8 hops. `cc_pid` is the first ancestor whose executable name contains `claude` (case-insensitive).
-  - On darwin the walk uses `sysctl kern.proc.pid.<pid>` (`golang.org/x/sys/unix.SysctlKinfoProc`, already in the module graph).
-  - On Linux it reads `/proc/<pid>/stat`.
-  - If no ancestor matches, `cc_pid` is 0.
-- **SessionStart** (every source, `clear` included, because `/clear` starts a new session in the same Claude Code process) stores `cc_pid` in `session_meta` for its session id. It is the hook's first DB write, so server calls that follow are tagged with the new session.
-- **`cmgo serve`** computes `cc_pid` once at start and writes it in every `tool_stats` row.
-- **Each `tool_stats` write is tagged** with `window` = the `started_at` of the newest `session_meta` row with the server's `cc_pid` and project, read in the same transaction (`''` when there is none).
-- **A session's server stats** are the rows with its `cc_pid`, project and `window` = its `started_at`. After `/clear`, the new session gets a new `started_at`, so its calls go to new rows, and the previous session's rows stay with it.
+- **Finding `cc_pid`:** walk the parent chain from the current process, up to 8 hops. `cc_pid` is the first ancestor whose executable path, `argv[0]` or `argv[1]` has a path element containing `claude` (case-insensitive).
+  - **Why not the process name:** on darwin the native installer starts `~/.local/bin/claude`, a symlink to `~/.local/share/claude/versions/<version>`. The kernel's process name is then the version (`2.1.304`), so matching on it never finds Claude Code.
+  - **Node installs:** `argv[1]` names `.../@anthropic-ai/claude-code/cli.js`.
+  - **darwin:** the walk uses `sysctl kern.proc.pid` for the parent and `kern.procargs2` for the executable path and argv, through `golang.org/x/sys/unix`.
+  - **Linux:** it uses `/proc/<pid>/stat`, `/proc/<pid>/exe` and `/proc/<pid>/cmdline`.
+  - **No match:** `cc_pid` is 0, and 0 never links.
+- **SessionStart** stores `cc_pid` and sets `linked_at` to the current time, with milliseconds, for its session id. It does this for every source, `clear` and `resume` included, as the hook's first DB write.
+- **`cmgo serve`** computes `cc_pid` once at start. Each `tool_stats` write sets `window` to the session id with the newest `linked_at` among sessions with the server's `cc_pid` and project, or `''` when there is none.
+- **A session's server stats** are the rows whose `window` is its session id.
+  - **`/clear` and `/resume`:** both re-link in the same process, so later calls go to the right session.
+  - **Same second:** two sessions started in the same second do not mix, because `linked_at` has millisecond precision.
 
 ### 1.3 Counting
-`mcpserver` records each tool call after its result is built. One UPSERT per call adds 1 to `calls`, plus that call's `bytes_returned` (UTF-8 bytes of all result text) and `bytes_kept`.
+`mcpserver` records each tool call after its result is built. Each call adds 1 to `calls`, plus its `bytes_returned` (UTF-8 bytes of all result text) and `bytes_kept`, to the call's `tool_stats` row and to the project's `stats_totals` row.
+
+- **No waiting on a tool call:** the write goes through a single background worker with a buffered queue. A tool call never waits on the stats write; when the queue is full the record is dropped.
+- **Shutdown:** `serve` drains the queue for at most 1 s.
+- **`ctx_purge`:** its calls are not recorded, so a purge does not leave a fresh row behind.
 
 | Tool | raw bytes |
 |---|---|
@@ -115,14 +132,14 @@ cmgo <version>
 Details:
 - **"This session":** the caller's session is resolved as in §1.2, from `serve`'s own `cc_pid`. If no session is linked, the session lines are replaced by `This session  ·  no hook data yet (is cmgo-hook installed?)`. The server's own `tool_stats` rows are still shown.
 - **`pct`:** `round(kept / raw * 100)`, or `0` when raw is 0.
-- **Lifetime:** sums over all `tool_stats` rows, plus the redirected `bytes_avoided`. The start date is the earliest `started_at`.
+- **Lifetime:** sums over `stats_totals`, plus the redirected `bytes_avoided`. The start date is the earliest `first_at`.
 
 ## 3. Statusline
 `cmgo-hook statusline` reads Claude Code's statusLine stdin JSON and prints one line with no trailing newline, then exits 0.
 
 Data sources:
 - **Session id:** `session_id` from stdin, else `CLAUDE_SESSION_ID`.
-- **DB:** opened read-only (`mode=ro`, no migrations). If the DB is missing or older than migration 3, the line falls back.
+- **DB:** opened read-only (`mode=ro`, no migrations). The main DB file is never written. SQLite may create or update the `-wal` and `-shm` files, as any WAL reader does. If the DB is missing or older than migration 3, the line falls back.
 
 Output, plain text with no ANSI, because Claude Code's stdout is a pipe:
 
@@ -136,8 +153,8 @@ Output, plain text with no ANSI, because Claude Code's stdout is a pipe:
 
 ## 4. Other changes
 - **Routing block:** it gains the `ctx stats` command lines from TS `<ctx_commands>` (RB:62-77), rewording "context savings question" to keep the same trigger list.
-- **`cmgo install`:** sets `statusLine` to `{"type":"command","command":"<shell-quoted hook binary> statusline"}` when it is absent or is cmgo's own, so a reinstall from a new path updates it. When another statusline is set, it prints a notice and leaves it. `uninstall` removes `statusLine` only when it is cmgo's.
-- **`ctx_purge`, project scope:** also deletes the project's `tool_stats` rows. The message lists `session stats`.
+- **`cmgo install`:** sets `statusLine` to `{"type":"command","command":"<shell-quoted hook binary> statusline"}` when it is absent or `null`, and updates only the `command` of cmgo's own entry (other fields such as `padding` are kept), so a reinstall from a new path works. When another statusline is set, it prints a notice and leaves it. `uninstall` removes `statusLine` only when it is cmgo's.
+- **`ctx_purge`, project scope:** also deletes the project's `tool_stats` and `stats_totals` rows. The message lists `session stats`. "Nothing to purge" is shown only when no sources, sessions or stats rows were deleted.
 
 ## 5. Testing
 - **Unit tests:**
