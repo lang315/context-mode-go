@@ -178,7 +178,7 @@ func TestSearchDescriptionMentionsSessionMemory(t *testing.T) {
 		"(recently indexed content, prior session events, auto-memory)",
 		"You want a chronological view across current session + prior sessions + persistent auto-memory (pass `sort: \"timeline\"`",
 		"AND no session memory has accumulated around it",
-		"Common session-memory source labels: `decision`",
+		"Common session-memory source labels: `decision` (user corrections / preferences), `error` (past failures), `blocker`, `plan`, `user-prompt`, `rejected-approach`, `compaction`",
 		`EXAMPLE: ctx_search(queries: ["what did we decide about caching"], source: "decision", sort: "timeline")`,
 		`EXAMPLE: ctx_search(queries: ["last user prompt", "active skills", "open blockers"], sort: "timeline")`,
 	} {
@@ -186,7 +186,7 @@ func TestSearchDescriptionMentionsSessionMemory(t *testing.T) {
 			t.Errorf("description lacks %q", s)
 		}
 	}
-	for _, s := range []string{"ctx_stats", "CONTEXT_MODE_", "ctx_index", "content hash", "oldest first"} {
+	for _, s := range []string{"ctx_stats", "CONTEXT_MODE_", "ctx_index", "content hash", "oldest first", "error-resolution"} {
 		if strings.Contains(searchDescription, s) {
 			t.Errorf("description still has %q", s)
 		}
