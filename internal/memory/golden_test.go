@@ -105,3 +105,11 @@ func TestGoldenDirective(t *testing.T) {
 		}
 	}
 }
+
+func TestGoldenAutoInjection(t *testing.T) {
+	for _, c := range loadGolden(t, "memory-autoinjection.json").Cases {
+		if got := AutoInjection(c.stored()); got != c.Expected {
+			t.Errorf("%s:\n--- got\n%s\n--- want\n%s", c.Name, got, c.Expected)
+		}
+	}
+}
