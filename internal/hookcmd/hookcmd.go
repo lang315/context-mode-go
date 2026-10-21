@@ -24,6 +24,11 @@ import (
 // Code closes stdin. A var so the test need not wait 2 s.
 var stdinTimeout = 2 * time.Second
 
+// dbBusyTimeout bounds every wait for the shared DB's lock. Claude Code waits
+// for the hook process to exit, so on BUSY the hook drops its events and
+// logs one line (spec §1.2) instead of stalling the session.
+const dbBusyTimeout = 2 * time.Second
+
 // guidanceMaxAge is how long a guidance marker dir is kept (spec §4).
 const guidanceMaxAge = 7 * 24 * time.Hour
 
@@ -150,7 +155,7 @@ func (h *hookCtx) insertEvents(sourceHook string, evs []store.Event) error {
 	if len(evs) == 0 {
 		return nil
 	}
-	st, err := store.Open(h.cfg.DBPath)
+	st, err := store.OpenWith(h.cfg.DBPath, store.Options{BusyTimeout: dbBusyTimeout})
 	if err != nil {
 		return err
 	}

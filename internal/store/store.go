@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -87,9 +88,28 @@ CREATE INDEX session_events_project ON session_events(project, id);
 CREATE INDEX session_events_evict ON session_events(session_id, priority, id);`,
 }
 
+// defaultBusyTimeout is how long a statement or the WAL switch waits for
+// another connection's lock. The server keeps it; hooks use a shorter one.
+const defaultBusyTimeout = 30 * time.Second
+
+// Options tunes OpenWith. The zero value is what Open uses.
+type Options struct {
+	// BusyTimeout bounds every lock wait, the WAL switch included.
+	// 0 means 30 s.
+	BusyTimeout time.Duration
+}
+
 // Open creates the parent directory, opens the DB with WAL pragmas and
 // applies pending migrations.
-func Open(path string) (*Store, error) {
+func Open(path string) (*Store, error) { return OpenWith(path, Options{}) }
+
+// OpenWith is Open with options. Claude Code waits for a hook process to
+// exit, so hooks pass a short BusyTimeout and drop their events on BUSY.
+func OpenWith(path string, opts Options) (*Store, error) {
+	busy := opts.BusyTimeout
+	if busy <= 0 {
+		busy = defaultBusyTimeout
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
@@ -103,7 +123,7 @@ func Open(path string) (*Store, error) {
 	// a session fail to start while another session was writing.
 	dsn := (&url.URL{Scheme: "file", Path: abs}).String() +
 		"?_txlock=immediate" +
-		"&_pragma=busy_timeout(30000)" +
+		"&_pragma=busy_timeout(" + strconv.FormatInt(busy.Milliseconds(), 10) + ")" +
 		"&_pragma=synchronous(NORMAL)" +
 		"&_pragma=foreign_keys(ON)"
 	db, err := driver.Open(dsn, fts5.Register)
@@ -114,7 +134,7 @@ func Open(path string) (*Store, error) {
 	db.SetConnMaxLifetime(0)
 	db.SetConnMaxIdleTime(0)
 	s := &Store{db: db, fuzzyVals: map[string]string{}}
-	if err := s.ensureWAL(); err != nil {
+	if err := s.ensureWAL(busy); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -125,13 +145,11 @@ func Open(path string) (*Store, error) {
 	return s, nil
 }
 
-// walSwitchTimeout bounds retries of the WAL switch; it matches busy_timeout.
-const walSwitchTimeout = 30 * time.Second
-
 // ensureWAL switches the file to WAL once. Reading the mode takes no lock;
-// the switch is retried with backoff while another connection holds a lock.
-func (s *Store) ensureWAL() error {
-	deadline := time.Now().Add(walSwitchTimeout)
+// the switch is retried with backoff for up to busy while another connection
+// holds a lock.
+func (s *Store) ensureWAL(busy time.Duration) error {
+	deadline := time.Now().Add(busy)
 	wait := 10 * time.Millisecond
 	for {
 		var mode string
@@ -173,6 +191,15 @@ func isBusy(err error) bool {
 // migrate re-reads user_version inside an IMMEDIATE transaction so two
 // processes opening a fresh file at once do not both run step 1.
 func (s *Store) migrate() error {
+	// A plain read takes no write lock: an up-to-date DB (every hook fire)
+	// must not queue behind another session's write transaction.
+	var cur int
+	if err := s.db.QueryRow("PRAGMA user_version").Scan(&cur); err != nil {
+		return err
+	}
+	if cur >= len(migrations) {
+		return nil
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
