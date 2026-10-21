@@ -9323,3 +9323,30 @@ PASS
 - **The fail-first steps:** the replay ran none of the Step 2 runs. The drafting agents replayed their own tasks one by one and recorded each "Expected: FAIL" line from a real run. A few line numbers in those lines may be off by a line or two: some intermediate files were patched to carry the sub-project 3 review fixes.
 - **The Linux `/proc` lookup:** only the parser is tested. The lookup itself was never run on Linux.
 - **Live Claude Code:** real `cc_pid` linking under Claude Code, and the statusLine end to end, were not checked.
+
+## Appendix C: Execution notes (2026-10-21)
+
+The plan was executed on branch `sp4-stats` with reviews at three checkpoints (Tasks 6, 15, 19) and a whole-branch review. Every file of Tasks 1-19 matched this plan byte for byte, and the finished tree equalled the draft, including the real `go mod tidy` of Task 3.
+
+**Errata in this plan:** none found during execution.
+
+**Fixed after the whole-branch review** (one commit each, test first). The spec was updated first (§1.1-1.3, §3, §4). Migration 3 was edited in place, because it had never been released.
+
+| Finding | Fix |
+|---|---|
+| **Critical:** `cc_pid` was always 0 on darwin with Claude Code's native installer. The kernel process name is the version (`2.1.304`), because `~/.local/bin/claude` is a symlink into `versions/` | `procinfo` matches `claude` in a path element of the executable path, `argv[0]` or `argv[1]` (darwin `kern.procargs2`, Linux `/proc/<pid>/exe` and `cmdline`). A smoke test checks the real ancestor when run under Claude Code |
+| `/resume` of an older session, and two `/clear`s in one second, attributed calls to the wrong session | `session_meta.linked_at` (ms) set by `SetSessionCC`; `tool_stats.window` is the session id with the newest `linked_at` for the server's `cc_pid` and project |
+| Every tool call did an inline stats write with a 30 s busy timeout | One background worker with a 256-slot queue; drop when full; `serve` drains for 1 s; `ctx_stats` and `ctx_purge` flush first; `ctx_purge` is not recorded |
+| The lifetime sum scanned all `tool_stats` rows on every statusline render | `stats_totals` running sums per project; the statusline takes 6 ms instead of 12 ms at 50,000 rows |
+| A purge with only stats rows said "Nothing to purge" | `PurgeProject` counts stats rows and drops the totals |
+| `"statusLine": null` blocked cmgo's statusline; reinstall dropped user fields | Null counts as absent; reinstall updates only `command` |
+
+**Final state:**
+- **Tests:** 442 pass, 0 fail; `go test -race ./...` clean.
+- **Real check under Claude Code:** `cmgo-hook sessionstart` stored the real Claude Code pid in `session_meta.cc_pid`.
+- **Bench:** at load average about 5.5 every case passes. The 4-worker concurrent case p95 is 9.3-10.0 ms; the statusline p95 is about 6 ms.
+- **Idle writes:** 0 bytes in 60 s.
+
+**Open follow-ups:**
+- The 4-worker hook case runs at the limit on a loaded machine.
+- The statusline may create the `-wal` and `-shm` files when they are missing, as any SQLite WAL reader does. The main DB file is never written.
