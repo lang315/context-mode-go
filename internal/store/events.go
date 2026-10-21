@@ -61,7 +61,7 @@ func (s *Store) InsertEvents(sessionID, project, sourceHook string, evs []Event)
 		return 0, err
 	}
 	defer tx.Rollback()
-	inserted, err := insertEvents(tx, sessionID, project, sourceHook, evs)
+	inserted, _, err := insertEvents(tx, sessionID, project, sourceHook, evs)
 	if err != nil {
 		return 0, err
 	}
@@ -69,15 +69,16 @@ func (s *Store) InsertEvents(sessionID, project, sourceHook string, evs []Event)
 }
 
 // insertEvents is InsertEvents inside the caller's transaction, so other
-// writers (CompactSession) apply the same meta upsert, dedup and cap.
-func insertEvents(tx *sql.Tx, sessionID, project, sourceHook string, evs []Event) (int, error) {
+// writers (CompactSession) apply the same meta upsert, dedup and cap. It also
+// returns the session's linked_at, read by the meta update it already runs.
+func insertEvents(tx *sql.Tx, sessionID, project, sourceHook string, evs []Event) (int, string, error) {
 	if _, err := tx.Exec(`INSERT OR IGNORE INTO session_meta(session_id, project, started_at, last_event_at)
 VALUES(?, ?, datetime('now'), datetime('now'))`, sessionID, project); err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	var count int
 	if err := tx.QueryRow("SELECT count(*) FROM session_events WHERE session_id = ?", sessionID).Scan(&count); err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	inserted := 0
 	for _, ev := range evs {
@@ -89,7 +90,7 @@ VALUES(?, ?, datetime('now'), datetime('now'))`, sessionID, project); err != nil
   SELECT type, data_hash FROM session_events WHERE session_id = ? ORDER BY id DESC LIMIT ?
 ) WHERE type = ? AND data_hash = ?`, sessionID, EventDedupWindow, ev.Type, hash).Scan(&dup)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 		if dup > 0 {
 			continue
@@ -101,13 +102,13 @@ VALUES(?, ?, datetime('now'), datetime('now'))`, sessionID, project); err != nil
 			var victimPriority int
 			if err := tx.QueryRow(`SELECT id, priority FROM session_events WHERE session_id = ?
 ORDER BY priority DESC, id ASC LIMIT 1`, sessionID).Scan(&victimID, &victimPriority); err != nil {
-				return 0, err
+				return 0, "", err
 			}
 			if victimPriority < ev.Priority {
 				continue
 			}
 			if _, err := tx.Exec("DELETE FROM session_events WHERE id = ?", victimID); err != nil {
-				return 0, err
+				return 0, "", err
 			}
 		} else {
 			count++
@@ -115,15 +116,16 @@ ORDER BY priority DESC, id ASC LIMIT 1`, sessionID).Scan(&victimID, &victimPrior
 		if _, err := tx.Exec(`INSERT INTO session_events(session_id, project, type, category, priority, data, data_hash, source_hook, bytes_avoided, created_at)
 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
 			sessionID, project, ev.Type, ev.Category, ev.Priority, data, hash, sourceHook, ev.BytesAvoided); err != nil {
-			return 0, err
+			return 0, "", err
 		}
 		inserted++
 	}
-	if _, err := tx.Exec("UPDATE session_meta SET last_event_at = datetime('now'), event_count = event_count + ? WHERE session_id = ?",
-		inserted, sessionID); err != nil {
-		return 0, err
+	var linkedAt string
+	if err := tx.QueryRow("UPDATE session_meta SET last_event_at = datetime('now'), event_count = event_count + ? WHERE session_id = ? RETURNING linked_at",
+		inserted, sessionID).Scan(&linkedAt); err != nil {
+		return 0, "", err
 	}
-	return inserted, nil
+	return inserted, linkedAt, nil
 }
 
 // SessionEvents returns a session's rows ordered by id.

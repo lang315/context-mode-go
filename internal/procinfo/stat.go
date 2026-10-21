@@ -7,19 +7,36 @@ import (
 	"strings"
 )
 
-// parseStat reads the parent pid from a Linux /proc/<pid>/stat line:
-// "pid (comm) state ppid ...". comm may contain spaces and parentheses, so it
-// ends at the last ')'. It lives in an untagged file so darwin runs its tests.
-func parseStat(s string) (ppid int, err error) {
+// parseStat reads the parent pid and field 22, the start time in clock ticks
+// after boot, from a Linux /proc/<pid>/stat line: "pid (comm) state ppid ...".
+// comm may contain spaces and parentheses, so it ends at the last ')'. A line
+// too short for field 22 gives startTicks 0 (unknown). It lives in an untagged
+// file so darwin runs its tests.
+func parseStat(s string) (ppid int, startTicks int64, err error) {
 	end := strings.LastIndexByte(s, ')')
 	if strings.IndexByte(s, '(') < 0 || end < 0 {
-		return 0, errors.New("procinfo: malformed stat")
+		return 0, 0, errors.New("procinfo: malformed stat")
 	}
-	f := strings.Fields(s[end+1:]) // state, ppid, ...
+	f := strings.Fields(s[end+1:]) // field 3 (state) onwards
 	if len(f) < 2 {
-		return 0, errors.New("procinfo: short stat")
+		return 0, 0, errors.New("procinfo: short stat")
 	}
-	return strconv.Atoi(f[1])
+	if ppid, err = strconv.Atoi(f[1]); err != nil {
+		return 0, 0, err
+	}
+	if len(f) >= 20 {
+		startTicks, _ = strconv.ParseInt(f[19], 10, 64)
+	}
+	return ppid, startTicks, nil
+}
+
+// parseBtime reads the boot time (Unix seconds) from Linux /proc/stat.
+func parseBtime(s string) (int64, error) {
+	if _, rest, ok := strings.Cut(s, "\nbtime "); ok {
+		v, _, _ := strings.Cut(rest, "\n")
+		return strconv.ParseInt(v, 10, 64)
+	}
+	return 0, errors.New("procinfo: no btime in /proc/stat")
 }
 
 // parseCmdline returns argv[0] and argv[1] from a Linux /proc/<pid>/cmdline,

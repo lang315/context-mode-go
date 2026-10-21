@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"time"
 )
 
 // ToolStat is one tool's summed tool_stats counters.
@@ -13,7 +14,7 @@ type ToolStat struct {
 
 // AddToolStat records one finished tool call of a cmgo serve process: calls+1
 // and the call's bytes are added, updated_at becomes now. The row's window is
-// the id of the session most recently linked to ccPID in project (” when
+// the id of the session most recently linked to ccPID in project (empty when
 // there is none, or ccPID is 0), so after a /clear or /resume the calls go to
 // that session's rows (stats spec §1.2). The first call of a (serverID, tool,
 // window) inserts the row with startedAt, the server start. One statement:
@@ -49,23 +50,67 @@ ON CONFLICT(project) DO UPDATE SET calls = calls + 1, bytes_returned = bytes_ret
 const newestSession = `SELECT session_id FROM session_meta WHERE cc_pid = ?2 AND project = ?3
 ORDER BY linked_at DESC, rowid DESC LIMIT 1`
 
+// linkedNow is the linked_at value of a link made now. Both link paths use it:
+// newestSession orders sessions by it, so they must write the same format.
+const linkedNow = `strftime('%Y-%m-%d %H:%M:%f', 'now')`
+
 // SetSessionCC records the Claude Code pid that owns a session and when it was
 // linked (stats spec §1.2). Every SessionStart source calls it, so /clear and
 // /resume re-link in the same process. A session not seen yet gets its
 // session_meta row, as InsertEvents' upsert would create it.
 func (s *Store) SetSessionCC(sessionID, project string, ccPID int) error {
 	_, err := s.db.Exec(`INSERT INTO session_meta(session_id, project, started_at, last_event_at, cc_pid, linked_at)
-VALUES(?1, ?2, datetime('now'), datetime('now'), ?3, strftime('%Y-%m-%d %H:%M:%f', 'now'))
+VALUES(?1, ?2, datetime('now'), datetime('now'), ?3, `+linkedNow+`)
 ON CONFLICT(session_id) DO UPDATE SET cc_pid = excluded.cc_pid, linked_at = excluded.linked_at`, sessionID, project, ccPID)
 	return err
 }
 
-// SessionCC returns the Claude Code pid linked to a session, 0 when it has
-// none. The session_meta row must exist (InsertEvents creates it).
-func (s *Store) SessionCC(sessionID string) (int, error) {
-	var cc int
-	err := s.db.QueryRow("SELECT cc_pid FROM session_meta WHERE session_id = ?", sessionID).Scan(&cc)
-	return cc, err
+// InsertEventsAndLink is InsertEvents that also links a session no cmgo
+// SessionStart has seen, such as one started before cmgo was installed, in
+// the same transaction (stats spec §1.2). findClaude returns the Claude Code
+// pid and when that process started; it runs only while the session's
+// linked_at is empty, so once per session, also when it finds none (cc_pid
+// stays 0, unknown). A linked session is left alone: its linked_at picks the
+// window.
+func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs []Event, findClaude func() (int, time.Time)) (int, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	inserted, linkedAt, err := insertEvents(tx, sessionID, project, sourceHook, evs)
+	if err != nil {
+		return 0, err
+	}
+	if linkedAt == "" {
+		cc, start := findClaude()
+		if err := linkLate(tx, sessionID, project, cc, start); err != nil {
+			return 0, err
+		}
+	}
+	return inserted, tx.Commit()
+}
+
+// linkLate records cc as the session's Claude Code pid, and sets linked_at
+// even when cc is 0, so the walk does not run again. The rows that process's
+// servers wrote for the project before the link, with an empty window, then
+// move to the session. Only servers started at or after ccStart are this
+// process's, so the rows of an earlier process that had the same pid stay
+// put; a zero ccStart (unknown) takes every row. No row of the session's
+// window can exist yet: a server writes that window only once the session is
+// linked to its pid.
+func linkLate(tx *sql.Tx, sessionID, project string, cc int, ccStart time.Time) error {
+	if _, err := tx.Exec(`UPDATE session_meta SET cc_pid = ?, linked_at = `+linkedNow+` WHERE session_id = ?`,
+		cc, sessionID); err != nil {
+		return err
+	}
+	if cc == 0 {
+		return nil
+	}
+	// started_at has whole seconds, so ccStart is cut to the second as well.
+	_, err := tx.Exec("UPDATE tool_stats SET window = ? WHERE cc_pid = ? AND project = ? AND window = '' AND started_at >= ?",
+		sessionID, cc, project, ccStart.UTC().Format(sqliteTime))
+	return err
 }
 
 // StatsQuery identifies the cmgo serve process asking for ctx_stats.

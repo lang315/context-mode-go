@@ -177,25 +177,12 @@ func (h *hookCtx) insertEvents(sourceHook string, evs []store.Event) error {
 		return err
 	}
 	defer st.Close()
-	if _, err := st.InsertEvents(h.sid, h.cfg.ProjectKey, sourceHook, evs); err != nil {
-		return err
-	}
-	return h.linkUnseenSession(st)
-}
-
-// linkUnseenSession links a session that no cmgo SessionStart has seen, such
-// as one started before cmgo was installed, so the server's stats reach it
-// (stats spec §1.2). A linked session is left alone: its linked_at picks the
-// window.
-func (h *hookCtx) linkUnseenSession(st *store.Store) error {
-	cc, err := st.SessionCC(h.sid)
-	if err != nil || cc != 0 {
-		return err
-	}
-	if cc = procinfo.ClaudePID(os.Getpid(), procLookup); cc == 0 {
-		return nil
-	}
-	return st.SetSessionCC(h.sid, h.cfg.ProjectKey, cc)
+	// A session started before cmgo was installed is linked here, so the
+	// server's stats reach it (stats spec §1.2).
+	_, err = st.InsertEventsAndLink(h.sid, h.cfg.ProjectKey, sourceHook, evs, func() (int, time.Time) {
+		return procinfo.Claude(os.Getpid(), procLookup)
+	})
+	return err
 }
 
 // notNull is JS `input[key] != null`: present and not JSON null.

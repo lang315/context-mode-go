@@ -24,7 +24,7 @@ func TestParseStat(t *testing.T) {
 		{"77 (x) S abc 1", 0, "", false},
 	}
 	for _, c := range cases {
-		ppid, err := parseStat(c.in)
+		ppid, _, err := parseStat(c.in)
 		if (err == nil) != c.ok || ppid != c.ppid {
 			t.Errorf("parseStat(%q) = %d, %v; want %d, ok=%v", c.in, ppid, err, c.ppid, c.ok)
 		}
