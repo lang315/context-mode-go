@@ -107,8 +107,12 @@ func purgeTool(d *Deps, raw json.RawMessage) *mcp.CallToolResult {
 		}
 		return TextResult("Purged session "+sessionID+": "+what+". Other sessions and project-wide stats preserved.", false)
 	default: // "project", or bare {confirm:true}
-		if _, _, err := d.Store.PurgeProject(d.Cfg.ProjectKey); err != nil {
+		sources, sessions, err := d.Store.PurgeProject(d.Cfg.ProjectKey)
+		if err != nil {
 			return ErrorResult("Purge error: %v", err)
+		}
+		if sources == 0 && sessions == 0 {
+			return TextResult("Nothing to purge for this project ("+d.Cfg.ProjectKey+").", false)
 		}
 		return TextResult("Purged: knowledge base (FTS5), session events. All session data for this project has been permanently deleted.", false)
 	}

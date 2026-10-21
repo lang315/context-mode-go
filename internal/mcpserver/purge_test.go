@@ -87,3 +87,24 @@ func TestPurgeProjectRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// A purge that matched nothing must not claim a permanent deletion.
+func TestPurgeProjectNothingToPurge(t *testing.T) {
+	h := newHarness(t, nil)
+	want := "Nothing to purge for this project (" + h.Deps.Cfg.ProjectKey + ")."
+	if out, isErr := h.call("ctx_purge", `{"confirm": true}`); isErr || out != want {
+		t.Fatalf("isErr=%v %q, want %q", isErr, out, want)
+	}
+	// Only another project has data: still nothing for this one.
+	if _, err := h.Deps.Store.Index("/other/project", "notes", []store.Chunk{{Title: "B", Content: "elsewhere"}}); err != nil {
+		t.Fatal(err)
+	}
+	if out, _ := h.call("ctx_purge", `{"confirm": true, "scope": "project"}`); out != want {
+		t.Fatalf("other project only: %q", out)
+	}
+	// Data present: the old message.
+	h.index("notes", store.Chunk{Title: "Alpha", Content: "gizmo text"})
+	if out, _ := h.call("ctx_purge", `{"confirm": true}`); out != purgeProjectMsg {
+		t.Fatalf("with data: %q", out)
+	}
+}
