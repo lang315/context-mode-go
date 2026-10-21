@@ -274,3 +274,52 @@ func TestHookSessionStartOtherSources(t *testing.T) {
 	}
 	noDB(t, env)
 }
+
+func TestHookPostToolUse(t *testing.T) {
+	env := hookEnv(t)
+	if out := callHook(t, env, "posttooluse", `{"tool_name":"Read","tool_input":{"file_path":"/p/a.go"},"tool_response":{"type":"text","file":{"filePath":"/p/a.go","content":"x"}},"session_id":"s1"}`); out != "" {
+		t.Fatalf("got %q", out)
+	}
+	assertRows(t, eventRows(t, env, "s1"), "file_read|file|1|/p/a.go|PostToolUse|0")
+
+	env = hookEnv(t)
+	callHook(t, env, "posttooluse", `{"tool_name":"WebSearch","tool_input":{"query":"x"},"session_id":"s1"}`)
+	noDB(t, env)
+}
+
+func TestHookPostToolUseFailure(t *testing.T) {
+	env := hookEnv(t)
+	if out := callHook(t, env, "posttoolusefailure", `{"tool_name":"Bash","tool_input":{"command":"false"},"error":"exit 1","session_id":"s1"}`); out != "" {
+		t.Fatalf("got %q", out)
+	}
+	assertRows(t, eventRows(t, env, "s1"), "error_tool|error|2|exit 1|PostToolUseFailure|0")
+}
+
+func TestHookUserPromptSubmit(t *testing.T) {
+	env := hookEnv(t)
+	if out := callHook(t, env, "userpromptsubmit", `{"prompt":"hello","session_id":"s1"}`); out != "" {
+		t.Fatalf("got %q", out)
+	}
+	callHook(t, env, "userpromptsubmit", `{"message":"from message","session_id":"s1"}`) // TS: prompt ?? message
+	assertRows(t, eventRows(t, env, "s1"),
+		"user_prompt|user-prompt|1|hello|UserPromptSubmit|0",
+		"intent|intent|4|implement|UserPromptSubmit|0", // short prompt; the second one is deduped
+		"user_prompt|user-prompt|1|from message|UserPromptSubmit|0")
+
+	env = hookEnv(t)
+	callHook(t, env, "userpromptsubmit", `{"prompt":"<system-reminder>x","session_id":"s1"}`)
+	noDB(t, env)
+}
+
+func TestHookStop(t *testing.T) {
+	env := hookEnv(t)
+	if out := callHook(t, env, "stop", `{"session_id":"s1","stop_hook_active":false,"last_assistant_message":"done"}`); out != "{}\n" {
+		t.Fatalf("got %q", out)
+	}
+	if out := callHook(t, env, "stop", `{"session_id":"s1","stop_hook_active":true}`); out != "{}\n" {
+		t.Fatalf("got %q", out)
+	}
+	assertRows(t, eventRows(t, env, "s1"),
+		`turn_end|session|1|{"stop_hook_active":false,"last_assistant_message":"done"}|Stop|0`,
+		`turn_end|session|1|{"stop_hook_active":true,"last_assistant_message":null}|Stop|0`)
+}

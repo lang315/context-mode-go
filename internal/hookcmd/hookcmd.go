@@ -49,8 +49,12 @@ type hookCtx struct {
 
 // hookHandlers maps a hook event name to its handler.
 var hookHandlers = map[string]func(*hookCtx) error{
-	"pretooluse":   preToolUse,
-	"sessionstart": sessionStart,
+	"pretooluse":         preToolUse,
+	"posttooluse":        postToolUse,
+	"posttoolusefailure": postToolUseFailure,
+	"userpromptsubmit":   userPromptSubmit,
+	"stop":               stop,
+	"sessionstart":       sessionStart,
 }
 
 // Run runs one hook fire and always exits 0 (spec §1.2): an error or panic
@@ -178,6 +182,41 @@ func preToolUse(h *hookCtx) error {
 		}
 	}
 	return h.insertEvents("PreToolUse", routing.Events(tool, dec))
+}
+
+// postToolUse records the kept extractors' events (spec §3.3).
+func postToolUse(h *hookCtx) error {
+	tool, _ := h.in.String("tool_name")
+	input, _ := h.in.Object("tool_input")
+	resp, _ := h.in.Get("tool_response") // nil when absent
+	return h.insertEvents("PostToolUse", capture.PostToolUse(tool, input, resp, h.cfg.Home))
+}
+
+func postToolUseFailure(h *hookCtx) error {
+	tool, _ := h.in.String("tool_name")
+	return h.insertEvents("PostToolUseFailure", capture.PostToolUseFailure(tool, h.in))
+}
+
+func userPromptSubmit(h *hookCtx) error {
+	prompt, ok := h.in.String("prompt")
+	if !ok {
+		prompt, _ = h.in.String("message") // TS: input.prompt ?? input.message ?? ""
+	}
+	return h.insertEvents("UserPromptSubmit", capture.UserPrompt(prompt))
+}
+
+// stop always records turn_end, then prints {} as TS stop.mjs does.
+func stop(h *hookCtx) error {
+	active, _ := h.in.Bool("stop_hook_active")
+	var msg *string
+	if s, ok := h.in.String("last_assistant_message"); ok {
+		msg = &s
+	}
+	if err := h.insertEvents("Stop", []store.Event{capture.Stop(active, msg)}); err != nil {
+		return err
+	}
+	_, err := io.WriteString(h.out, "{}\n")
+	return err
 }
 
 // sessionStart prints the routing block for every source (spec §4). Only
