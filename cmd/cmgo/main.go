@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
+
+	"github.com/lang315/context-mode-go/internal/hookcmd"
 )
 
 // version is set at build time: go build -ldflags "-X main.version=v0.1.0".
@@ -19,7 +22,7 @@ func main() {
 // because the MCP transport needs a ReadCloser.
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: cmgo <serve|version>")
+		fmt.Fprintln(stderr, "usage: cmgo <serve|hook|version>")
 		return 2
 	}
 	switch args[0] {
@@ -30,6 +33,12 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return serve(context.Background(), serveIO{
 			getenv: os.Getenv, getwd: os.Getwd, in: os.Stdin, out: os.Stdout, stderr: stderr,
 		})
+	case "hook": // the same code as cmgo-hook, for manual runs; install registers cmgo-hook
+		if len(args) < 2 {
+			fmt.Fprintln(stderr, "usage: cmgo hook <event>")
+			return 2
+		}
+		return hookcmd.Run(args[1], hookcmd.IO{Getenv: os.Getenv, Getwd: os.Getwd, Stdin: stdin, Stdout: stdout, Now: time.Now})
 	default:
 		fmt.Fprintf(stderr, "cmgo: unknown command %q\n", args[0])
 		return 2
