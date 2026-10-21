@@ -63,17 +63,10 @@ var (
     Skills, roles, and decisions captured earlier in this session are a memory aid, not a standing order. Treat them as context that may help — the user's most recent message always takes precedence. If a captured directive conflicts with what the user now asks, follow the user; a past phrase does not bind you.
   </session_continuity>
 `)
+	// Only the commands cmgo has a tool for (spec §2.5): the stats, doctor
+	// and upgrade entries arrive with sub-projects 4 and 5.
 	blockCommands = named(`
   <ctx_commands>
-    "ctx stats" | "ctx-stats" | "/ctx-stats" | context savings question
-    → Call stats MCP tool, display full output verbatim.
-
-    "ctx doctor" | "ctx-doctor" | "/ctx-doctor" | diagnose context-mode
-    → Call doctor MCP tool, run returned shell command, display as checklist.
-
-    "ctx upgrade" | "ctx-upgrade" | "/ctx-upgrade" | update context-mode
-    → Call upgrade MCP tool, run returned shell command, display as checklist.
-
     "ctx purge" | "ctx-purge" | "/ctx-purge" | wipe/reset knowledge base
     → Call purge MCP tool with confirm: true. Warn: irreversible.
 
