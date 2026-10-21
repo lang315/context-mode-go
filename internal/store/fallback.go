@@ -1,6 +1,7 @@
 package store
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 	"unicode/utf16"
@@ -14,22 +15,47 @@ const defaultSearchLimit = 3
 
 // SearchWithFallback is the ctx_search entry point: RRF over porter +
 // trigram, proximity rerank, then one fuzzy-corrected retry when nothing
-// matched (ST:1393-1442). Timeline mode takes those same results and
-// stable-sorts them oldest first, as searchAllSources does for the content
-// store (src/search/unified.ts:104-187).
+// matched (ST:1393-1442). Timeline mode (spec §3.2) ranks up to
+// timelineCandidates matches, keeps the newest o.Limit by indexed_at (ties:
+// the later chunk), and returns them oldest first. TS kept the best ranked
+// ones (src/search/unified.ts:104-187).
 func (s *Store) SearchWithFallback(query string, o SearchOpts) ([]SearchResult, error) {
 	if o.Limit <= 0 {
 		o.Limit = defaultSearchLimit
 	}
-	res, err := s.relevance(query, o)
+	if o.Mode != "timeline" {
+		res, err := s.relevance(query, o)
+		if err != nil {
+			return nil, err
+		}
+		return res[:min(len(res), o.Limit)], nil
+	}
+	pool := o
+	pool.Limit = max(o.Limit, timelineCandidates)
+	res, err := s.relevance(query, pool)
 	if err != nil {
 		return nil, err
 	}
-	if o.Mode == "timeline" {
-		slices.SortStableFunc(res, func(a, b SearchResult) int { return a.IndexedAt.Compare(b.IndexedAt) })
+	newest := slices.Clone(res)
+	slices.SortStableFunc(newest, func(a, b SearchResult) int {
+		if c := b.IndexedAt.Compare(a.IndexedAt); c != 0 {
+			return c
+		}
+		return cmp.Compare(b.id, a.id)
+	})
+	keep := map[int64]bool{}
+	for _, r := range newest[:min(len(newest), o.Limit)] {
+		keep[r.id] = true
 	}
-	return res[:min(len(res), o.Limit)], nil
+	res = slices.DeleteFunc(res, func(r SearchResult) bool { return !keep[r.id] })
+	// Stable, so equal times keep relevance order.
+	slices.SortStableFunc(res, func(a, b SearchResult) int { return a.IndexedAt.Compare(b.IndexedAt) })
+	return res, nil
 }
+
+// timelineCandidates is how many ranked matches timeline mode considers
+// before it keeps the newest ones.
+const timelineCandidates = 200
 
 func (s *Store) relevance(query string, o SearchOpts) ([]SearchResult, error) {
 	res, err := s.rrfSearch(query, o.Limit, o)

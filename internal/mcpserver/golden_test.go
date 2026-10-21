@@ -33,8 +33,15 @@ type goldenPin struct {
 }
 
 // goldenToolKnown: step ID → pinned Go output for KNOWN-DIFFS.md bug entries.
-// Empty: the only entry (legacy-query) was fixed by matching TS.
-var goldenToolKnown = map[string]goldenPin{}
+// The legacy-query entry was fixed by matching TS; t11 is the spec §3.2 timeline difference.
+var goldenToolKnown = map[string]goldenPin{
+	"t11": {
+		reason: "spec §3.2: timeline keeps the newest match, TS the best ranked; all chunks share one indexed_at, so the later chunk wins",
+		goText: func(string) string {
+			return "## deploy\n\n--- [current-session | <DATE> | batch:changelog,oversized] ---\n### Incident Report > Raw notes\n\n…api subnet and database subnet, no packet loss seen. Checking database logs: too many connections errors, thousands per second. Checking max_connections: two thousand, unchanged since last quarter. Counting connections per api node: around one hundred twenty, expected ten. Looking at this morning's deploy: pool construction moved into the handler constructor, so every handler builds its own pool. Twelve handlers per node times sixty nodes times ten connections is seven thousand two hundred, well above two thousand. Decision: roll back half the fleet to confirm. Rolled back nodes recover in two…\n\n⚠ search call #4/8 in this window. Results limited to 1/query. 4 call(s) remaining before block. Batch queries: ctx_search(queries: [\"q1\",\"q2\",\"q3\"]) or use ctx_batch_execute."
+		},
+	},
+}
 
 func TestGoldenTools(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/golden/tools.json")

@@ -26,6 +26,7 @@ type SearchResult struct {
 	Highlighted            string // content with \x02/\x03 markers, "" if none
 	Rank                   float64
 	IndexedAt              time.Time
+	id                     int64 // chunk rowid; breaks indexed_at ties in timeline mode
 }
 
 // rrfK: standard RRF constant (ST:1304).
@@ -138,7 +139,7 @@ func scopeSQL(table string, o SearchOpts) (string, []any) {
 func (s *Store) ftsSearch(table, match string, limit int, o SearchOpts) ([]SearchResult, error) {
 	where, args := scopeSQL(table, o)
 	q := "SELECT " + table + ".title, " + table + ".content, " + table + ".content_type, sources.label, " +
-		"bm25(" + table + ", 5.0, 1.0) AS rank, highlight(" + table + ", 1, char(2), char(3)), sources.indexed_at " +
+		"bm25(" + table + ", 5.0, 1.0) AS rank, highlight(" + table + ", 1, char(2), char(3)), sources.indexed_at, " + table + ".rowid " +
 		"FROM " + table + " JOIN sources ON sources.id = " + table + ".source_id " +
 		"WHERE " + table + " MATCH ?" + where + " ORDER BY rank LIMIT ?"
 	args = append(append([]any{match}, args...), limit)
@@ -151,7 +152,7 @@ func (s *Store) ftsSearch(table, match string, limit int, o SearchOpts) ([]Searc
 	for rows.Next() {
 		var r SearchResult
 		var ct, at string
-		if err := rows.Scan(&r.Title, &r.Content, &ct, &r.Source, &r.Rank, &r.Highlighted, &at); err != nil {
+		if err := rows.Scan(&r.Title, &r.Content, &ct, &r.Source, &r.Rank, &r.Highlighted, &at, &r.id); err != nil {
 			return nil, err
 		}
 		r.ContentType = ContentType(ct)
