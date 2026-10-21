@@ -27,7 +27,8 @@ type Options struct {
 }
 
 // Install replaces cmgo's hook commands in the settings file with the
-// HookEvents entries for o.Binary, keeping every other command.
+// HookEvents entries for o.Binary, keeping every other command, then registers
+// the MCP server.
 func Install(o Options) error {
 	if !filepath.IsAbs(o.Binary) || strings.Contains(o.Binary, `"`) {
 		return fmt.Errorf("binary path must be absolute and have no double quote: %q", o.Binary)
@@ -41,10 +42,14 @@ func Install(o Options) error {
 		return fmt.Errorf("%s: %w", o.SettingsPath, err)
 	}
 	checkPlugins(s.root, o)
-	return s.save(o)
+	if err := s.save(o); err != nil {
+		return err
+	}
+	return registerMCP(o, true)
 }
 
-// Uninstall removes cmgo's hook commands. It leaves enabledPlugins alone.
+// Uninstall removes cmgo's hook commands and the MCP server. It leaves
+// enabledPlugins alone.
 func Uninstall(o Options) error {
 	s, err := loadSettings(o.SettingsPath)
 	if err != nil {
@@ -53,9 +58,10 @@ func Uninstall(o Options) error {
 	// Nothing removed: do not create or reformat the user's file.
 	if stripHooks(s.root) == 0 && !o.DryRun {
 		fmt.Fprintf(o.Stdout, "cmgo: no cmgo hooks in %s\n", s.path)
-		return nil
+	} else if err := s.save(o); err != nil {
+		return err
 	}
-	return s.save(o)
+	return registerMCP(o, false)
 }
 
 // checkPlugins warns about an enabled TS context-mode plugin, which would
