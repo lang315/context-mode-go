@@ -30,7 +30,13 @@ type Options struct {
 	DryRun, Force   bool
 	Now             time.Time
 	SourceRetention time.Duration // sources older than this are not imported
+
+	copy copyFunc // copies a TS DB for reading; copyDB when nil. Tests inject torn copies.
 }
+
+// copyFunc copies the TS DB src, with its -wal and -shm, into dir and
+// returns the path of the copy.
+type copyFunc func(src, dir string) (string, error)
 
 // Report counts what Run imported and skipped. In a dry run it counts what
 // a real run would do now.
@@ -76,6 +82,9 @@ func hasData(root string) bool {
 // are exact and cmgo.db is not touched.
 func Run(o Options) (Report, error) {
 	r := Report{Root: o.Root}
+	if o.copy == nil {
+		o.copy = copyDB
+	}
 	if !hasData(o.Root) {
 		return r, fmt.Errorf("no sessions/ or content/ directory in %s", o.Root)
 	}
@@ -100,7 +109,7 @@ func Run(o Options) (Report, error) {
 		return r, fmt.Errorf("%w (%s); run with --force to import again", ErrAlreadyImported, mark)
 	}
 
-	sessions, projects, err := readSessionDBs(filepath.Join(o.Root, "sessions"), filepath.Join(tmp, "sessions"), &r)
+	sessions, projects, err := readSessionDBs(filepath.Join(o.Root, "sessions"), filepath.Join(tmp, "sessions"), o.copy, &r)
 	if err != nil {
 		return r, err
 	}
@@ -158,7 +167,7 @@ func openTarget(o Options, tmp string) (*store.Store, error) {
 // maps each file's hash prefix (the name before "__" or ".db") to the most
 // common project of all its sessions, active or not, for the content DBs;
 // the unsuffixed <h16>.db sorts first and wins.
-func readSessionDBs(dir, tmp string, r *Report) ([]tsSession, map[string]string, error) {
+func readSessionDBs(dir, tmp string, cp copyFunc, r *Report) ([]tsSession, map[string]string, error) {
 	files, err := listDBs(dir)
 	if err != nil {
 		return nil, nil, err
@@ -167,7 +176,7 @@ func readSessionDBs(dir, tmp string, r *Report) ([]tsSession, map[string]string,
 	index := map[string]int{}
 	projects := map[string]string{}
 	for _, f := range files {
-		sessions, err := readDB(f, tmp, (*tsCopy).sessions)
+		sessions, err := readDB(f, tmp, cp, (*tsCopy).sessions)
 		if err != nil {
 			r.UnreadableSessionDBs++
 			continue
@@ -210,7 +219,7 @@ func importContent(st *store.Store, o Options, tmp string, projects map[string]s
 	}
 	cutoff := o.Now.Add(-o.SourceRetention).UTC().Format(sqliteTime)
 	for _, f := range files {
-		sources, err := readDB(f, tmp, (*tsCopy).sources)
+		sources, err := readDB(f, tmp, o.copy, (*tsCopy).sources)
 		if err != nil {
 			r.UnreadableContentDBs++
 			continue
@@ -245,14 +254,28 @@ func listDBs(dir string) ([]string, error) {
 	return filepath.Glob(filepath.Join(dir, "*.db")) // Glob sorts by name
 }
 
-// readDB copies the TS DB src, with its -wal and -shm, into tmp and reads the
-// copy. Any failure means the DB is unreadable; the caller skips it.
-func readDB[T any](src, tmp string, read func(*tsCopy) (T, error)) (T, error) {
+// readDB copies the TS DB src into tmp and reads the copy. A TS process may
+// write between the copy of the .db and the copy of its -wal, which leaves a
+// malformed copy; so a failed read is retried once on a fresh copy. A second
+// failure means the DB is unreadable and the caller skips it.
+func readDB[T any](src, tmp string, cp copyFunc, read func(*tsCopy) (T, error)) (T, error) {
 	var zero T
 	if err := os.MkdirAll(tmp, 0o755); err != nil {
 		return zero, err
 	}
-	path, err := copyDB(src, tmp)
+	var err error
+	for range 2 {
+		var out T
+		if out, err = readCopy(src, tmp, cp, read); err == nil {
+			return out, nil
+		}
+	}
+	return zero, err
+}
+
+func readCopy[T any](src, tmp string, cp copyFunc, read func(*tsCopy) (T, error)) (T, error) {
+	var zero T
+	path, err := cp(src, tmp)
 	if err != nil {
 		return zero, err
 	}

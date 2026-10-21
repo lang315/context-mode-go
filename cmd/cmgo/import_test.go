@@ -145,3 +145,21 @@ func TestImportCommandCountsUnreadableDBs(t *testing.T) {
 		t.Fatalf("run = %d\n%s\nstderr %q\nwant prefix\n%s", code, out, errOut, want)
 	}
 }
+
+// Unreadable DBs end the summary with a hint to close the Claude Code
+// sessions that still run the TS plugin (spec §3.2).
+func TestImportCommandHintsOnUnreadableDBs(t *testing.T) {
+	root := tsRoot(t)
+	getenv, _ := importEnv(t, nil)
+	if _, out, _ := runImportCmd(getenv, "--from", root, "--dry-run"); strings.Contains(out, "TS plugin") {
+		t.Fatalf("hint without unreadable DBs:\n%s", out)
+	}
+	if err := os.WriteFile(filepath.Join(root, "sessions", "zzzz.db"), bytes.Repeat([]byte("not a database "), 600), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, out, _ := runImportCmd(getenv, "--from", root, "--dry-run")
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if last := lines[len(lines)-1]; !strings.Contains(last, "Claude Code sessions") || !strings.Contains(last, "TS plugin") {
+		t.Fatalf("last line = %q\n%s", last, out)
+	}
+}

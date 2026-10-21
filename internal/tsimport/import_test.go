@@ -330,3 +330,55 @@ func TestRunSkipsUnreadableDBs(t *testing.T) {
 		t.Fatalf("ts_import mark: %v, %v", ok, err)
 	}
 }
+
+// tornCopy returns a copy function that, for each src in failFor, hands out
+// a corrupt copy on its first n calls and a real one after that. calls counts
+// the copies made per src.
+func tornCopy(t *testing.T, failFor map[string]int, calls map[string]int) copyFunc {
+	return func(src, dir string) (string, error) {
+		calls[src]++
+		if calls[src] <= failFor[src] {
+			dst := filepath.Join(dir, filepath.Base(src))
+			writeGarbage(t, dst)
+			return dst, nil
+		}
+		return copyDB(src, dir)
+	}
+}
+
+// A copy SQLite reports as malformed is copied again once (spec §3.2).
+func TestRunRecopiesTornCopy(t *testing.T) {
+	root := buildRoot(t)
+	torn := filepath.Join(root, "sessions", "aaaaaaaaaaaaaaaa.db")
+	calls := map[string]int{}
+	o := options(t, root)
+	o.copy = tornCopy(t, map[string]int{torn: 1}, calls)
+	got, err := Run(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := wantReport
+	want.Root = root
+	if got != want || calls[torn] != 2 {
+		t.Fatalf("report = %+v (copies of the torn DB: %d)\nwant     %+v", got, calls[torn], want)
+	}
+}
+
+// A DB whose second copy is torn too is skipped as unreadable, after exactly two copies.
+func TestRunSkipsTwiceTornCopy(t *testing.T) {
+	root := buildRoot(t)
+	torn := filepath.Join(root, "content", "aaaaaaaaaaaaaaaa.db")
+	calls := map[string]int{}
+	o := options(t, root)
+	o.copy = tornCopy(t, map[string]int{torn: 5}, calls)
+	got, err := Run(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := wantReport
+	want.Root, want.UnreadableContentDBs = root, 1
+	want.Sources, want.Chunks, want.ExpiredSources = 1, 1, 0 // only bdocs: aaaa's "fresh" and "stale" are lost with their DB
+	if got != want || calls[torn] != 2 {
+		t.Fatalf("report = %+v (copies of the torn DB: %d)\nwant     %+v", got, calls[torn], want)
+	}
+}
