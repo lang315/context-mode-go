@@ -60,6 +60,17 @@ ON CONFLICT(session_id) DO UPDATE SET cc_pid = excluded.cc_pid, linked_at = excl
 	return err
 }
 
+// SessionCC returns the Claude Code pid linked to a session, 0 when it has
+// none or no session_meta row.
+func (s *Store) SessionCC(sessionID string) (int, error) {
+	var cc int
+	err := s.db.QueryRow("SELECT cc_pid FROM session_meta WHERE session_id = ?", sessionID).Scan(&cc)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return cc, err
+}
+
 // StatsQuery identifies the cmgo serve process asking for ctx_stats.
 type StatsQuery struct {
 	ServerID string
