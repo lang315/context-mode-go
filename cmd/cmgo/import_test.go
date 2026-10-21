@@ -127,3 +127,21 @@ func TestImportCommandErrors(t *testing.T) {
 		t.Fatalf("extra argument exit = %d, want 2", code)
 	}
 }
+
+func TestImportCommandCountsUnreadableDBs(t *testing.T) {
+	root := tsRoot(t)
+	for _, dir := range []string{"sessions", "content"} {
+		if err := os.WriteFile(filepath.Join(root, dir, "zzzz.db"), bytes.Repeat([]byte("not a database "), 600), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	getenv, _ := importEnv(t, nil)
+	code, out, errOut := runImportCmd(getenv, "--from", root)
+	want := "cmgo import from " + root + "\n" +
+		"  sessions: 1 imported, 2 skipped (1 no project, 1 unreadable)\n" +
+		"  events:   2 imported, 0 duplicates\n" +
+		"  sources:  1 imported (2 chunks), 2 skipped (1 expired, 1 unreadable)\n"
+	if code != 0 || !strings.HasPrefix(out, want) || errOut != "" {
+		t.Fatalf("run = %d\n%s\nstderr %q\nwant prefix\n%s", code, out, errOut, want)
+	}
+}

@@ -41,6 +41,7 @@ type Report struct {
 	Sources, Chunks                               int
 	ExpiredSources, NoProjectSources              int
 	ExistingSources                               int // a cmgo source with the same (project, label) won
+	UnreadableSessionDBs, UnreadableContentDBs    int // TS DBs that could not be read; each is skipped whole
 }
 
 // DefaultRoot returns the first TS data root that exists, probing
@@ -99,7 +100,7 @@ func Run(o Options) (Report, error) {
 		return r, fmt.Errorf("%w (%s); run with --force to import again", ErrAlreadyImported, mark)
 	}
 
-	sessions, projects, err := readSessionDBs(filepath.Join(o.Root, "sessions"), filepath.Join(tmp, "sessions"))
+	sessions, projects, err := readSessionDBs(filepath.Join(o.Root, "sessions"), filepath.Join(tmp, "sessions"), &r)
 	if err != nil {
 		return r, err
 	}
@@ -157,8 +158,8 @@ func openTarget(o Options, tmp string) (*store.Store, error) {
 // maps each file's hash prefix (the name before "__" or ".db") to the most
 // common project of all its sessions, active or not, for the content DBs;
 // the unsuffixed <h16>.db sorts first and wins.
-func readSessionDBs(dir, tmp string) ([]tsSession, map[string]string, error) {
-	files, err := copies(dir, tmp)
+func readSessionDBs(dir, tmp string, r *Report) ([]tsSession, map[string]string, error) {
+	files, err := listDBs(dir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -166,14 +167,10 @@ func readSessionDBs(dir, tmp string) ([]tsSession, map[string]string, error) {
 	index := map[string]int{}
 	projects := map[string]string{}
 	for _, f := range files {
-		c, err := openCopy(f.copy)
+		sessions, err := readDB(f, tmp, (*tsCopy).sessions)
 		if err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", f.src, err)
-		}
-		sessions, err := c.sessions()
-		c.Close()
-		if err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", f.src, err)
+			r.UnreadableSessionDBs++
+			continue
 		}
 		var fileProjects []string
 		for _, s := range sessions {
@@ -196,7 +193,7 @@ func readSessionDBs(dir, tmp string) ([]tsSession, map[string]string, error) {
 				m.projectDir = s.projectDir
 			}
 		}
-		prefix, _, _ := strings.Cut(strings.TrimSuffix(filepath.Base(f.src), ".db"), "__")
+		prefix, _, _ := strings.Cut(strings.TrimSuffix(filepath.Base(f), ".db"), "__")
 		if p := mostCommon(fileProjects); p != "" && projects[prefix] == "" {
 			projects[prefix] = p
 		}
@@ -207,22 +204,18 @@ func readSessionDBs(dir, tmp string) ([]tsSession, map[string]string, error) {
 // importContent imports the fresh sources of every content DB whose
 // <h16>.db name has a project in projects.
 func importContent(st *store.Store, o Options, tmp string, projects map[string]string, r *Report) error {
-	files, err := copies(filepath.Join(o.Root, "content"), tmp)
+	files, err := listDBs(filepath.Join(o.Root, "content"))
 	if err != nil {
 		return err
 	}
 	cutoff := o.Now.Add(-o.SourceRetention).UTC().Format(sqliteTime)
 	for _, f := range files {
-		c, err := openCopy(f.copy)
+		sources, err := readDB(f, tmp, (*tsCopy).sources)
 		if err != nil {
-			return fmt.Errorf("%s: %w", f.src, err)
+			r.UnreadableContentDBs++
+			continue
 		}
-		sources, err := c.sources()
-		c.Close()
-		if err != nil {
-			return fmt.Errorf("%s: %w", f.src, err)
-		}
-		project := projects[strings.TrimSuffix(filepath.Base(f.src), ".db")]
+		project := projects[strings.TrimSuffix(filepath.Base(f), ".db")]
 		for _, s := range sources {
 			switch {
 			case s.indexedAt < cutoff:
@@ -234,7 +227,7 @@ func importContent(st *store.Store, o Options, tmp string, projects map[string]s
 			}
 			ok, err := st.ImportSource(project, s.label, s.indexedAt, s.chunks)
 			if err != nil {
-				return fmt.Errorf("%s: source %q: %w", f.src, s.label, err)
+				return fmt.Errorf("%s: source %q: %w", f, s.label, err)
 			}
 			if !ok {
 				r.ExistingSources++
@@ -247,26 +240,26 @@ func importContent(st *store.Store, o Options, tmp string, projects map[string]s
 	return nil
 }
 
-// copied is a TS DB and its copy.
-type copied struct{ src, copy string }
+// listDBs returns every <dir>/*.db in name order. A missing dir has no DBs.
+func listDBs(dir string) ([]string, error) {
+	return filepath.Glob(filepath.Join(dir, "*.db")) // Glob sorts by name
+}
 
-// copies copies every <dir>/*.db (with -wal/-shm) into tmp, in name order.
-// A missing dir has no DBs.
-func copies(dir, tmp string) ([]copied, error) {
-	files, err := filepath.Glob(filepath.Join(dir, "*.db"))
-	if err != nil || len(files) == 0 {
-		return nil, err
-	}
+// readDB copies the TS DB src, with its -wal and -shm, into tmp and reads the
+// copy. Any failure means the DB is unreadable; the caller skips it.
+func readDB[T any](src, tmp string, read func(*tsCopy) (T, error)) (T, error) {
+	var zero T
 	if err := os.MkdirAll(tmp, 0o755); err != nil {
-		return nil, err
+		return zero, err
 	}
-	out := make([]copied, 0, len(files))
-	for _, f := range files { // Glob sorts by name
-		c, err := copyDB(f, tmp)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, copied{src: f, copy: c})
+	path, err := copyDB(src, tmp)
+	if err != nil {
+		return zero, err
 	}
-	return out, nil
+	c, err := openCopy(path)
+	if err != nil {
+		return zero, err
+	}
+	defer c.Close()
+	return read(c)
 }

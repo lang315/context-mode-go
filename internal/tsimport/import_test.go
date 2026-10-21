@@ -1,6 +1,7 @@
 package tsimport
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"os"
@@ -292,5 +293,40 @@ func TestDefaultRoot(t *testing.T) {
 		if got := DefaultRoot(getenv, home, claude); got != s.want {
 			t.Fatalf("step %d: DefaultRoot = %q, want %q", i, got, s.want)
 		}
+	}
+}
+
+// writeGarbage writes 8 KB of random bytes, which is not a database.
+func writeGarbage(t *testing.T, path string) {
+	t.Helper()
+	b := make([]byte, 8192)
+	rand.Read(b)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// An unreadable TS DB is skipped and counted; the rest imports and the mark
+// is set (spec §3.2).
+func TestRunSkipsUnreadableDBs(t *testing.T) {
+	root := buildRoot(t)
+	writeGarbage(t, filepath.Join(root, "sessions", "zzzz.db"))
+	writeGarbage(t, filepath.Join(root, "content", "zzzz.db"))
+	o := options(t, root)
+	got, err := Run(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := wantReport
+	want.Root, want.UnreadableSessionDBs, want.UnreadableContentDBs = root, 1, 1
+	if got != want {
+		t.Fatalf("report = %+v\nwant     %+v", got, want)
+	}
+	st := openStore(t, o.DBPath)
+	if _, ok, err := st.Meta("ts_import"); err != nil || !ok {
+		t.Fatalf("ts_import mark: %v, %v", ok, err)
 	}
 }

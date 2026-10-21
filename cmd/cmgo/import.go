@@ -52,10 +52,10 @@ func runImport(args []string, stdout, stderr io.Writer, getenv func(string) stri
 	}
 	fmt.Fprintln(stdout, title)
 	fmt.Fprintf(stdout, "  sessions: %d imported, %s\n", r.Sessions,
-		skipped(reason{r.InactiveSessions, "inactive"}, reason{r.NoProjectSessions, "no project"}))
+		skipped(reason{r.InactiveSessions, "inactive"}, reason{r.NoProjectSessions, "no project"}, reason{r.UnreadableSessionDBs, "unreadable"}))
 	fmt.Fprintf(stdout, "  events:   %d imported, %d duplicates\n", r.Events, r.DupEvents)
 	fmt.Fprintf(stdout, "  sources:  %d imported (%d chunks), %s\n", r.Sources, r.Chunks,
-		skipped(reason{r.ExpiredSources, "expired"}, reason{r.NoProjectSources, "no project"}, reason{r.ExistingSources, "exists"}))
+		skipped(reason{r.ExpiredSources, "expired"}, reason{r.NoProjectSources, "no project"}, reason{r.ExistingSources, "exists"}, reason{r.UnreadableContentDBs, "unreadable"}))
 	fmt.Fprintf(stdout, "done in %d ms\n", time.Since(start).Milliseconds())
 	return 0
 }
