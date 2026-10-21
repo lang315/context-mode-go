@@ -17,10 +17,11 @@ import (
 func installCmd(name string, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("cmgo "+name, flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	var binary string
+	var binary, hookBinary string
 	var disableTS bool
 	if name == "install" {
 		fs.StringVar(&binary, "binary", "", "path to the cmgo binary (default: this executable)")
+		fs.StringVar(&hookBinary, "hook-binary", "", "path to the cmgo-hook binary (default: cmgo-hook next to the cmgo binary)")
 		fs.BoolVar(&disableTS, "disable-ts-plugin", false, "turn off an enabled context-mode TS plugin")
 	}
 	dryRun := fs.Bool("dry-run", false, "print the new settings file instead of writing it")
@@ -31,14 +32,14 @@ func installCmd(name string, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "cmgo %s: unexpected argument %q\n", name, fs.Arg(0))
 		return 2
 	}
-	if err := runInstall(name, binary, disableTS, *dryRun, stdout, stderr); err != nil {
+	if err := runInstall(name, binary, hookBinary, disableTS, *dryRun, stdout, stderr); err != nil {
 		fmt.Fprintf(stderr, "cmgo: %v\n", err)
 		return 1
 	}
 	return 0
 }
 
-func runInstall(name, binary string, disableTS, dryRun bool, stdout, stderr io.Writer) error {
+func runInstall(name, binary, hookBinary string, disableTS, dryRun bool, stdout, stderr io.Writer) error {
 	home := os.Getenv("HOME")
 	if home == "" {
 		h, err := os.UserHomeDir()
@@ -78,7 +79,12 @@ func runInstall(name, binary string, disableTS, dryRun bool, stdout, stderr io.W
 	}
 	o.Binary = binary
 	// Claude Code would run a missing hook binary on every event and fail.
-	o.HookBinary = filepath.Join(filepath.Dir(binary), "cmgo-hook")
+	if hookBinary == "" {
+		hookBinary = filepath.Join(filepath.Dir(binary), "cmgo-hook")
+	} else if hookBinary, err = filepath.Abs(hookBinary); err != nil {
+		return err
+	}
+	o.HookBinary = hookBinary
 	if _, err := os.Stat(o.HookBinary); err != nil && !dryRun {
 		return fmt.Errorf("hook binary missing: %w (build cmd/cmgo-hook next to cmgo)", err)
 	}

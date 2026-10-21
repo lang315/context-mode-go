@@ -174,3 +174,55 @@ func TestInstallReadsClaudeJSONFromHome(t *testing.T) {
 		t.Fatalf("registered in ~/.claude.json, but claude ran: %q", log)
 	}
 }
+
+func TestInstallHookBinaryFlag(t *testing.T) {
+	home, _ := installEnv(t)
+	cmgo := fakeBinaries(t)
+	settings := filepath.Join(home, ".claude", "settings.json")
+
+	// An explicit hook binary anywhere replaces the one next to cmgo.
+	hook := filepath.Join(t.TempDir(), "my-hook")
+	os.WriteFile(hook, []byte("#!/bin/sh\n"), 0o755)
+	if code, out, errs := runCmd(t, "install", "--binary", cmgo, "--hook-binary", hook); code != 0 {
+		t.Fatalf("exit %d\nstdout %q\nstderr %q", code, out, errs)
+	}
+	b, _ := os.ReadFile(settings)
+	if !strings.Contains(string(b), `"command": "`+hook+` pretooluse"`) || strings.Contains(string(b), cmgo+"-hook") {
+		t.Fatalf("settings:\n%s", b)
+	}
+
+	// A relative path is made absolute, like --binary.
+	t.Chdir(filepath.Dir(hook))
+	os.Remove(settings)
+	if code, out, errs := runCmd(t, "install", "--binary", cmgo, "--hook-binary", "my-hook"); code != 0 {
+		t.Fatalf("exit %d\nstdout %q\nstderr %q", code, out, errs)
+	}
+	want, _ := filepath.EvalSymlinks(hook) // t.Chdir resolves /var -> /private/var on macOS
+	b, _ = os.ReadFile(settings)
+	if !strings.Contains(string(b), `"command": "`+hook+` pretooluse"`) && !strings.Contains(string(b), `"command": "`+want+` pretooluse"`) {
+		t.Fatalf("relative --hook-binary not made absolute:\n%s", b)
+	}
+}
+
+func TestInstallHookBinaryMustExist(t *testing.T) {
+	home, claudeLog := installEnv(t)
+	cmgo := fakeBinaries(t) // has a cmgo-hook next to it, which must not be used instead
+	missing := filepath.Join(t.TempDir(), "nope")
+	code, _, errs := runCmd(t, "install", "--binary", cmgo, "--hook-binary", missing)
+	if code != 1 || !strings.HasPrefix(errs, "cmgo: hook binary missing: ") {
+		t.Fatalf("exit %d, stderr %q", code, errs)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); err == nil {
+		t.Fatal("settings written")
+	}
+	if _, err := os.Stat(claudeLog); err == nil {
+		t.Fatal("claude ran")
+	}
+	// A dry run only shows the file, so it needs no binary on disk.
+	if code, out, _ := runCmd(t, "install", "--dry-run", "--binary", cmgo, "--hook-binary", missing); code != 0 || !strings.Contains(out, missing+" pretooluse") {
+		t.Fatalf("dry run: exit %d, stdout %q", code, out)
+	}
+	if code, _, _ := runCmd(t, "uninstall", "--hook-binary", missing); code != 2 {
+		t.Fatalf("uninstall --hook-binary: exit %d", code)
+	}
+}
