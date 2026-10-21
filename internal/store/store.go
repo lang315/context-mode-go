@@ -216,7 +216,8 @@ func cleanupDue(q interface {
 }
 
 // CleanupIfDue deletes sources older than retention (all projects) when
-// meta.last_cleanup is missing or older than every. Returns sources deleted.
+// meta.last_cleanup is missing or older than every, and in the same
+// transaction the sessions inactive for SessionRetention. Returns sources deleted.
 // When not due it only reads: no write lock is taken.
 // Port of cleanupStaleSources (ST:1641) gated per spec §3.1.
 func (s *Store) CleanupIfDue(now time.Time, retention, every time.Duration) (int, error) {
@@ -246,6 +247,14 @@ func (s *Store) CleanupIfDue(now time.Time, retention, every time.Duration) (int
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
+		return 0, err
+	}
+	// Sessions inactive for SessionRetention (DB:1696-1705, keyed on activity).
+	stale := now.Add(-SessionRetention).UTC().Format(sqliteTime)
+	if _, err := tx.Exec("DELETE FROM session_events WHERE session_id IN (SELECT session_id FROM session_meta WHERE last_event_at < ?)", stale); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec("DELETE FROM session_meta WHERE last_event_at < ?", stale); err != nil {
 		return 0, err
 	}
 	if _, err := tx.Exec("INSERT INTO meta(key, value) VALUES('last_cleanup', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",

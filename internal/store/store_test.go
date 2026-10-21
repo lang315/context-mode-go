@@ -136,6 +136,38 @@ func TestCleanupIfDue(t *testing.T) {
 	}
 }
 
+// Sessions are swept by last activity, not start time: an old session that is
+// still active stays.
+func TestCleanupIfDueSessions(t *testing.T) {
+	s := openTest(t)
+	ev := []Event{{Type: "t", Category: "c", Priority: 1, Data: "x"}}
+	for _, sid := range []string{"stale", "active", "fresh"} {
+		if _, err := s.InsertEvents(sid, "/p", "PostToolUse", ev); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now()
+	ago := func(d time.Duration) string { return now.Add(-d).UTC().Format(sqliteTime) }
+	const day = 24 * time.Hour
+	s.db.Exec("UPDATE session_meta SET started_at = ?, last_event_at = ? WHERE session_id = 'stale'", ago(9*day), ago(8*day))
+	s.db.Exec("UPDATE session_meta SET started_at = ?, last_event_at = ? WHERE session_id = 'active'", ago(30*day), ago(6*day))
+
+	if _, err := s.CleanupIfDue(now, 14*day, day); err != nil {
+		t.Fatal(err)
+	}
+	var metas, events int
+	s.db.QueryRow("SELECT count(*) FROM session_meta WHERE session_id = 'stale'").Scan(&metas)
+	s.db.QueryRow("SELECT count(*) FROM session_events WHERE session_id = 'stale'").Scan(&events)
+	if metas != 0 || events != 0 {
+		t.Fatalf("stale session left: meta=%d events=%d", metas, events)
+	}
+	s.db.QueryRow("SELECT count(*) FROM session_meta").Scan(&metas)
+	s.db.QueryRow("SELECT count(*) FROM session_events").Scan(&events)
+	if metas != 2 || events != 2 {
+		t.Fatalf("kept meta=%d events=%d, want 2 and 2", metas, events)
+	}
+}
+
 // A not-due CleanupIfDue must only read. Another Store holds the write lock;
 // the not-due call must return at once, while a due call (control) waits.
 func TestCleanupNotDueTakesNoWriteLock(t *testing.T) {
