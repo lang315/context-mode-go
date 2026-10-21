@@ -69,10 +69,10 @@ func exists(path string) bool {
 func freshHooks(t *testing.T, hookBinary string) string {
 	t.Helper()
 	root := newObject()
+	addStatusLine(&settings{root: root}, Options{HookBinary: hookBinary}) // Install's order
 	if err := addHooks(root, hookBinary); err != nil {
 		t.Fatal(err)
 	}
-	addStatusLine(&settings{root: root}, Options{HookBinary: hookBinary})
 	return string(encodeJSON(root))
 }
 

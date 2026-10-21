@@ -74,15 +74,15 @@ func TestInstallKeepsForeignStatusLine(t *testing.T) {
 	}
 }
 
-// cmgo's own statusLine from an older path is replaced, as its hooks are,
-// and uninstall removes it.
+// cmgo's own statusLine from an older path gets the new command and keeps
+// its other fields (padding), as stats spec §4 says; uninstall removes it.
 func TestInstallReplacesOwnStatusLine(t *testing.T) {
 	o, f := newOpts(t)
 	writeSettings(t, o.SettingsPath, "{\n  \"statusLine\": {\n    \"type\": \"command\",\n    \"command\": \"'/old/cmgo-hook' statusline\",\n    \"padding\": 1\n  },\n  \"model\": \"opus\"\n}\n", 0o644)
 	if err := Install(o); err != nil {
 		t.Fatal(err)
 	}
-	want := "{\n  \"type\": \"command\",\n  \"command\": \"/opt/cmgo/bin/cmgo-hook statusline\"\n}"
+	want := "{\n  \"type\": \"command\",\n  \"command\": \"/opt/cmgo/bin/cmgo-hook statusline\",\n  \"padding\": 1\n}"
 	if got := statusLineOf(t, readFile(t, o.SettingsPath)); got != want {
 		t.Fatalf("statusLine\n%s\nwant\n%s", got, want)
 	}
@@ -94,5 +94,32 @@ func TestInstallReplacesOwnStatusLine(t *testing.T) {
 	}
 	if got := readFile(t, o.SettingsPath); got != "{\n  \"model\": \"opus\"\n}\n" {
 		t.Fatalf("after uninstall:\n%s", got)
+	}
+}
+
+// "statusLine": null means no statusline: cmgo sets its own, without a notice
+// and without moving the key.
+func TestInstallNullStatusLineCountsAsAbsent(t *testing.T) {
+	o, f := newOpts(t)
+	writeSettings(t, o.SettingsPath, "{\n  \"statusLine\": null,\n  \"model\": \"opus\"\n}\n", 0o644)
+	if err := Install(o); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, o.SettingsPath)
+	if want := "\"statusLine\": {\n    \"type\": \"command\",\n    \"command\": \"/opt/cmgo/bin/cmgo-hook statusline\"\n  },\n  \"model\": \"opus\""; !strings.Contains(got, want) {
+		t.Fatalf("settings:\n%s", got)
+	}
+	if strings.Index(got, "statusLine") > strings.Index(got, "model") {
+		t.Errorf("statusLine moved after model:\n%s", got)
+	}
+	if f.stderr.Len() != 0 {
+		t.Fatalf("stderr %q", f.stderr.String())
+	}
+	// And the second install changes nothing.
+	if err := Install(o); err != nil {
+		t.Fatal(err)
+	}
+	if again := readFile(t, o.SettingsPath); again != got {
+		t.Fatalf("second install changed the file:\n%s", again)
 	}
 }

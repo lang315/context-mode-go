@@ -45,11 +45,13 @@ func Install(o Options) error {
 		return err
 	}
 	stripHooks(s.root)
-	stripStatusLine(s.root)
+	// Before the hooks: a reinstall leaves statusLine in place while stripHooks
+	// drops and re-adds an emptied "hooks" key, so this keeps the order of a
+	// first install and the second install changes nothing.
+	addStatusLine(s, o)
 	if err := addHooks(s.root, o.HookBinary); err != nil {
 		return fmt.Errorf("%s: %w", o.SettingsPath, err)
 	}
-	addStatusLine(s, o)
 	checkPlugins(s.root, o)
 	if err := s.save(o); err != nil {
 		return err
@@ -73,16 +75,22 @@ func Uninstall(o Options) error {
 	return registerMCP(o, false)
 }
 
-// addStatusLine sets statusLine to cmgo-hook statusline when it is absent;
-// Install has already stripped cmgo's own, like its hooks. Another statusline
-// is left as it is, with a notice (stats spec §4).
+// addStatusLine sets statusLine to cmgo-hook statusline when it is absent or
+// null. cmgo's own entry (from an earlier install) gets the new command and
+// keeps its other fields, such as padding. Another statusline is left as it
+// is, with a notice (stats spec §4).
 func addStatusLine(s *settings, o Options) {
 	cmd := hookCommand(o.HookBinary, "statusline")
-	if _, ok := s.root.get("statusLine"); !ok {
+	v, ok := s.root.get("statusLine")
+	if sl, isObj := v.(*object); ok && isObj && isOwnStatusLine(sl) {
+		sl.set("command", cmd)
+		return
+	}
+	if !ok || v == nil {
 		sl := newObject()
 		sl.set("type", "command")
 		sl.set("command", cmd)
-		s.root.set("statusLine", sl)
+		s.root.set("statusLine", sl) // in place when the key held null
 		return
 	}
 	fmt.Fprintf(o.Stderr, "cmgo: notice: statusLine in %s is not cmgo's; left as is (to use cmgo's, set its command to %s)\n", s.path, cmd)
