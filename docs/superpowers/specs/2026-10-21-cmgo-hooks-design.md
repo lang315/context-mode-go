@@ -13,7 +13,7 @@ All refs are at that commit.
 ## 0. Context and goals
 
 ### What this sub-project delivers
-- The `cmgo hook <event>` subcommand, which Claude Code runs for every hook event. One short-lived process per event, like the TS hooks, but a static Go binary instead of `node` plus native-module checks.
+- A second binary, `cmgo-hook <event>`, which Claude Code runs for every hook event. One short-lived process per event, like the TS hooks, but a small static Go binary instead of `node` plus native-module checks. `cmgo hook <event>` runs the same code, for manual testing.
 - **PreToolUse routing and blocking:**
   - curl/wget, inline-HTTP and build-tool redirects;
   - the WebFetch redirect;
@@ -60,7 +60,7 @@ All measured on this machine.
 ## 1. Architecture
 
 ### 1.1 Binary and packages
-`cmgo hook <event>` reads one JSON object from stdin and writes at most one JSON line to stdout. `<event>` is one of:
+`cmgo-hook <event>` reads one JSON object from stdin and writes at most one JSON line to stdout. It is a separate binary from `cmgo` because every package linked into a Go binary runs its init and is paged in at start. While drafting, `cmgo version` (which links the MCP SDK, `net/http` and HTML conversion) took 6.7 ms wall time, a binary with only the hook code 4.5 ms, and an empty Go binary 2.7 ms (all at load average ~4). `<event>` is one of:
 - `pretooluse`
 - `posttooluse`
 - `posttoolusefailure`
@@ -78,10 +78,11 @@ New packages:
 | `internal/routing` | PreToolUse decisions, guidance throttle, MCP-ready check, routing block text, Claude Code output format |
 | `internal/capture` | event extractors for PostToolUse, PostToolUseFailure, UserPromptSubmit, Stop and SessionStart |
 | `internal/install` | settings.json editing, MCP registration, uninstall |
+| `internal/hookcmd` | the hook entry point shared by `cmd/cmgo-hook` and `cmgo hook`: stdin, config, dispatch per event, store writes, error log |
 
-`internal/store` gains the session tables (§3.1) and `InsertEvents`. `internal/security` gains `EvaluateCommand` (§2.2). `cmd/cmgo` gains `hook`, `install` and `uninstall`, and `serve` writes the MCP-ready sentinel (§2.5).
+`internal/store` gains the session tables (§3.1) and `InsertEvents`. `internal/security` gains `EvaluateCommand` (§2.2). `cmd/cmgo` gains `hook`, `install` and `uninstall`, and `serve` writes the MCP-ready sentinel (§2.5). `cmd/cmgo-hook` is new.
 
-The `hook` path must not build the MCP server, the executor or the fetcher. It opens the store only when it has an event to write.
+`cmd/cmgo-hook` must not link the MCP SDK, `net/http`, HTML conversion, `internal/executor`, `internal/fetch` or `internal/mcpserver`; a test checks `go list -deps`. It opens the store only when it has an event to write.
 
 ### 1.2 Failure policy
 Every hook fails open:
@@ -292,15 +293,15 @@ Lengths that TS measures with `.length` or `.slice` count UTF-16 code units in G
 
 ## 5. Install
 
-### 5.1 `cmgo install [--binary <path>] [--disable-ts-plugin] [--dry-run]`
+### 5.1 `cmgo install [--binary <path>] [--hook-binary <path>] [--disable-ts-plugin] [--dry-run]`
 1. **Paths:**
    - The settings file is `$CLAUDE_CONFIG_DIR/settings.json`, else `~/.claude/settings.json`.
    - The binary path defaults to `os.Executable()`, with symlinks resolved.
 2. **Read and parse:** read and parse the settings file with an order-preserving JSON decoder.
    - If the file is missing, start from `{}`.
    - If it does not parse, exit 1, print the parse error, and do not write.
-3. **Remove cmgo's old commands:** remove every inner hook command whose `command` is `"<abs path>" hook <event>` and whose path basename is `cmgo`. A matcher entry left with no commands is dropped, and an event array left empty is dropped. Other commands, including ones in the same matcher entry, are kept.
-4. **Add the new entries:** add one matcher entry per event from §3.5, each with one command `"<binary>" hook <event>`.
+3. **Remove cmgo's old commands:** remove every inner hook command whose first token has basename `cmgo-hook` followed by `<event>`, or basename `cmgo` followed by `hook <event>`. A matcher entry left with no commands is dropped, and an event array left empty is dropped. Other commands, including ones in the same matcher entry, are kept.
+4. **Add the new entries:** add one matcher entry per event from §3.5, each with one command `"<hook binary>" <event>`. The hook binary is `cmgo-hook` next to the `cmgo` binary (`--hook-binary` overrides it). Install exits 1 if it does not exist, unless `--dry-run`.
 5. **TS plugin:**
    - If `enabledPlugins` has a true key starting with `context-mode@`, print a warning that both plugins will inject routing text.
    - With `--disable-ts-plugin`, set that key to false.
@@ -342,9 +343,9 @@ A Node script, `tools/golden-gen/gen-hooks.mjs`, runs by hand against `$TS_REPO`
 The Go tests replay each case with the same state (guidance markers, MCP ready or not, subagent fields). `testdata/golden/HOOKS-KNOWN-DIFFS.md` lists every case whose expected value differs because of §2.3 or §3.4. The tests fail if a listed difference disappears.
 
 ### 6.3 End to end
-- `cmd/cmgo` tests run `run([]string{"hook", ...})` in-process with a temp HOME and a temp `CMGO_DIR`, for each event.
+- `internal/hookcmd` tests run `Run` in-process with a temp HOME and a temp `CMGO_DIR`, for each event.
 - They also run the built binary once per event through `os/exec`, to check the stdout bytes and the exit code.
-- One test starts a real `cmgo serve` process and a separate `cmgo hook pretooluse` process with the same `CMGO_DIR`, and checks that the curl redirect fires. With `serve` stopped, the same call passes through. This catches a sentinel the two processes resolve differently.
+- One test starts a real `cmgo serve` process and a separate `cmgo-hook pretooluse` process with the same `CMGO_DIR`, and checks that the curl redirect fires. With `serve` stopped, the same call passes through. This catches a sentinel the two processes resolve differently.
 
 ### 6.4 Acceptance scripts
 - **`bench/hook-latency.py <binary>`:** runs each case from criterion 1 200 times against a temp `CMGO_DIR` (warm DB), and prints p50 and p95 per case. It then runs the `posttooluse` case from 4 concurrent workers (200 fires each) into the same DB. PASS when every p95 ≤ 10 ms, the concurrent case included.
@@ -353,7 +354,7 @@ The Go tests replay each case with the same state (guidance markers, MCP ready o
 The results go in the PR body.
 
 ## 7. Decisions taken by default
-- **Delivered as the binary's own subcommand:** hooks are `cmgo hook <event>`, not a second binary. One binary to install, and the hook path skips server setup.
+- **Two binaries:** hooks are a separate `cmgo-hook` binary, so a hook process does not page in or initialise the MCP server code (§1.1). Both are built from one module with `go install ./cmd/...`.
 - **Data:** events live in `cmgo.db`, not in per-project files, so sub-project 3 can search across sessions of a project.
 - **Text kept as is:** the `context-mode:` prefix stays in redirect messages, so TS parity holds byte for byte.
 - **The installer never runs as part of tests or the build.** Running it on the owner's real `~/.claude` is left to the owner, after the PR is merged.
