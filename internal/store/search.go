@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf16"
 )
@@ -33,8 +34,8 @@ type SearchResult struct {
 const rrfK = 60
 
 var (
-	porterStrip  = regexp.MustCompile(`['"(){}\[\]*:^~]`)
-	trigramStrip = regexp.MustCompile(`["'(){}\[\]*:^~]`)
+	porterStrip  = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`['"(){}\[\]*:^~]`) })
+	trigramStrip = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`["'(){}\[\]*:^~]`) })
 )
 
 func jsFields(s string) []string { return strings.FieldsFunc(s, isJSSpace) }
@@ -74,7 +75,7 @@ func quoteOr(words []string) string {
 func SanitizeQuery(q string) string {
 	q = strings.ReplaceAll(q, "\x00", "") // a NUL ends the MATCH string in SQLite
 	var words []string
-	for _, w := range jsFields(porterStrip.ReplaceAllString(q, " ")) {
+	for _, w := range jsFields(porterStrip().ReplaceAllString(q, " ")) {
 		switch strings.ToUpper(w) {
 		case "AND", "OR", "NOT", "NEAR":
 			continue
@@ -92,7 +93,7 @@ func SanitizeQuery(q string) string {
 // skip the trigram search (ST:113-125).
 func SanitizeTrigramQuery(q string) string {
 	q = strings.ReplaceAll(q, "\x00", "")
-	cleaned := jsTrim(trigramStrip.ReplaceAllString(q, ""))
+	cleaned := jsTrim(trigramStrip().ReplaceAllString(q, ""))
 	if u16len(cleaned) < 3 {
 		return ""
 	}

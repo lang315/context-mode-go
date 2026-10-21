@@ -3,10 +3,12 @@ package routing
 import (
 	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/store"
+	"regexp"
+	"sync"
 )
 
 // echoReason pulls the message out of a Bash redirect (formatters.mjs:53).
-var echoReason = jsRegexp(`(?s)^echo\s+"(.+)"$`)
+var echoReason = sync.OnceValue(func() *regexp.Regexp { return jsRegexp(`(?s)^echo\s+"(.+)"$`) })
 
 // fallbackReason is the deny text for a modify whose command is not an echo
 // (formatters.mjs:56); routing never builds one.
@@ -59,7 +61,7 @@ func denyReason(dec Decision) (string, bool) {
 		return dec.Reason, true
 	case dec.Action == "modify" && dec.UpdatedInput != nil && dec.UpdatedInput.Has("command"):
 		cmd, _ := dec.UpdatedInput.String("command")
-		if m := echoReason.FindStringSubmatch(cmd); m != nil {
+		if m := echoReason().FindStringSubmatch(cmd); m != nil {
 			return m[1], true
 		}
 		return fallbackReason, true

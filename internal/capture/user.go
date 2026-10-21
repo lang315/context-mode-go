@@ -3,6 +3,7 @@ package capture
 import (
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/store"
@@ -51,23 +52,27 @@ func userPlan(msg string) []store.Event {
 }
 
 var (
-	questionMark   = regexp.MustCompile(`[?？؟¿]`)
-	letter         = regexp.MustCompile(`\pL`)
-	clauseSep      = regexp.MustCompile(`[,;，；、،]`)
-	twoWords       = regexp.MustCompile(`\pL+` + jsWS + `+\pL+`)
-	letterRun      = regexp.MustCompile(`\pL{6,}`)
-	goalDirective  = regexp.MustCompile(`(?is)^(?:/goal` + jsWS + `+|(?:goal|objective)` + jsWS + `*:` + jsWS + `*)(.+)$`)
-	resolvedMark   = regexp.MustCompile(`[✓✔✅☑🎉]`)
-	resolvedPrefix = regexp.MustCompile(`(?i)^` + jsWS + `*(?:fixed|resolved)` + jsWS + `*:`)
-	blockerMarkers = regexp.MustCompile(`(?:\bError` + jsWS + `*:|\bException` + jsWS + `*:|\bTraceback\b|\bat` +
-		jsWS + `+` + jsNotWS + `+` + jsWS + `*\([^)]*:\d+:\d+\))`)
+	questionMark  = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`[?？؟¿]`) })
+	letter        = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`\pL`) })
+	clauseSep     = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`[,;，；、،]`) })
+	twoWords      = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`\pL+` + jsWS + `+\pL+`) })
+	letterRun     = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`\pL{6,}`) })
+	goalDirective = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`(?is)^(?:/goal` + jsWS + `+|(?:goal|objective)` + jsWS + `*:` + jsWS + `*)(.+)$`)
+	})
+	resolvedMark   = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`[✓✔✅☑🎉]`) })
+	resolvedPrefix = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?i)^` + jsWS + `*(?:fixed|resolved)` + jsWS + `*:`) })
+	blockerMarkers = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`(?:\bError` + jsWS + `*:|\bException` + jsWS + `*:|\bTraceback\b|\bat` +
+			jsWS + `+` + jsNotWS + `+` + jsWS + `*\([^)]*:\d+:\d+\))`)
+	})
 )
 
 // userDecision ports extractUserDecision (X:2218-2240): a non-question with
 // a letter, a clause separator and 15..500 code points.
 func userDecision(msg string) []store.Event {
 	n := hookio.RuneLen(msg)
-	if questionMark.MatchString(msg) || !letter.MatchString(msg) || !clauseSep.MatchString(msg) || n < 15 || n > 500 {
+	if questionMark().MatchString(msg) || !letter().MatchString(msg) || !clauseSep().MatchString(msg) || n < 15 || n > 500 {
 		return nil
 	}
 	return []store.Event{ev("decision", "decision", 2, msg)}
@@ -102,10 +107,10 @@ func userRole(msg string) []store.Event {
 	}
 	first = jsTrim(first)
 	n := hookio.RuneLen(first)
-	if questionMark.MatchString(first) || clauseSep.MatchString(first) || !letter.MatchString(first) || n < 8 || n > 120 {
+	if questionMark().MatchString(first) || clauseSep().MatchString(first) || !letter().MatchString(first) || n < 8 || n > 120 {
 		return nil
 	}
-	if !hasRoleCue(first) || !(twoWords.MatchString(first) || letterRun.MatchString(first)) {
+	if !hasRoleCue(first) || !(twoWords().MatchString(first) || letterRun().MatchString(first)) {
 		return nil
 	}
 	return []store.Event{ev("role", "role", 3, msg)}
@@ -137,9 +142,9 @@ func hasRoleCue(first string) bool {
 func userIntent(msg string) []store.Event {
 	mode := ""
 	switch {
-	case questionMark.MatchString(msg):
+	case questionMark().MatchString(msg):
 		mode = "investigate"
-	case letter.MatchString(msg) && hookio.RuneLen(msg) < 60:
+	case letter().MatchString(msg) && hookio.RuneLen(msg) < 60:
 		mode = "implement"
 	}
 	if mode == "" {
@@ -150,7 +155,7 @@ func userIntent(msg string) []store.Event {
 
 // userGoal ports extractGoal (X:2446-2462).
 func userGoal(msg string) []store.Event {
-	m := goalDirective.FindStringSubmatch(msg)
+	m := goalDirective().FindStringSubmatch(msg)
 	if m == nil {
 		return nil
 	}
@@ -163,10 +168,10 @@ func userGoal(msg string) []store.Event {
 
 // userBlocker ports extractBlocker (X:2492-2520); resolved wins.
 func userBlocker(msg string) []store.Event {
-	if resolvedMark.MatchString(msg) || resolvedPrefix.MatchString(msg) {
+	if resolvedMark().MatchString(msg) || resolvedPrefix().MatchString(msg) {
 		return []store.Event{ev("blocker_resolved", "blocked-on", 2, msg)}
 	}
-	if blockerMarkers.MatchString(msg) {
+	if blockerMarkers().MatchString(msg) {
 		return []store.Event{ev("blocker", "blocked-on", 2, msg)}
 	}
 	return nil

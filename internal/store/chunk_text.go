@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -18,7 +19,7 @@ const (
 	plainOverlap                 = 2
 )
 
-var blankLineSplit = regexp.MustCompile(`\n` + jsWS + `*\n`)
+var blankLineSplit = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`\n` + jsWS + `*\n`) })
 
 // ChunkPlainText splits logs and command output: blank-line sections when the
 // output is naturally sectioned, else one "Output" chunk, else windows of
@@ -33,7 +34,7 @@ func ChunkPlainText(text string, linesPerChunk int) []Chunk {
 	}
 	maxBytes := ChunkMaxBytes
 
-	sections := blankLineSplit.Split(text, -1)
+	sections := blankLineSplit().Split(text, -1)
 	if len(sections) >= minBlankLineSections && len(sections) <= maxBlankLineSections && allUnder(sections, blankSectionStrategyMaxBytes) {
 		var out []Chunk
 		for i, sec := range sections {

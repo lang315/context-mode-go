@@ -122,7 +122,7 @@ func (p *Policy) rules() []*fileRules {
 }
 
 // toolPattern ports parseToolPattern (security.ts:37-44).
-var toolPattern = regexp.MustCompile(`^(\w+)\((.+)\)$`)
+var toolPattern = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(\w+)\((.+)\)$`) })
 
 // parseSettingsFile ports readSingleSettings + readToolPermissionPatterns
 // extractGlobs (security.ts:321-351, 434-461): permissions.deny Bash()/Read(),
@@ -140,7 +140,7 @@ func parseSettingsFile(path string) (*fileRules, error) {
 	perms, _ := root["permissions"].(map[string]any)
 	r := &fileRules{}
 	for _, entry := range stringsOf(perms["deny"]) {
-		m := toolPattern.FindStringSubmatch(entry)
+		m := toolPattern().FindStringSubmatch(entry)
 		if m == nil {
 			continue
 		}
@@ -153,7 +153,7 @@ func parseSettingsFile(path string) (*fileRules, error) {
 		}
 	}
 	for _, entry := range stringsOf(perms["allow"]) {
-		m := toolPattern.FindStringSubmatch(entry)
+		m := toolPattern().FindStringSubmatch(entry)
 		if m == nil {
 			continue
 		}
@@ -165,7 +165,7 @@ func parseSettingsFile(path string) (*fileRules, error) {
 		}
 	}
 	for _, entry := range stringsOf(perms["ask"]) {
-		if m := toolPattern.FindStringSubmatch(entry); m != nil && m[1] == "Bash" {
+		if m := toolPattern().FindStringSubmatch(entry); m != nil && m[1] == "Bash" {
 			r.bashAsk = append(r.bashAsk, bashRule{pattern: entry, re: globToRegex(m[2], caseInsensitive)})
 		}
 	}

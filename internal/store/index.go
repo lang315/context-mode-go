@@ -5,6 +5,7 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -33,14 +34,14 @@ type Source struct {
 // optimizeEvery: ContentStore.OPTIMIZE_EVERY (ST:463).
 const optimizeEvery = 50
 
-var vocabSplit = regexp.MustCompile(`[^\p{L}\p{N}_-]+`)
+var vocabSplit = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`[^\p{L}\p{N}_-]+`) })
 
 // vocabWords: lowercase, split on [^\p{L}\p{N}_-]+, keep words of at least 3
 // chars that are not stopwords; unique, in first-seen order (ST:1675-1681).
 func vocabWords(text string) []string {
 	var out []string
 	seen := map[string]bool{}
-	for _, w := range vocabSplit.Split(strings.ToLower(text), -1) {
+	for _, w := range vocabSplit().Split(strings.ToLower(text), -1) {
 		if u16len(w) >= 3 && !stopwords[w] && !seen[w] {
 			seen[w] = true
 			out = append(out, w)
