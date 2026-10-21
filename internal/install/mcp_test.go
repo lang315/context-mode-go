@@ -32,7 +32,7 @@ func TestInstallMCP(t *testing.T) {
 		{name: "other servers only", claudeJSON: `{"mcpServers":{"x":{}}}`, claude: true, runs: []string{addCmd}},
 		{name: "claude not on PATH", printed: "run: " + addCmd + "\n"},
 		{name: "dry run", claude: true, dryRun: true, printed: "run: " + addCmd + "\n"},
-		{name: "registered", claudeJSON: `{"mcpServers":{"cmgo":{"command":"cmgo"}}}`, claude: true},
+		{name: "registered at this binary", claudeJSON: `{"mcpServers":{"cmgo":{"type":"stdio","command":"` + bin + `","args":["serve"]}}}`, claude: true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -49,6 +49,44 @@ func TestInstallMCP(t *testing.T) {
 			}
 			if got := strings.Contains(f.stdout.String(), "run: claude"); got != (c.printed != "") ||
 				(c.printed != "" && !strings.HasSuffix(f.stdout.String(), c.printed)) {
+				t.Fatalf("stdout %q, want suffix %q", f.stdout.String(), c.printed)
+			}
+		})
+	}
+}
+
+// An install from a new path must repoint a registration made earlier,
+// otherwise Claude Code keeps starting the old binary.
+func TestInstallMCPReplacesOldPath(t *testing.T) {
+	cases := []struct {
+		name, claudeJSON string
+		claude, dryRun   bool
+		runs             []string
+		printed          string
+	}{
+		{name: "old command", claudeJSON: `{"mcpServers":{"cmgo":{"type":"stdio","command":"/old/cmgo","args":["serve"]}}}`,
+			claude: true, runs: []string{removeCmd, addCmd}},
+		{name: "old args", claudeJSON: `{"mcpServers":{"cmgo":{"command":"` + bin + `","args":["serve","--x"]}}}`,
+			claude: true, runs: []string{removeCmd, addCmd}},
+		{name: "no args", claudeJSON: `{"mcpServers":{"cmgo":{"command":"` + bin + `"}}}`,
+			claude: true, runs: []string{removeCmd, addCmd}},
+		{name: "old command, claude not on PATH", claudeJSON: `{"mcpServers":{"cmgo":{"command":"/old/cmgo","args":["serve"]}}}`,
+			printed: "run: " + removeCmd + "\nrun: " + addCmd + "\n"},
+		{name: "old command, dry run", claudeJSON: `{"mcpServers":{"cmgo":{"command":"/old/cmgo","args":["serve"]}}}`,
+			claude: true, dryRun: true, printed: "run: " + removeCmd + "\nrun: " + addCmd + "\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			o, f := newOpts(t)
+			f.claude, o.DryRun = c.claude, c.dryRun
+			writeClaudeJSON(t, o, c.claudeJSON)
+			if err := Install(o); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(f.runs, c.runs) {
+				t.Fatalf("runs %q, want %q", f.runs, c.runs)
+			}
+			if c.printed != "" && !strings.HasSuffix(f.stdout.String(), c.printed) {
 				t.Fatalf("stdout %q, want suffix %q", f.stdout.String(), c.printed)
 			}
 		})

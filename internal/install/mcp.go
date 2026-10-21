@@ -8,31 +8,49 @@ import (
 	"strings"
 )
 
-// mcpRegistered reports whether ~/.claude.json has mcpServers.cmgo. A missing
-// or unparseable file counts as not registered; cmgo never writes it, the
-// claude CLI does.
-func mcpRegistered(path string) bool {
+// mcpEntry is what ~/.claude.json holds for mcpServers.cmgo.
+type mcpEntry struct {
+	Command string   `json:"command"`
+	Args    []string `json:"args"`
+}
+
+// mcpState reads mcpServers.cmgo. A missing or unparseable file counts as not
+// registered; cmgo never writes it, the claude CLI does.
+func mcpState(path string) (e mcpEntry, registered bool) {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return false
+		return e, false
 	}
 	var v struct {
 		MCPServers map[string]json.RawMessage `json:"mcpServers"`
 	}
-	return json.Unmarshal(b, &v) == nil && v.MCPServers["cmgo"] != nil
+	if json.Unmarshal(b, &v) != nil || v.MCPServers["cmgo"] == nil {
+		return e, false
+	}
+	json.Unmarshal(v.MCPServers["cmgo"], &e) // a malformed entry is stale: re-register
+	return e, true
 }
 
 // registerMCP adds (add) or removes the user-scope cmgo MCP server when that
-// is needed.
+// is needed. An entry that points at another binary is replaced, so an
+// install from a new path repoints Claude Code.
 func registerMCP(o Options, add bool) error {
-	if mcpRegistered(o.ClaudeJSONPath) == add {
-		return nil
+	e, registered := mcpState(o.ClaudeJSONPath)
+	if !add {
+		if !registered {
+			return nil
+		}
+		return claude(o, "mcp", "remove", "--scope", "user", "cmgo")
 	}
-	args := []string{"mcp", "remove", "--scope", "user", "cmgo"}
-	if add {
-		args = []string{"mcp", "add", "--scope", "user", "cmgo", "--", o.Binary, "serve"}
+	if registered {
+		if e.Command == o.Binary && len(e.Args) == 1 && e.Args[0] == "serve" {
+			return nil
+		}
+		if err := claude(o, "mcp", "remove", "--scope", "user", "cmgo"); err != nil {
+			return err
+		}
 	}
-	return claude(o, args...)
+	return claude(o, "mcp", "add", "--scope", "user", "cmgo", "--", o.Binary, "serve")
 }
 
 // claude runs the claude CLI, or prints the command when it is not on PATH or
