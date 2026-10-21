@@ -54,17 +54,17 @@ No new binary. Changes by package:
 
 | Package | Change |
 |---|---|
-| `internal/memory` (new) | Directive builder, auto-injection builder, events markdown builder, auto-memory search. Pure functions over `[]store.StoredEvent` and files |
-| `internal/store` | `SessionEventsForSearch`, `PurgeSession`, `PurgeProject`, `IncrementCompactCount`, `SessionMeta` |
-| `internal/hookcmd` | `precompact` event; SessionStart `compact` and `resume` add the directive and auto-injection, and index the events markdown |
+| `internal/memory` (new) | Directive builder, auto-injection builder, auto-memory search. Pure functions over `[]store.StoredEvent` and files |
+| `internal/store` | `SessionEventsForSearch`, `CompactSession` (event count, compaction event and `compact_count` in one transaction), `PurgeSession`, `PurgeProject` |
+| `internal/hookcmd` | `precompact` event; SessionStart `compact` and `resume` add the directive and auto-injection |
 | `internal/routing` | `RoutingBlock` gains the `ctx purge` lines (§2.5) |
 | `internal/install` | registers `PreCompact` (matcher `""`) |
-| `internal/mcpserver` | `ctx_search` timeline and `session-events` paths, restored session-memory sentences in its description, new `ctx_purge` tool |
+| `internal/mcpserver` | `ctx_search` timeline merge and the `session-events` source, restored session-memory sentences in its description, new `ctx_purge` tool |
 
 ## 2. Hooks
 
 ### 2.1 PreCompact (`cmgo-hook precompact`)
-- **Store:** in one transaction:
+- **Store** (`store.CompactSession`), only when the session has events (as TS), in one transaction:
   - `session_meta.compact_count += 1`;
   - insert `{type:"compaction_summary", category:"compaction", priority:1, data:"Session compacted. <N> events, <F> files touched."}`, source hook `PreCompact`. `N` is the session's event count before the insert. `F` counts events of category `file`.
 - **Output:** prints `{}` and a newline.
@@ -75,18 +75,26 @@ No new binary. Changes by package:
 | source | added after the routing block | side effects |
 |---|---|---|
 | `startup` (or missing) | nothing | sub-project 2 rules and `session_start` events |
-| `compact` | if the session has events: `directive("compact")`, then `"\n\n" + autoInjection` when that is non-empty | index the events markdown (§2.3); insert `resume_completed` (`session-resume`, priority 1, data `Session resumed from compact. Prior events loaded.`); insert `session_start` with source `compact` |
-| `resume` | if the session has events: `directive("resume")` | index the events markdown; insert `session_start` with source `resume` |
+| `compact` | if the session has events: `directive("compact")`, then `"\n\n" + autoInjection` when that is non-empty | insert `resume_completed` (`session-resume`, priority 1, data `Session resumed from compact. Prior events loaded.`); insert `session_start` with source `compact` |
+| `resume` | if the session has events: `directive("resume")` | insert `session_start` with source `resume` |
 | `clear` and others | nothing | none |
 
 The session's events are `store.SessionEvents(sessionID)`, ordered by `id`. TS ordered by `created_at` at 1 s resolution.
 
-### 2.3 Events markdown
-- **The TS events file becomes a store source:** `writeSessionEventsFile` (SD:77-272) builds a Markdown file that the MCP server later indexes under label `session-events` (S:508-521). cmgo builds the same Markdown text (`memory.EventsMarkdown`) and indexes it directly with `store.Index` under label `session-events` for the current project. That replaces the previous `session-events` source of that project, which is the TS dedup-by-label behavior.
-- **No file:** nothing is written to disk outside `cmgo.db`, and nothing crosses projects.
+### 2.3 Events markdown: not ported
+TS writes `writeSessionEventsFile` (SD:77-272), a Markdown dump of the session's events, and the MCP server later indexes it under label `session-events` (S:508-521). The directive then tells the model to call `ctx_search(queries, source: "session-events")`.
+
+cmgo does not build or index that file. Instead, `ctx_search` with `source: "session-events"` reads the session events of the current project directly (§3.1).
+
+Reasons:
+- **Latency:** indexing the dump took 3–4 ms of a SessionStart(compact) hook fire. With it, the hook missed the 10 ms target on a 1000-event session (p95 15.5 ms measured while drafting).
+- **Freshness:** the dump would be stale the moment the next event was captured.
+- **No cross-project risk:** TS had one, because every project's dump was indexed by whichever server touched the store first.
 
 ### 2.4 Directive and auto-injection (`internal/memory`)
 Both are ported from SD:275-500 and AI:30-102 with the same templates, section order, truncation (UTF-16 units) and the task-matching algorithm (R3 §2.1). The search tool name is `mcp__cmgo__ctx_search`.
+
+Auto-injection leaves out TS's fallback to the last 3 decisions: with a role capped at 400 characters and 5 decisions capped at 100, the first block always fits the 500-token budget, so the fallback cannot trigger.
 
 Fixes:
 
@@ -104,8 +112,13 @@ Fixes:
 
 ## 3. `ctx_search` and session memory
 
-### 3.1 `source: "session-events"` (relevance mode)
-No change is needed: the label `session-events` is a normal indexed source (§2.3), and the existing source filter (partial label match) reaches it.
+### 3.1 `source: "session-events"`
+- **Behavior:** when `source` is exactly `session-events`, `ctx_search` answers in both sort modes from `store.SessionEventsForSearch(project, query, "", limit)`:
+  - match rules as in §3.2;
+  - newest first;
+  - shown as `--- [prior-session | <YYYY-MM-DD HH:MM> | <category>] ---`, `### [<category>] <type>`, then the event data as the snippet (the existing snippet extractor).
+- **Errors:** an empty result is `No results found.`, as for other sources. The empty-knowledge-base error does not apply to this source.
+- **Coverage:** this is the source the directive's `<session_search>` block names, so its advice works without an indexed dump.
 
 ### 3.2 `sort: "timeline"`
 For each query, the result list is built from three sources:
@@ -125,8 +138,10 @@ Difference from TS: TS kept the **oldest** matches (R3 headline 7). That contrad
 ### 3.3 Auto-memory
 Candidate files, in order:
 1. `<project>/CLAUDE.md` (label `project/CLAUDE.md`);
-2. `<home>/.claude/CLAUDE.md` (label `user/CLAUDE.md`);
-3. every `*.md` in Claude Code's memory dir for the project, `<home>/.claude/projects/<slug>/memory/` (label `memory/<file>`), sorted by name.
+2. `<claude dir>/CLAUDE.md` (label `user/CLAUDE.md`);
+3. every `*.md` in Claude Code's memory dir for the project, `<claude dir>/projects/<slug>/memory/` (label `memory/<file>`), sorted by name.
+
+`<claude dir>` is `$CLAUDE_CONFIG_DIR` when set, else `<home>/.claude` (`config.Config.ClaudeDir`, added in sub-project 2). The user `CLAUDE.md` in item 2 is read from the same dir.
 
 `<slug>` is the absolute project dir as given, with every `/` and `.` replaced by `-`. That is Claude Code's layout, for example `/Users/lang/x.y` gives `-Users-lang-x-y`.
 
@@ -151,12 +166,12 @@ The schema and description are copied from TS, without the stats wording.
 
 ## 5. Testing
 - **Unit tests:**
-  - `memory` builders against goldens;
+  - `memory` builders (directive, auto-injection) against goldens;
   - task matching, leg boundary, truncation;
   - auto-memory matching and slug;
   - store purge scope;
   - the timeline merge (newest selection, ascending display, source filter, project scope).
-- **Golden:** `tools/golden-gen/gen-memory.mjs` imports `hooks/session-directive.mjs` (`buildSessionDirective`, `groupEvents`, `writeSessionEventsFile` against a temp path) and `hooks/auto-injection.mjs` with a temp HOME. It writes `testdata/golden/memory-*.json` for the fixtures of R3 §9, with the tool-name substitution. `testdata/golden/MEMORY-KNOWN-DIFFS.md` lists the §2.4 fixes.
+- **Golden:** `tools/golden-gen/gen-memory.mjs` imports `hooks/session-directive.mjs` (`buildSessionDirective`, `groupEvents`) and `hooks/auto-injection.mjs` with a temp HOME. It writes `testdata/golden/memory-*.json` for the fixtures of R3 §9, with the tool-name substitution. `testdata/golden/MEMORY-KNOWN-DIFFS.md` lists the §2.4 fixes.
 - **End to end:**
   - `hookcmd` tests for `precompact` and for SessionStart `compact` and `resume`;
   - an `mcpserver` test that runs a timeline search after events are inserted, and a `ctx_purge` round trip.
@@ -164,6 +179,6 @@ The schema and description are copied from TS, without the stats wording.
 
 ## 6. Decisions taken by default
 - No snapshot table: the TS snapshot does not reach the model on Claude Code. One fewer write per compaction.
-- The events markdown goes into the content store instead of a file, which removes the cross-project indexing.
+- The events markdown is not built at all; `source: "session-events"` searches the events table directly (§2.3).
 - Timeline returns the newest matches.
 - Auto-memory reads Claude Code's real memory dir.
