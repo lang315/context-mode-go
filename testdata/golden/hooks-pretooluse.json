@@ -1,0 +1,601 @@
+{
+  "tsCommit": "a5e6dd31",
+  "cases": [
+    {
+      "i": 0,
+      "tool": "Bash",
+      "input": {
+        "command": "curl https://x.com"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "command": "echo \"context-mode: curl/wget redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch the URL, derive your answer in code, and print only the result — the raw HTTP body stays in the sandbox instead of entering your conversation. Or call mcp__cmgo__ctx_fetch_and_index(url, source) when you want to query the response later via mcp__cmgo__ctx_search. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\""
+        },
+        "redirectMeta": {
+          "tool": "Bash",
+          "type": "bash-redirected",
+          "bytesAvoided": 8192,
+          "commandSummary": "curl https://x.com"
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"context-mode: curl/wget redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch the URL, derive your answer in code, and print only the result — the raw HTTP body stays in the sandbox instead of entering your conversation. Or call mcp__cmgo__ctx_fetch_and_index(url, source) when you want to query the response later via mcp__cmgo__ctx_search. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\"}}\n"
+    },
+    {
+      "i": 1,
+      "tool": "Bash",
+      "input": {
+        "command": "curl -s -o out.json https://x.com"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 2,
+      "tool": "Bash",
+      "input": {
+        "command": "curl -s https://x.com 2>/dev/null"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 3,
+      "tool": "Bash",
+      "input": {
+        "command": "wget -q -O - https://x.com"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "command": "echo \"context-mode: curl/wget redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch the URL, derive your answer in code, and print only the result — the raw HTTP body stays in the sandbox instead of entering your conversation. Or call mcp__cmgo__ctx_fetch_and_index(url, source) when you want to query the response later via mcp__cmgo__ctx_search. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\""
+        },
+        "redirectMeta": {
+          "tool": "Bash",
+          "type": "bash-redirected",
+          "bytesAvoided": 8192,
+          "commandSummary": "wget -q -O - https://x.com"
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"context-mode: curl/wget redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch the URL, derive your answer in code, and print only the result — the raw HTTP body stays in the sandbox instead of entering your conversation. Or call mcp__cmgo__ctx_fetch_and_index(url, source) when you want to query the response later via mcp__cmgo__ctx_search. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\"}}\n"
+    },
+    {
+      "i": 4,
+      "tool": "Bash",
+      "input": {
+        "command": "gh issue edit --body \"use curl here\""
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "context",
+        "additionalContext": "<context_guidance>\n  <tip>\n    When you intend to PROCESS the output (filter, count, parse, aggregate), use mcp__cmgo__ctx_batch_execute(commands, queries) for multiple commands or mcp__cmgo__ctx_execute(language: \"javascript\", code: \"...\") for one — the raw output stays in the sandbox and only what you print enters your conversation. Shell stays the right surface when you intend to OBSERVE a short fixed output or when you are mutating state (git, mkdir, rm, mv, navigation); if you use mcp__cmgo__ctx_execute(language: \"shell\"), write syntax for the host shell.\n  </tip>\n</context_guidance>"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"<context_guidance>\\n  <tip>\\n    When you intend to PROCESS the output (filter, count, parse, aggregate), use mcp__cmgo__ctx_batch_execute(commands, queries) for multiple commands or mcp__cmgo__ctx_execute(language: \\\"javascript\\\", code: \\\"...\\\") for one — the raw output stays in the sandbox and only what you print enters your conversation. Shell stays the right surface when you intend to OBSERVE a short fixed output or when you are mutating state (git, mkdir, rm, mv, navigation); if you use mcp__cmgo__ctx_execute(language: \\\"shell\\\"), write syntax for the host shell.\\n  </tip>\\n</context_guidance>\"}}\n"
+    },
+    {
+      "i": 5,
+      "tool": "Bash",
+      "input": {
+        "command": "node -e \"fetch('https://a.b')\""
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "command": "echo \"context-mode: Inline HTTP redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch, derive your answer in code, and console.log() only the result — the raw response body stays in the sandbox instead of entering your conversation. Full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\""
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"context-mode: Inline HTTP redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch, derive your answer in code, and console.log() only the result — the raw response body stays in the sandbox instead of entering your conversation. Full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\"}}\n"
+    },
+    {
+      "i": 6,
+      "tool": "Bash",
+      "input": {
+        "command": "python -c 'import requests; requests.get(u)'"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "command": "echo \"context-mode: Inline HTTP redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch, derive your answer in code, and console.log() only the result — the raw response body stays in the sandbox instead of entering your conversation. Full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\""
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"context-mode: Inline HTTP redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch, derive your answer in code, and console.log() only the result — the raw response body stays in the sandbox instead of entering your conversation. Full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\"}}\n"
+    },
+    {
+      "i": 7,
+      "tool": "Bash",
+      "input": {
+        "command": "./gradlew build"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "command": "echo \"context-mode: Build tool redirected. Call mcp__cmgo__ctx_execute(language: \\\"shell\\\", code: \\\"./gradlew build 2>&1 | tail -30\\\") to run the build and print only the tail — the verbose build log stays in the sandbox instead of entering your conversation. For more targeted output, replace \\\"tail -30\\\" with \\\"grep -E '(error|warning|FAIL|✗|×)'\\\" or similar, so only the lines that matter come back.\""
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"context-mode: Build tool redirected. Call mcp__cmgo__ctx_execute(language: \\\\\\\"shell\\\\\\\", code: \\\\\\\"./gradlew build 2>&1 | tail -30\\\\\\\") to run the build and print only the tail — the verbose build log stays in the sandbox instead of entering your conversation. For more targeted output, replace \\\\\\\"tail -30\\\\\\\" with \\\\\\\"grep -E '(error|warning|FAIL|✗|×)'\\\\\\\" or similar, so only the lines that matter come back.\"}}\n"
+    },
+    {
+      "i": 8,
+      "tool": "Bash",
+      "input": {
+        "command": "mvn \"test\" C:\\x"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "command": "echo \"context-mode: Build tool redirected. Call mcp__cmgo__ctx_execute(language: \\\"shell\\\", code: \\\"mvn \\\"test\\\" C:\\\\x 2>&1 | tail -30\\\") to run the build and print only the tail — the verbose build log stays in the sandbox instead of entering your conversation. For more targeted output, replace \\\"tail -30\\\" with \\\"grep -E '(error|warning|FAIL|✗|×)'\\\" or similar, so only the lines that matter come back.\""
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"context-mode: Build tool redirected. Call mcp__cmgo__ctx_execute(language: \\\\\\\"shell\\\\\\\", code: \\\\\\\"mvn \\\\\\\"test\\\\\\\" C:\\\\\\\\x 2>&1 | tail -30\\\\\\\") to run the build and print only the tail — the verbose build log stays in the sandbox instead of entering your conversation. For more targeted output, replace \\\\\\\"tail -30\\\\\\\" with \\\\\\\"grep -E '(error|warning|FAIL|✗|×)'\\\\\\\" or similar, so only the lines that matter come back.\"}}\n"
+    },
+    {
+      "i": 9,
+      "tool": "Bash",
+      "input": {
+        "command": "git status"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 10,
+      "tool": "Bash",
+      "input": {
+        "command": "ls -la | head"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 11,
+      "tool": "Bash",
+      "input": {
+        "command": "find / -name x"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 12,
+      "tool": "Bash",
+      "input": {
+        "command": "find / -name y"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 13,
+      "tool": "Bash",
+      "input": {
+        "command": "sudo rm -rf /"
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "deny",
+        "reason": "Blocked by security policy: matches deny pattern Bash(sudo *)"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Blocked by security policy: matches deny pattern Bash(sudo *)\"}}\n"
+    },
+    {
+      "i": 14,
+      "tool": "Bash",
+      "input": {
+        "command": "echo ok && sudo ls"
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "deny",
+        "reason": "Blocked by security policy: matches deny pattern Bash(sudo *)"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Blocked by security policy: matches deny pattern Bash(sudo *)\"}}\n"
+    },
+    {
+      "i": 15,
+      "tool": "Bash",
+      "input": {
+        "command": "git push origin main"
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "ask"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\"}}\n"
+    },
+    {
+      "i": 16,
+      "tool": "Bash",
+      "input": {
+        "command": "curl https://allowed.example"
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "command": "echo \"context-mode: curl/wget redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch the URL, derive your answer in code, and print only the result — the raw HTTP body stays in the sandbox instead of entering your conversation. Or call mcp__cmgo__ctx_fetch_and_index(url, source) when you want to query the response later via mcp__cmgo__ctx_search. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\""
+        },
+        "redirectMeta": {
+          "tool": "Bash",
+          "type": "bash-redirected",
+          "bytesAvoided": 8192,
+          "commandSummary": "curl https://allowed.example"
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"context-mode: curl/wget redirected. Call mcp__cmgo__ctx_execute(language, code) to fetch the URL, derive your answer in code, and print only the result — the raw HTTP body stays in the sandbox instead of entering your conversation. Or call mcp__cmgo__ctx_fetch_and_index(url, source) when you want to query the response later via mcp__cmgo__ctx_search. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\"}}\n"
+    },
+    {
+      "i": 17,
+      "tool": "Read",
+      "input": {
+        "file_path": "<BASE>/small.txt"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "context",
+        "additionalContext": "<context_guidance>\n  <tip>\n    Reading to Edit the file? Read is correct — Edit needs the exact bytes in your conversation to match against.\n    Reading to analyze, summarize, or extract from the file? Use mcp__cmgo__ctx_execute_file(path, language, code) — the bytes stay in the sandbox and only what your code prints enters your conversation.\n  </tip>\n</context_guidance>"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"<context_guidance>\\n  <tip>\\n    Reading to Edit the file? Read is correct — Edit needs the exact bytes in your conversation to match against.\\n    Reading to analyze, summarize, or extract from the file? Use mcp__cmgo__ctx_execute_file(path, language, code) — the bytes stay in the sandbox and only what your code prints enters your conversation.\\n  </tip>\\n</context_guidance>\"}}\n"
+    },
+    {
+      "i": 18,
+      "tool": "Read",
+      "input": {
+        "file_path": "<BASE>/big.txt"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "context",
+        "additionalContext": "<context_guidance>\n  <tip>\n    Reading to Edit the file? Read is correct — Edit needs the exact bytes in your conversation to match against.\n    Reading to analyze, summarize, or extract from the file? Use mcp__cmgo__ctx_execute_file(path, language, code) — the bytes stay in the sandbox and only what your code prints enters your conversation.\n  </tip>\n</context_guidance>",
+        "redirectMeta": {
+          "tool": "Read",
+          "type": "read-redirected",
+          "bytesAvoided": 50001,
+          "commandSummary": "<BASE>/big.txt"
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"<context_guidance>\\n  <tip>\\n    Reading to Edit the file? Read is correct — Edit needs the exact bytes in your conversation to match against.\\n    Reading to analyze, summarize, or extract from the file? Use mcp__cmgo__ctx_execute_file(path, language, code) — the bytes stay in the sandbox and only what your code prints enters your conversation.\\n  </tip>\\n</context_guidance>\"}}\n"
+    },
+    {
+      "i": 19,
+      "tool": "Read",
+      "input": {
+        "file_path": "<BASE>/small.txt"
+      },
+      "projectDir": "",
+      "sessionId": "s2",
+      "subagent": false,
+      "decision": {
+        "action": "context",
+        "additionalContext": "<context_guidance>\n  <tip>\n    Reading to Edit the file? Read is correct — Edit needs the exact bytes in your conversation to match against.\n    Reading to analyze, summarize, or extract from the file? Use mcp__cmgo__ctx_execute_file(path, language, code) — the bytes stay in the sandbox and only what your code prints enters your conversation.\n  </tip>\n</context_guidance>"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"<context_guidance>\\n  <tip>\\n    Reading to Edit the file? Read is correct — Edit needs the exact bytes in your conversation to match against.\\n    Reading to analyze, summarize, or extract from the file? Use mcp__cmgo__ctx_execute_file(path, language, code) — the bytes stay in the sandbox and only what your code prints enters your conversation.\\n  </tip>\\n</context_guidance>\"}}\n"
+    },
+    {
+      "i": 20,
+      "tool": "Grep",
+      "input": {
+        "pattern": "x"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "context",
+        "additionalContext": "<context_guidance>\n  <tip>\n    Grep results may be larger than you expect. When you intend to count, filter, or aggregate matches (not just spot-check one), run the search through mcp__cmgo__ctx_execute(language: \"javascript\", code: \"...\") — the raw match list stays in the sandbox and only your derived answer enters your conversation. Use language: \"shell\" only when the code matches the host shell (PowerShell on Windows, POSIX shell on Unix).\n  </tip>\n</context_guidance>"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"<context_guidance>\\n  <tip>\\n    Grep results may be larger than you expect. When you intend to count, filter, or aggregate matches (not just spot-check one), run the search through mcp__cmgo__ctx_execute(language: \\\"javascript\\\", code: \\\"...\\\") — the raw match list stays in the sandbox and only your derived answer enters your conversation. Use language: \\\"shell\\\" only when the code matches the host shell (PowerShell on Windows, POSIX shell on Unix).\\n  </tip>\\n</context_guidance>\"}}\n"
+    },
+    {
+      "i": 21,
+      "tool": "WebFetch",
+      "input": {
+        "url": "https://example.com/a",
+        "prompt": "p"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "deny",
+        "reason": "context-mode: WebFetch redirected. Call mcp__cmgo__ctx_fetch_and_index(url: \"https://example.com/a\", source: \"...\") to fetch + index the page, then mcp__cmgo__ctx_search(queries: [...]) to query the indexed content — the raw page bytes stay in storage instead of entering your conversation. Or call mcp__cmgo__ctx_execute(language, code) when you want to derive your answer in one round trip (parse, extract, count) without persisting the response. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).",
+        "redirectMeta": {
+          "tool": "WebFetch",
+          "type": "webfetch-redirected",
+          "bytesAvoided": 16384,
+          "commandSummary": "https://example.com/a"
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"context-mode: WebFetch redirected. Call mcp__cmgo__ctx_fetch_and_index(url: \\\"https://example.com/a\\\", source: \\\"...\\\") to fetch + index the page, then mcp__cmgo__ctx_search(queries: [...]) to query the indexed content — the raw page bytes stay in storage instead of entering your conversation. Or call mcp__cmgo__ctx_execute(language, code) when you want to derive your answer in one round trip (parse, extract, count) without persisting the response. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).\"}}\n"
+    },
+    {
+      "i": 22,
+      "tool": "Agent",
+      "input": {
+        "prompt": "do X",
+        "subagent_type": "Explore",
+        "description": "d"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "prompt": "do X\n<context_window_protection>\n  <priority_instructions>\n    Every byte a tool returns enters your conversation memory and costs reasoning capacity for the rest of the session. The context-mode tools let you do the work in a sandbox and surface only the derived answer — the raw bytes stay out. Think-in-Code: program the analysis, do not compute it by reading raw data into your conversation.\n  </priority_instructions>\n\n  <deferred_tool_bootstrap>\n    The context-mode tools below may be DEFERRED in your harness — their schemas are not loaded yet, so calling them directly fails (e.g. \"tool not found\" / InputValidationError). Load them ONCE before your first ctx_* call:\n    ToolSearch(query: \"select:mcp__cmgo__ctx_batch_execute,mcp__cmgo__ctx_search,mcp__cmgo__ctx_execute,mcp__cmgo__ctx_execute_file,mcp__cmgo__ctx_fetch_and_index\")\n    After that they are callable. If any ctx_* call fails as not-found, ToolSearch it and retry — do NOT fall back to Bash/Read just because the schema was not loaded yet.\n  </deferred_tool_bootstrap>\n\n  <tool_selection_hierarchy>\n    0. MEMORY: mcp__cmgo__ctx_search(sort: \"timeline\")\n       - On resume or compaction, query prior decisions, errors, plans, user prompts before asking the user — auto-captured session memory is searchable.\n    1. GATHER: mcp__cmgo__ctx_batch_execute(commands, queries)\n       - Primary research tool. Runs commands in parallel, auto-indexes each output, and (when queries are passed) returns matching sections in the same round trip — no follow-up search call.\n       - Each command: {label: \"section header\", command: \"shell command\"}; the label becomes the FTS5 chunk title — descriptive labels improve search.\n    2. FOLLOW-UP: mcp__cmgo__ctx_search(queries: [\"q1\", \"q2\", ...])\n       - Multiple related questions about anything already indexed (your captures + session memory). Batch every question in one array; the ranking pipeline runs per-query and the round-trip cost is paid once.\n    3. PROCESSING: mcp__cmgo__ctx_execute(language, code) | mcp__cmgo__ctx_execute_file(path, language, code)\n       - Derive answers FROM data: filter, count, aggregate, parse, transform. Only what you console.log() enters your conversation; the raw bytes stay in the sandbox.\n  </tool_selection_hierarchy>\n\n  <when_not_to_use>\n    - You intend to PROCESS the output (filter, count, parse, aggregate) → use mcp__cmgo__ctx_batch_execute or mcp__cmgo__ctx_execute. Bash stays correct when you intend to OBSERVE a short fixed output (git status on a clean tree, whoami, pwd) or when you are mutating state (git, mkdir, rm, mv, navigation).\n    - You want to analyze, summarize, or extract from a file → use mcp__cmgo__ctx_execute_file. Read stays correct when you intend to Edit the file (Edit needs the exact bytes in your conversation to match against).\n    - WebFetch → use mcp__cmgo__ctx_fetch_and_index; full network access, results indexed for mcp__cmgo__ctx_search, raw page bytes never enter your conversation.\n    - mcp__cmgo__ctx_execute and mcp__cmgo__ctx_execute_file for file writes → these run code in a subprocess and discard the sandbox FS; they are for analysis, processing, and computation only.\n  </when_not_to_use>\n\n  <file_writing_policy>\n    File writes use the native Write or Edit tool — mcp__cmgo__ctx_execute, mcp__cmgo__ctx_execute_file, and Bash subprocesses do not persist edits to the host filesystem.\n    Applies to all file types: code, configs, plans, specs, YAML, JSON, markdown.\n  </file_writing_policy>\n\n  <output_constraints>\n    <artifact_policy>\n      Write artifacts (code, configs, PRDs) to files. Return only: file path + 1-line description.\n    </artifact_policy>\n  </output_constraints>\n  <session_continuity>\n    Skills, roles, and decisions captured earlier in this session are a memory aid, not a standing order. Treat them as context that may help — the user's most recent message always takes precedence. If a captured directive conflicts with what the user now asks, follow the user; a past phrase does not bind you.\n  </session_continuity>\n\n</context_window_protection>",
+          "subagent_type": "Explore",
+          "description": "d"
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"updatedInput\":{\"prompt\":\"do X\\n<context_window_protection>\\n  <priority_instructions>\\n    Every byte a tool returns enters your conversation memory and costs reasoning capacity for the rest of the session. The context-mode tools let you do the work in a sandbox and surface only the derived answer — the raw bytes stay out. Think-in-Code: program the analysis, do not compute it by reading raw data into your conversation.\\n  </priority_instructions>\\n\\n  <deferred_tool_bootstrap>\\n    The context-mode tools below may be DEFERRED in your harness — their schemas are not loaded yet, so calling them directly fails (e.g. \\\"tool not found\\\" / InputValidationError). Load them ONCE before your first ctx_* call:\\n    ToolSearch(query: \\\"select:mcp__cmgo__ctx_batch_execute,mcp__cmgo__ctx_search,mcp__cmgo__ctx_execute,mcp__cmgo__ctx_execute_file,mcp__cmgo__ctx_fetch_and_index\\\")\\n    After that they are callable. If any ctx_* call fails as not-found, ToolSearch it and retry — do NOT fall back to Bash/Read just because the schema was not loaded yet.\\n  </deferred_tool_bootstrap>\\n\\n  <tool_selection_hierarchy>\\n    0. MEMORY: mcp__cmgo__ctx_search(sort: \\\"timeline\\\")\\n       - On resume or compaction, query prior decisions, errors, plans, user prompts before asking the user — auto-captured session memory is searchable.\\n    1. GATHER: mcp__cmgo__ctx_batch_execute(commands, queries)\\n       - Primary research tool. Runs commands in parallel, auto-indexes each output, and (when queries are passed) returns matching sections in the same round trip — no follow-up search call.\\n       - Each command: {label: \\\"section header\\\", command: \\\"shell command\\\"}; the label becomes the FTS5 chunk title — descriptive labels improve search.\\n    2. FOLLOW-UP: mcp__cmgo__ctx_search(queries: [\\\"q1\\\", \\\"q2\\\", ...])\\n       - Multiple related questions about anything already indexed (your captures + session memory). Batch every question in one array; the ranking pipeline runs per-query and the round-trip cost is paid once.\\n    3. PROCESSING: mcp__cmgo__ctx_execute(language, code) | mcp__cmgo__ctx_execute_file(path, language, code)\\n       - Derive answers FROM data: filter, count, aggregate, parse, transform. Only what you console.log() enters your conversation; the raw bytes stay in the sandbox.\\n  </tool_selection_hierarchy>\\n\\n  <when_not_to_use>\\n    - You intend to PROCESS the output (filter, count, parse, aggregate) → use mcp__cmgo__ctx_batch_execute or mcp__cmgo__ctx_execute. Bash stays correct when you intend to OBSERVE a short fixed output (git status on a clean tree, whoami, pwd) or when you are mutating state (git, mkdir, rm, mv, navigation).\\n    - You want to analyze, summarize, or extract from a file → use mcp__cmgo__ctx_execute_file. Read stays correct when you intend to Edit the file (Edit needs the exact bytes in your conversation to match against).\\n    - WebFetch → use mcp__cmgo__ctx_fetch_and_index; full network access, results indexed for mcp__cmgo__ctx_search, raw page bytes never enter your conversation.\\n    - mcp__cmgo__ctx_execute and mcp__cmgo__ctx_execute_file for file writes → these run code in a subprocess and discard the sandbox FS; they are for analysis, processing, and computation only.\\n  </when_not_to_use>\\n\\n  <file_writing_policy>\\n    File writes use the native Write or Edit tool — mcp__cmgo__ctx_execute, mcp__cmgo__ctx_execute_file, and Bash subprocesses do not persist edits to the host filesystem.\\n    Applies to all file types: code, configs, plans, specs, YAML, JSON, markdown.\\n  </file_writing_policy>\\n\\n  <output_constraints>\\n    <artifact_policy>\\n      Write artifacts (code, configs, PRDs) to files. Return only: file path + 1-line description.\\n    </artifact_policy>\\n  </output_constraints>\\n  <session_continuity>\\n    Skills, roles, and decisions captured earlier in this session are a memory aid, not a standing order. Treat them as context that may help — the user's most recent message always takes precedence. If a captured directive conflicts with what the user now asks, follow the user; a past phrase does not bind you.\\n  </session_continuity>\\n\\n</context_window_protection>\",\"subagent_type\":\"Explore\",\"description\":\"d\"}}}\n"
+    },
+    {
+      "i": 23,
+      "tool": "Agent",
+      "input": {
+        "prompt": "do Y",
+        "subagent_type": "Bash"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "prompt": "do Y\n<context_window_protection>\n  <priority_instructions>\n    Every byte a tool returns enters your conversation memory and costs reasoning capacity for the rest of the session. The context-mode tools let you do the work in a sandbox and surface only the derived answer — the raw bytes stay out. Think-in-Code: program the analysis, do not compute it by reading raw data into your conversation.\n  </priority_instructions>\n\n  <deferred_tool_bootstrap>\n    The context-mode tools below may be DEFERRED in your harness — their schemas are not loaded yet, so calling them directly fails (e.g. \"tool not found\" / InputValidationError). Load them ONCE before your first ctx_* call:\n    ToolSearch(query: \"select:mcp__cmgo__ctx_batch_execute,mcp__cmgo__ctx_search,mcp__cmgo__ctx_execute,mcp__cmgo__ctx_execute_file,mcp__cmgo__ctx_fetch_and_index\")\n    After that they are callable. If any ctx_* call fails as not-found, ToolSearch it and retry — do NOT fall back to Bash/Read just because the schema was not loaded yet.\n  </deferred_tool_bootstrap>\n\n  <tool_selection_hierarchy>\n    0. MEMORY: mcp__cmgo__ctx_search(sort: \"timeline\")\n       - On resume or compaction, query prior decisions, errors, plans, user prompts before asking the user — auto-captured session memory is searchable.\n    1. GATHER: mcp__cmgo__ctx_batch_execute(commands, queries)\n       - Primary research tool. Runs commands in parallel, auto-indexes each output, and (when queries are passed) returns matching sections in the same round trip — no follow-up search call.\n       - Each command: {label: \"section header\", command: \"shell command\"}; the label becomes the FTS5 chunk title — descriptive labels improve search.\n    2. FOLLOW-UP: mcp__cmgo__ctx_search(queries: [\"q1\", \"q2\", ...])\n       - Multiple related questions about anything already indexed (your captures + session memory). Batch every question in one array; the ranking pipeline runs per-query and the round-trip cost is paid once.\n    3. PROCESSING: mcp__cmgo__ctx_execute(language, code) | mcp__cmgo__ctx_execute_file(path, language, code)\n       - Derive answers FROM data: filter, count, aggregate, parse, transform. Only what you console.log() enters your conversation; the raw bytes stay in the sandbox.\n  </tool_selection_hierarchy>\n\n  <when_not_to_use>\n    - You intend to PROCESS the output (filter, count, parse, aggregate) → use mcp__cmgo__ctx_batch_execute or mcp__cmgo__ctx_execute. Bash stays correct when you intend to OBSERVE a short fixed output (git status on a clean tree, whoami, pwd) or when you are mutating state (git, mkdir, rm, mv, navigation).\n    - You want to analyze, summarize, or extract from a file → use mcp__cmgo__ctx_execute_file. Read stays correct when you intend to Edit the file (Edit needs the exact bytes in your conversation to match against).\n    - WebFetch → use mcp__cmgo__ctx_fetch_and_index; full network access, results indexed for mcp__cmgo__ctx_search, raw page bytes never enter your conversation.\n    - mcp__cmgo__ctx_execute and mcp__cmgo__ctx_execute_file for file writes → these run code in a subprocess and discard the sandbox FS; they are for analysis, processing, and computation only.\n  </when_not_to_use>\n\n  <file_writing_policy>\n    File writes use the native Write or Edit tool — mcp__cmgo__ctx_execute, mcp__cmgo__ctx_execute_file, and Bash subprocesses do not persist edits to the host filesystem.\n    Applies to all file types: code, configs, plans, specs, YAML, JSON, markdown.\n  </file_writing_policy>\n\n  <output_constraints>\n    <artifact_policy>\n      Write artifacts (code, configs, PRDs) to files. Return only: file path + 1-line description.\n    </artifact_policy>\n  </output_constraints>\n  <session_continuity>\n    Skills, roles, and decisions captured earlier in this session are a memory aid, not a standing order. Treat them as context that may help — the user's most recent message always takes precedence. If a captured directive conflicts with what the user now asks, follow the user; a past phrase does not bind you.\n  </session_continuity>\n\n</context_window_protection>",
+          "subagent_type": "general-purpose"
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"updatedInput\":{\"prompt\":\"do Y\\n<context_window_protection>\\n  <priority_instructions>\\n    Every byte a tool returns enters your conversation memory and costs reasoning capacity for the rest of the session. The context-mode tools let you do the work in a sandbox and surface only the derived answer — the raw bytes stay out. Think-in-Code: program the analysis, do not compute it by reading raw data into your conversation.\\n  </priority_instructions>\\n\\n  <deferred_tool_bootstrap>\\n    The context-mode tools below may be DEFERRED in your harness — their schemas are not loaded yet, so calling them directly fails (e.g. \\\"tool not found\\\" / InputValidationError). Load them ONCE before your first ctx_* call:\\n    ToolSearch(query: \\\"select:mcp__cmgo__ctx_batch_execute,mcp__cmgo__ctx_search,mcp__cmgo__ctx_execute,mcp__cmgo__ctx_execute_file,mcp__cmgo__ctx_fetch_and_index\\\")\\n    After that they are callable. If any ctx_* call fails as not-found, ToolSearch it and retry — do NOT fall back to Bash/Read just because the schema was not loaded yet.\\n  </deferred_tool_bootstrap>\\n\\n  <tool_selection_hierarchy>\\n    0. MEMORY: mcp__cmgo__ctx_search(sort: \\\"timeline\\\")\\n       - On resume or compaction, query prior decisions, errors, plans, user prompts before asking the user — auto-captured session memory is searchable.\\n    1. GATHER: mcp__cmgo__ctx_batch_execute(commands, queries)\\n       - Primary research tool. Runs commands in parallel, auto-indexes each output, and (when queries are passed) returns matching sections in the same round trip — no follow-up search call.\\n       - Each command: {label: \\\"section header\\\", command: \\\"shell command\\\"}; the label becomes the FTS5 chunk title — descriptive labels improve search.\\n    2. FOLLOW-UP: mcp__cmgo__ctx_search(queries: [\\\"q1\\\", \\\"q2\\\", ...])\\n       - Multiple related questions about anything already indexed (your captures + session memory). Batch every question in one array; the ranking pipeline runs per-query and the round-trip cost is paid once.\\n    3. PROCESSING: mcp__cmgo__ctx_execute(language, code) | mcp__cmgo__ctx_execute_file(path, language, code)\\n       - Derive answers FROM data: filter, count, aggregate, parse, transform. Only what you console.log() enters your conversation; the raw bytes stay in the sandbox.\\n  </tool_selection_hierarchy>\\n\\n  <when_not_to_use>\\n    - You intend to PROCESS the output (filter, count, parse, aggregate) → use mcp__cmgo__ctx_batch_execute or mcp__cmgo__ctx_execute. Bash stays correct when you intend to OBSERVE a short fixed output (git status on a clean tree, whoami, pwd) or when you are mutating state (git, mkdir, rm, mv, navigation).\\n    - You want to analyze, summarize, or extract from a file → use mcp__cmgo__ctx_execute_file. Read stays correct when you intend to Edit the file (Edit needs the exact bytes in your conversation to match against).\\n    - WebFetch → use mcp__cmgo__ctx_fetch_and_index; full network access, results indexed for mcp__cmgo__ctx_search, raw page bytes never enter your conversation.\\n    - mcp__cmgo__ctx_execute and mcp__cmgo__ctx_execute_file for file writes → these run code in a subprocess and discard the sandbox FS; they are for analysis, processing, and computation only.\\n  </when_not_to_use>\\n\\n  <file_writing_policy>\\n    File writes use the native Write or Edit tool — mcp__cmgo__ctx_execute, mcp__cmgo__ctx_execute_file, and Bash subprocesses do not persist edits to the host filesystem.\\n    Applies to all file types: code, configs, plans, specs, YAML, JSON, markdown.\\n  </file_writing_policy>\\n\\n  <output_constraints>\\n    <artifact_policy>\\n      Write artifacts (code, configs, PRDs) to files. Return only: file path + 1-line description.\\n    </artifact_policy>\\n  </output_constraints>\\n  <session_continuity>\\n    Skills, roles, and decisions captured earlier in this session are a memory aid, not a standing order. Treat them as context that may help — the user's most recent message always takes precedence. If a captured directive conflicts with what the user now asks, follow the user; a past phrase does not bind you.\\n  </session_continuity>\\n\\n</context_window_protection>\",\"subagent_type\":\"general-purpose\"}}}\n"
+    },
+    {
+      "i": 24,
+      "tool": "Task",
+      "input": {
+        "prompt": "do Z"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 25,
+      "tool": "mcp__cmgo__ctx_execute",
+      "input": {
+        "language": "shell",
+        "code": "ls"
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "language": "shell",
+          "code": "ls",
+          "cwd": "<BASE>/proj"
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"updatedInput\":{\"language\":\"shell\",\"code\":\"ls\",\"cwd\":\"<BASE>/proj\"}}}\n"
+    },
+    {
+      "i": 26,
+      "tool": "mcp__cmgo__ctx_execute",
+      "input": {
+        "language": "shell",
+        "code": "sudo ls"
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "deny",
+        "reason": "Blocked by security policy: shell code matches deny pattern Bash(sudo *)"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Blocked by security policy: shell code matches deny pattern Bash(sudo *)\"}}\n"
+    },
+    {
+      "i": 27,
+      "tool": "mcp__cmgo__ctx_execute",
+      "input": {
+        "language": "javascript",
+        "code": "1"
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 28,
+      "tool": "mcp__cmgo__ctx_execute_file",
+      "input": {
+        "path": "a/.env",
+        "language": "shell",
+        "code": "cat"
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "deny",
+        "reason": "Blocked by security policy: file path matches Read deny pattern **/.env"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Blocked by security policy: file path matches Read deny pattern **/.env\"}}\n"
+    },
+    {
+      "i": 29,
+      "tool": "mcp__cmgo__ctx_batch_execute",
+      "input": {
+        "commands": [
+          {
+            "label": "L",
+            "command": "sudo id"
+          }
+        ]
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "deny",
+        "reason": "Blocked by security policy: batch command \"L\" matches deny pattern Bash(sudo *)"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Blocked by security policy: batch command \\\"L\\\" matches deny pattern Bash(sudo *)\"}}\n"
+    },
+    {
+      "i": 30,
+      "tool": "mcp__cmgo__ctx_batch_execute",
+      "input": {
+        "commands": [
+          {
+            "label": "L",
+            "command": "id"
+          }
+        ]
+      },
+      "projectDir": "<proj>",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "modify",
+        "updatedInput": {
+          "commands": [
+            {
+              "label": "L",
+              "command": "id"
+            }
+          ],
+          "cwd": "<BASE>/proj"
+        }
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"updatedInput\":{\"commands\":[{\"label\":\"L\",\"command\":\"id\"}],\"cwd\":\"<BASE>/proj\"}}}\n"
+    },
+    {
+      "i": 31,
+      "tool": "mcp__slack__list",
+      "input": {},
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": {
+        "action": "context",
+        "additionalContext": "<context_guidance>\n  <tip>\n    External MCP tools commonly return large payloads (channel history, file content, search results) that enter your conversation in full. When you intend to filter, count, or aggregate that data, pipe it through mcp__cmgo__ctx_execute(language, code) — the raw payload stays in the sandbox and only the derived answer enters your conversation. For docs-style fetches you will want to query later, prefer mcp__cmgo__ctx_fetch_and_index(url, source) then mcp__cmgo__ctx_search(queries).\n  </tip>\n</context_guidance>"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"<context_guidance>\\n  <tip>\\n    External MCP tools commonly return large payloads (channel history, file content, search results) that enter your conversation in full. When you intend to filter, count, or aggregate that data, pipe it through mcp__cmgo__ctx_execute(language, code) — the raw payload stays in the sandbox and only the derived answer enters your conversation. For docs-style fetches you will want to query later, prefer mcp__cmgo__ctx_fetch_and_index(url, source) then mcp__cmgo__ctx_search(queries).\\n  </tip>\\n</context_guidance>\"}}\n"
+    },
+    {
+      "i": 32,
+      "tool": "mcp__slack__list",
+      "input": {},
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 33,
+      "tool": "Write",
+      "input": {
+        "file_path": "x"
+      },
+      "projectDir": "",
+      "sessionId": "s1",
+      "subagent": false,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 34,
+      "tool": "Bash",
+      "input": {
+        "command": "curl https://x.com"
+      },
+      "projectDir": "",
+      "sessionId": "sub1",
+      "subagent": true,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 35,
+      "tool": "WebFetch",
+      "input": {
+        "url": "https://e.com"
+      },
+      "projectDir": "",
+      "sessionId": "sub1",
+      "subagent": true,
+      "decision": null,
+      "output": null
+    },
+    {
+      "i": 36,
+      "tool": "Bash",
+      "input": {
+        "command": "find . -type f"
+      },
+      "projectDir": "",
+      "sessionId": "sub1",
+      "subagent": true,
+      "decision": {
+        "action": "context",
+        "additionalContext": "<context_guidance>\n  <tip>\n    When you intend to PROCESS the output (filter, count, parse, aggregate), use mcp__cmgo__ctx_batch_execute(commands, queries) for multiple commands or mcp__cmgo__ctx_execute(language: \"javascript\", code: \"...\") for one — the raw output stays in the sandbox and only what you print enters your conversation. Shell stays the right surface when you intend to OBSERVE a short fixed output or when you are mutating state (git, mkdir, rm, mv, navigation); if you use mcp__cmgo__ctx_execute(language: \"shell\"), write syntax for the host shell.\n  </tip>\n</context_guidance>"
+      },
+      "output": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"<context_guidance>\\n  <tip>\\n    When you intend to PROCESS the output (filter, count, parse, aggregate), use mcp__cmgo__ctx_batch_execute(commands, queries) for multiple commands or mcp__cmgo__ctx_execute(language: \\\"javascript\\\", code: \\\"...\\\") for one — the raw output stays in the sandbox and only what you print enters your conversation. Shell stays the right surface when you intend to OBSERVE a short fixed output or when you are mutating state (git, mkdir, rm, mv, navigation); if you use mcp__cmgo__ctx_execute(language: \\\"shell\\\"), write syntax for the host shell.\\n  </tip>\\n</context_guidance>\"}}\n"
+    }
+  ]
+}
