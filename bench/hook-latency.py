@@ -86,8 +86,9 @@ def fill_session(binary, env, db):
 def fill_stats(binary, env, db):
     """Lets the binary create and migrate db, then replaces its rows with
     STAT_SESSIONS sessions of STAT_EVENTS ~400-byte events each (1 in 20 a
-    redirect with bytes_avoided) and per session six tool_stats rows linked
-    to it (its cc_pid, project and window) plus six of an older window."""
+    redirect with bytes_avoided), per session six tool_stats rows whose
+    window is its id plus six of an older session of the same Claude Code
+    process, and the stats_totals row of each project."""
     fire(binary, env, "posttooluse", read_payload(-1, "warm"))
     con = sqlite3.connect(db)
     try:
@@ -95,22 +96,26 @@ def fill_stats(binary, env, db):
             raise SystemExit("stats fill: DB is older than migration 3")
         con.execute("DELETE FROM session_events")
         con.execute("DELETE FROM session_meta")
+        con.execute("DELETE FROM tool_stats")
+        con.execute("DELETE FROM stats_totals")
         data = "x" * 400
         for s in range(STAT_SESSIONS):
             sid, project, started = f"stat-{s}", f"/bench/p{s % 5}", f"2026-10-{1 + s % 20:02d} 10:{s % 60:02d}:00"
-            con.execute("INSERT INTO session_meta(session_id, project, started_at, last_event_at, event_count, cc_pid) "
-                        "VALUES (?, ?, ?, ?, ?, ?)", (sid, project, started, started, STAT_EVENTS, 1000 + s))
+            con.execute("INSERT INTO session_meta(session_id, project, started_at, last_event_at, event_count, cc_pid, linked_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)", (sid, project, started, started, STAT_EVENTS, 1000 + s, started + ".000"))
             con.executemany(
                 "INSERT INTO session_events(session_id, project, type, category, priority, data, data_hash, source_hook, "
                 "bytes_avoided, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [(sid, project, "file_read", "redirect" if e % 20 == 0 else "file", 2, data, f"{s:08X}{e:08X}",
                   "PostToolUse", 8192 if e % 20 == 0 else 0, started) for e in range(STAT_EVENTS)])
-            for window in (started, "2026-09-01 00:00:00"):
+            for window in (sid, f"older-{sid}"):
                 con.executemany(
                     "INSERT INTO tool_stats(server_id, cc_pid, project, tool, calls, bytes_returned, bytes_kept, "
                     "started_at, window, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [(f"srv-{s}", 1000 + s, project, f"ctx_tool{t}", 10, 4000, 90000, started, window, started)
                      for t in range(6)])
+        con.execute("INSERT INTO stats_totals(project, calls, bytes_returned, bytes_kept, first_at) "
+                    "SELECT project, SUM(calls), SUM(bytes_returned), SUM(bytes_kept), MIN(started_at) FROM tool_stats GROUP BY project")
         con.commit()
         n = con.execute("SELECT count(*), count(DISTINCT session_id) FROM session_events").fetchone()
     finally:
