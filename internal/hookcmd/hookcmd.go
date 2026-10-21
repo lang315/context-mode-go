@@ -16,6 +16,7 @@ import (
 	"github.com/lang315/context-mode-go/internal/config"
 	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/memory"
+	"github.com/lang315/context-mode-go/internal/procinfo"
 	"github.com/lang315/context-mode-go/internal/routing"
 	"github.com/lang315/context-mode-go/internal/security"
 	"github.com/lang315/context-mode-go/internal/store"
@@ -29,6 +30,10 @@ var stdinTimeout = 2 * time.Second
 // for the hook process to exit, so on BUSY the hook drops its events and
 // logs one line (spec §1.2) instead of stalling the session.
 const dbBusyTimeout = 2 * time.Second
+
+// procLookup reads the process table for the Claude Code pid that
+// SessionStart records; a var so tests need not run under Claude Code.
+var procLookup = procinfo.System()
 
 // guidanceMaxAge is how long a guidance marker dir is kept (spec §4).
 const guidanceMaxAge = 7 * 24 * time.Hour
@@ -249,27 +254,44 @@ func preCompact(h *hookCtx) error {
 	return werr
 }
 
-// sessionStart prints the routing block for every source (spec §4). Startup
-// also prunes old guidance markers and records the rule and session_start
-// events; compact and resume add the session's memory (spec §2.2).
+// sessionStart prints the routing block for every source (spec §4), then
+// records the session's Claude Code pid (stats spec §1.2). Startup also
+// prunes old guidance markers and records the rule and session_start events;
+// compact and resume add the session's memory (spec §2.2).
 func sessionStart(h *hookCtx) error {
 	block := routing.RoutingBlock(true, false)
 	src, _ := h.in.String("source")
 	if raw, ok := h.in.Get("source"); !ok || string(raw) == "null" {
 		src = "startup" // TS: input.source ?? "startup"
 	}
-	switch src {
-	case "compact", "resume":
+	if src == "compact" || src == "resume" {
 		return h.sessionResume(src, block)
-	case "startup":
-		if err := h.printSessionStart(block); err != nil {
-			return err
-		}
-		routing.PruneGuidance(h.runDir, h.now, guidanceMaxAge)
-		evs := append(capture.SessionStartRules(h.cfg.Home, h.cfg.ProjectDir), capture.SessionStartEvent(src, h.cfg.ProjectDir, h.now))
-		return h.insertEvents("SessionStart", evs)
 	}
-	return h.printSessionStart(block)
+	if err := h.printSessionStart(block); err != nil {
+		return err
+	}
+	var evs []store.Event
+	if src == "startup" {
+		routing.PruneGuidance(h.runDir, h.now, guidanceMaxAge)
+		evs = append(capture.SessionStartRules(h.cfg.Home, h.cfg.ProjectDir), capture.SessionStartEvent(src, h.cfg.ProjectDir, h.now))
+	}
+	st, err := store.OpenWith(h.cfg.DBPath, store.Options{BusyTimeout: dbBusyTimeout})
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return h.recordSession(st, evs)
+}
+
+// recordSession writes the session's Claude Code pid first: a server call
+// written before it is tagged with the previous session's window (stats spec
+// §1.2). Then it records evs.
+func (h *hookCtx) recordSession(st *store.Store, evs []store.Event) error {
+	if err := st.SetSessionCC(h.sid, h.cfg.ProjectKey, procinfo.ClaudePID(os.Getpid(), procLookup)); err != nil {
+		return err
+	}
+	_, err := st.InsertEvents(h.sid, h.cfg.ProjectKey, "SessionStart", evs)
+	return err
 }
 
 func (h *hookCtx) printSessionStart(context string) error {
@@ -306,7 +328,5 @@ func (h *hookCtx) sessionResume(src, block string) error {
 	if err := h.printSessionStart(context); err != nil {
 		return err
 	}
-	add = append(add, capture.SessionStartEvent(src, h.cfg.ProjectDir, h.now))
-	_, err = st.InsertEvents(h.sid, h.cfg.ProjectKey, "SessionStart", add)
-	return err
+	return h.recordSession(st, append(add, capture.SessionStartEvent(src, h.cfg.ProjectDir, h.now)))
 }

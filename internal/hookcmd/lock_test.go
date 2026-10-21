@@ -44,6 +44,7 @@ func TestHookLockedDBFailsOpenFast(t *testing.T) {
 	for _, c := range []struct{ event, stdin string }{
 		{"posttooluse", `{"session_id":"s1","tool_name":"Read","tool_input":{"file_path":"/p/b.go"}}`},
 		{"stop", `{"session_id":"s1","stop_hook_active":false}`},
+		{"sessionstart", `{"session_id":"s2","source":"clear"}`},
 	} {
 		done := make(chan struct{})
 		start := time.Now()
@@ -58,7 +59,7 @@ func TestHookLockedDBFailsOpenFast(t *testing.T) {
 		}
 	}
 	log, err := os.ReadFile(filepath.Join(env["CMGO_DIR"], "hook-errors.log"))
-	if err != nil || strings.Count(string(log), "\n") != 2 {
-		t.Fatalf("want 2 logged errors, got %q (%v)", log, err)
+	if err != nil || strings.Count(string(log), "\n") != 3 {
+		t.Fatalf("want 3 logged errors, got %q (%v)", log, err)
 	}
 }

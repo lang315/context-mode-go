@@ -272,7 +272,6 @@ func TestHookSessionStartOtherSources(t *testing.T) {
 	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"clear"}`); out != sessionStartOut("") {
 		t.Fatalf("clear: got %q", out)
 	}
-	noDB(t, env)
 	// With no events, resume and compact add no context and record only session_start.
 	for _, src := range []string{"resume", "compact"} {
 		if out := callHook(t, env, "sessionstart", `{"session_id":"s-`+src+`","source":"`+src+`"}`); out != sessionStartOut("") {
