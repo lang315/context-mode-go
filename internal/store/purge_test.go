@@ -56,9 +56,9 @@ func TestPurgeProjectLeavesOtherProjects(t *testing.T) {
 	}
 	vocab := tableCount(t, s, "SELECT count(*) FROM vocabulary")
 
-	sources, sessions, err := s.PurgeProject("/p")
-	if err != nil || sources != 2 || sessions != 2 {
-		t.Fatalf("PurgeProject = %d %d %v", sources, sessions, err)
+	sources, sessions, stats, err := s.PurgeProject("/p")
+	if err != nil || sources != 2 || sessions != 2 || stats != 2 {
+		t.Fatalf("PurgeProject = %d %d %d %v, want 2 2 2", sources, sessions, stats, err)
 	}
 	if n, _ := s.ChunkCount("/p"); n != 0 {
 		t.Fatalf("/p chunks = %d", n)
@@ -89,11 +89,18 @@ func TestPurgeProjectLeavesOtherProjects(t *testing.T) {
 	if n := tableCount(t, s, "SELECT count(*) FROM tool_stats WHERE project = '/q'"); n != 2 {
 		t.Fatalf("/q tool_stats = %d", n)
 	}
+	// The running totals go with the rows they sum; /q keeps its own.
+	if n := tableCount(t, s, "SELECT count(*) FROM stats_totals WHERE project = '/p'"); n != 0 {
+		t.Fatalf("/p stats_totals = %d", n)
+	}
+	if n := tableCount(t, s, "SELECT calls FROM stats_totals WHERE project = '/q'"); n != 2 {
+		t.Fatalf("/q stats_totals calls = %d", n)
+	}
 	if n := tableCount(t, s, "SELECT count(*) FROM vocabulary"); n != vocab {
 		t.Fatalf("vocabulary %d -> %d", vocab, n)
 	}
-	if sources, sessions, err := s.PurgeProject("/p"); err != nil || sources != 0 || sessions != 0 {
-		t.Fatalf("second PurgeProject = %d %d %v", sources, sessions, err)
+	if sources, sessions, stats, err := s.PurgeProject("/p"); err != nil || sources != 0 || sessions != 0 || stats != 0 {
+		t.Fatalf("second PurgeProject = %d %d %d %v", sources, sessions, stats, err)
 	}
 }
 
