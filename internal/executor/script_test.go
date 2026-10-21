@@ -2,7 +2,9 @@ package executor
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -25,17 +27,24 @@ func TestWrapFileContentPrefixes(t *testing.T) {
 	p := "/p/it's \"f\".txt"
 	q := `"/p/it's \"f\".txt"`
 	sq := `'/p/it'\''s "f".txt'`
+	lq := `'/p/it\'s "f".txt'` // Ruby, PHP, Perl: no interpolation
+	eb := "<<" + strings.Join(func() (n []string) {
+		for _, b := range []byte(p) {
+			n = append(n, strconv.Itoa(int(b)))
+		}
+		return
+	}(), ", ") + ">>" // Elixir: bytes, no interpolation
 	want := map[Language]string{
 		JavaScript: "const FILE_CONTENT_PATH = " + q + ";\nconst file_path = FILE_CONTENT_PATH;\nconst FILE_CONTENT = require(\"fs\").readFileSync(FILE_CONTENT_PATH, \"utf-8\");\nCODE",
 		Python:     "FILE_CONTENT_PATH = " + q + "\nfile_path = FILE_CONTENT_PATH\nwith open(FILE_CONTENT_PATH, \"r\", encoding=\"utf-8\") as _f:\n    FILE_CONTENT = _f.read()\nCODE",
 		Shell:      "FILE_CONTENT_PATH=" + sq + "\nfile_path=" + sq + "\nFILE_CONTENT=$(cat " + sq + ")\nCODE",
-		Ruby:       "FILE_CONTENT_PATH = " + q + "\nfile_path = FILE_CONTENT_PATH\nFILE_CONTENT = File.read(FILE_CONTENT_PATH, encoding: \"utf-8\")\nCODE",
+		Ruby:       "FILE_CONTENT_PATH = " + lq + "\nfile_path = FILE_CONTENT_PATH\nFILE_CONTENT = File.read(FILE_CONTENT_PATH, encoding: \"utf-8\")\nCODE",
 		Go:         "package main\n\nimport (\n\t\"fmt\"\n\t\"os\"\n)\n\nvar FILE_CONTENT_PATH = " + q + "\nvar file_path = FILE_CONTENT_PATH\n\nfunc main() {\n\tb, _ := os.ReadFile(FILE_CONTENT_PATH)\n\tFILE_CONTENT := string(b)\n\t_ = FILE_CONTENT\n\t_ = fmt.Sprint()\nCODE\n}\n",
 		Rust:       "#![allow(unused_variables)]\nuse std::fs;\n\nfn main() {\n    let file_content_path = " + q + ";\n    let file_path = file_content_path;\n    let file_content = fs::read_to_string(file_content_path).unwrap();\nCODE\n}\n",
-		PHP:        "<?php\n$FILE_CONTENT_PATH = " + q + ";\n$file_path = $FILE_CONTENT_PATH;\n$FILE_CONTENT = file_get_contents($FILE_CONTENT_PATH);\nCODE",
-		Perl:       "my $FILE_CONTENT_PATH = " + q + ";\nmy $file_path = $FILE_CONTENT_PATH;\nopen(my $fh, '<:encoding(UTF-8)', $FILE_CONTENT_PATH) or die \"Cannot open: $!\";\nmy $FILE_CONTENT = do { local $/; <$fh> };\nclose($fh);\nCODE",
+		PHP:        "<?php\n$FILE_CONTENT_PATH = " + lq + ";\n$file_path = $FILE_CONTENT_PATH;\n$FILE_CONTENT = file_get_contents($FILE_CONTENT_PATH);\nCODE",
+		Perl:       "my $FILE_CONTENT_PATH = " + lq + ";\nmy $file_path = $FILE_CONTENT_PATH;\nopen(my $fh, '<:encoding(UTF-8)', $FILE_CONTENT_PATH) or die \"Cannot open: $!\";\nmy $FILE_CONTENT = do { local $/; <$fh> };\nclose($fh);\nCODE",
 		R:          "FILE_CONTENT_PATH <- " + q + "\nfile_path <- FILE_CONTENT_PATH\nFILE_CONTENT <- readLines(FILE_CONTENT_PATH, warn=FALSE, encoding=\"UTF-8\")\nFILE_CONTENT <- paste(FILE_CONTENT, collapse=\"\\n\")\nCODE",
-		Elixir:     "file_content_path = " + q + "\nfile_path = file_content_path\nfile_content = File.read!(file_content_path)\nCODE",
+		Elixir:     "file_content_path = " + eb + "\nfile_path = file_content_path\nfile_content = File.read!(file_content_path)\nCODE",
 		CSharp:     "var FILE_CONTENT_PATH = " + q + ";\nvar file_path = FILE_CONTENT_PATH;\nvar FILE_CONTENT = System.IO.File.ReadAllText(FILE_CONTENT_PATH);\nCODE",
 	}
 	want[TypeScript] = want[JavaScript]
@@ -133,5 +142,35 @@ func TestOSTempDir(t *testing.T) {
 	}
 	if strings.HasPrefix(d, os.Getenv("TMPDIR")) {
 		t.Errorf("osTempDir followed TMPDIR override: %s", d)
+	}
+}
+
+// A file name is attacker-controlled text: it must never be interpreted as code
+// by the language that reads it (#{} in Ruby, @{[]} in Perl).
+func TestFileContentPathIsNotInterpolated(t *testing.T) {
+	cases := []struct {
+		lang Language
+		bin  string
+		name string
+		code string
+	}{
+		{Ruby, "ruby", `a'b#{print "PWNED"}.txt`, "puts FILE_CONTENT"},
+		{Perl, "perl", `a'b@{[print "PWNED"]}.txt`, "print $FILE_CONTENT"},
+	}
+	for _, c := range cases {
+		t.Run(string(c.lang), func(t *testing.T) {
+			if _, err := exec.LookPath(c.bin); err != nil {
+				t.Skipf("%s not installed", c.bin)
+			}
+			e := newTestExec(t)
+			f := filepath.Join(t.TempDir(), c.name)
+			if err := os.WriteFile(f, []byte("file-body"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			res := run(t, e, Request{Language: c.lang, Code: c.code, FilePath: f})
+			if strings.Contains(res.Stdout, "PWNED") || !strings.Contains(res.Stdout, "file-body") {
+				t.Fatalf("exit %d stdout %q stderr %q", res.ExitCode, res.Stdout, res.Stderr)
+			}
+		})
 	}
 }
