@@ -127,9 +127,9 @@ func TestGoldenPreToolUse(t *testing.T) {
 }
 
 // missingCommands are the TS <ctx_commands> entries cmgo has no tool for
-// yet (spec §2.5): stats arrives with sub-project 4, doctor and upgrade with
-// sub-project 5. Each sub-project deletes its names here.
-var missingCommands = []string{"stats", "doctor", "upgrade"}
+// yet (spec §2.5): doctor and upgrade arrive with sub-project 5, which
+// deletes them here. stats came with sub-project 4.
+var missingCommands = []string{"doctor", "upgrade"}
 
 // dropCommands derives cmgo's routing block from the TS text: it cuts the
 // entry of each missing command, its two lines and the blank line after them.
