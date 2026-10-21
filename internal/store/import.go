@@ -38,19 +38,16 @@ func (s *Store) ImportEvents(sess ImportedSession, batches ...[]ImportedEvent) (
 	}
 	defer tx.Rollback()
 	for _, rows := range batches {
-		fresh := make([]bool, len(rows)) // checked before the batch writes, so its own repeats count as new
 		hashes := make([]string, len(rows))
 		for i, r := range rows {
 			hashes[i] = EventDataHash(cutData(r.Data))
-			var n int
-			if err := tx.QueryRow("SELECT count(*) FROM session_events WHERE session_id = ? AND type = ? AND data_hash = ? AND created_at = ?",
-				sess.ID, r.Type, hashes[i], r.CreatedAt).Scan(&n); err != nil {
-				return 0, 0, err
-			}
-			fresh[i] = n == 0
+		}
+		seen, err := existingEvents(tx, sess.ID) // read before the batch writes, so its own repeats count as new
+		if err != nil {
+			return 0, 0, err
 		}
 		for i, r := range rows {
-			if !fresh[i] {
+			if _, dup := seen[eventKey{r.Type, hashes[i], r.CreatedAt}]; dup {
 				dupes++
 				continue
 			}
@@ -73,6 +70,27 @@ ON CONFLICT(session_id) DO UPDATE SET
 		return 0, 0, err
 	}
 	return inserted, dupes, tx.Commit()
+}
+
+// eventKey is what makes an imported event a duplicate, within one session.
+type eventKey struct{ typ, hash, createdAt string }
+
+// existingEvents returns the (type, data_hash, created_at) of every event of the session.
+func existingEvents(tx *sql.Tx, sessionID string) (map[eventKey]struct{}, error) {
+	rows, err := tx.Query("SELECT type, data_hash, created_at FROM session_events WHERE session_id = ?", sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	seen := map[eventKey]struct{}{}
+	for rows.Next() {
+		var k eventKey
+		if err := rows.Scan(&k.typ, &k.hash, &k.createdAt); err != nil {
+			return nil, err
+		}
+		seen[k] = struct{}{}
+	}
+	return seen, rows.Err()
 }
 
 // ImportSource writes a TS source with its chunks as stored (no re-chunking),

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf16"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // SearchOpts scopes a search. Project is always applied.
@@ -38,7 +40,7 @@ var (
 	trigramStrip = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`["'(){}\[\]*:^~]`) })
 )
 
-func jsFields(s string) []string { return strings.FieldsFunc(s, isJSSpace) }
+func jsFields(s string) []string { return strings.FieldsFunc(s, hookio.IsJSSpace) }
 
 // dedupeTokens keeps the first spelling of case-insensitive duplicates (ST:77).
 func dedupeTokens(tokens []string) []string {
@@ -93,7 +95,7 @@ func SanitizeQuery(q string) string {
 // skip the trigram search (ST:113-125).
 func SanitizeTrigramQuery(q string) string {
 	q = strings.ReplaceAll(q, "\x00", "")
-	cleaned := jsTrim(trigramStrip().ReplaceAllString(q, ""))
+	cleaned := hookio.JSTrim(trigramStrip().ReplaceAllString(q, ""))
 	if u16len(cleaned) < 3 {
 		return ""
 	}

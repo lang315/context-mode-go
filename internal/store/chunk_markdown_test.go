@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // golden is one chunk as produced by the TS ContentStore (store.index /
@@ -35,10 +37,10 @@ func checkChunks(t *testing.T, name string, got []Chunk, want []golden) {
 }
 
 func TestJSStringHelpers(t *testing.T) {
-	if got := jsTrim("\u00a0\ufeff x \u3000\n"); got != "x" {
+	if got := hookio.JSTrim("\u00a0\ufeff x \u3000\n"); got != "x" {
 		t.Fatalf("jsTrim = %q", got)
 	}
-	if jsTrim("\u0085x") != "\u0085x" { // NEL is not JS whitespace
+	if hookio.JSTrim("\u0085x") != "\u0085x" { // NEL is not JS whitespace
 		t.Fatal("jsTrim trimmed U+0085")
 	}
 	if n := u16len("aé日😀"); n != 5 {

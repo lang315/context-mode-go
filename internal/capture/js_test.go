@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"regexp"
 	"testing"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // Expected values come from node: String(JSON.parse(raw)) and
@@ -42,7 +44,7 @@ func TestResponseText(t *testing.T) {
 }
 
 func TestJSTrimAndClasses(t *testing.T) {
-	if got := jsTrim("\u00a0\ufeff x \u3000\n"); got != "x" {
+	if got := hookio.JSTrim("\u00a0\ufeff x \u3000\n"); got != "x" {
 		t.Errorf("jsTrim = %q, want %q", got, "x")
 	}
 	ws := regexp.MustCompile(`^a` + jsWS + `+` + jsNotWS + `+$`)

@@ -1,7 +1,6 @@
 package store
 
 import (
-	"strings"
 	"unicode/utf16"
 )
 
@@ -14,17 +13,6 @@ const jsWS = `[\t\n\v\f\r \x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f
 
 // jsDot is the JS `.` class without the s flag (excludes line terminators).
 const jsDot = `[^\n\r\x{2028}\x{2029}]`
-
-func isJSSpace(r rune) bool {
-	switch r {
-	case '\t', '\n', '\v', '\f', '\r', ' ', 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff:
-		return true
-	}
-	return r >= 0x2000 && r <= 0x200a
-}
-
-// jsTrim is String.prototype.trim.
-func jsTrim(s string) string { return strings.TrimFunc(s, isJSSpace) }
 
 // u16len is String.prototype.length.
 func u16len(s string) int {

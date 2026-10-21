@@ -16,7 +16,7 @@ var systemPrefixes = []string{"<task-notification>", "<system-reminder>", "<cont
 // prompt, else user_prompt with the raw prompt, then extractUserEvents
 // (X:2758-2774) on the trimmed prompt, without extractData.
 func UserPrompt(prompt string) []store.Event {
-	msg := jsTrim(prompt)
+	msg := hookio.JSTrim(prompt)
 	if msg == "" {
 		return nil
 	}
@@ -45,7 +45,7 @@ func userPlan(msg string) []store.Event {
 		return nil
 	}
 	detail := "plan via /plan slash"
-	if arg := jsTrim(rest); arg != "" {
+	if arg := hookio.JSTrim(rest); arg != "" {
 		detail += ": " + hookio.JSPrefix(arg, 120)
 	}
 	return []store.Event{ev("plan_enter", "plan", 2, detail)}
@@ -105,7 +105,7 @@ func userRole(msg string) []store.Event {
 	if i := strings.IndexAny(msg, ".!\n。！"); i >= 0 {
 		first = msg[:i]
 	}
-	first = jsTrim(first)
+	first = hookio.JSTrim(first)
 	n := hookio.RuneLen(first)
 	if questionMark().MatchString(first) || clauseSep().MatchString(first) || !letter().MatchString(first) || n < 8 || n > 120 {
 		return nil
@@ -121,7 +121,7 @@ func userRole(msg string) []store.Event {
 // shortcut: strings.ToLower maps per rune, JS toLowerCase is full (U+0130 becomes "i̇"); no listed prefix depends on it.
 func hasRoleCue(first string) bool {
 	var toks []string
-	for _, t := range strings.Split(jsTrim(strings.ToLower(first)), " ") {
+	for _, t := range strings.Split(hookio.JSTrim(strings.ToLower(first)), " ") {
 		if t != "" {
 			toks = append(toks, t)
 		}
@@ -159,7 +159,7 @@ func userGoal(msg string) []store.Event {
 	if m == nil {
 		return nil
 	}
-	goal := jsTrim(m[1])
+	goal := hookio.JSTrim(m[1])
 	if goal == "" {
 		return nil
 	}

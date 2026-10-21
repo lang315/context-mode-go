@@ -7,25 +7,13 @@ import (
 	"math"
 	"regexp"
 	"strings"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // jsSpaceClass is the body of a character class equal to JS \s (WhiteSpace
 // plus LineTerminator). Go's \s is only [\t\n\f\r ].
 const jsSpaceClass = `\t\n\v\f\r \x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}`
-
-// isJSSpace reports whether r is in JS \s, the set String.prototype.trim strips.
-func isJSSpace(r rune) bool {
-	switch r {
-	case '\t', '\n', '\v', '\f', '\r', ' ', 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff:
-		return true
-	}
-	return r >= 0x2000 && r <= 0x200a
-}
-
-// jsTrim is JS s.trim().
-func jsTrim(s string) string {
-	return strings.TrimFunc(s, isJSSpace)
-}
 
 // jsRegexp compiles a TS regex source after rewriting \s and \S to the JS
 // classes. The sources it is used on have no \s inside brackets and no
@@ -40,7 +28,7 @@ func jsRegexp(src string) *regexp.Regexp {
 // then the longest digit run; ok is false where JS gives NaN. Values past
 // int64 saturate (JS would keep a float, which every caller rejects anyway).
 func jsParseInt(s string) (n int64, ok bool) {
-	s = strings.TrimLeftFunc(s, isJSSpace)
+	s = strings.TrimLeftFunc(s, hookio.IsJSSpace)
 	neg := false
 	if s != "" && (s[0] == '+' || s[0] == '-') {
 		neg = s[0] == '-'

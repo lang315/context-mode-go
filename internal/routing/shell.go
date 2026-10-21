@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // stripHeredocs ports routing.mjs:228-230,
@@ -70,7 +72,7 @@ func heredocAt(cmd string, i int) (int, bool) {
 func skipJSSpace(s string, i int) int {
 	for i < len(s) {
 		r, n := utf8.DecodeRuneInString(s[i:])
-		if !isJSSpace(r) {
+		if !hookio.IsJSSpace(r) {
 			break
 		}
 		i += n
@@ -173,7 +175,7 @@ func isStructurallyBounded(command string) bool {
 	if command == "" {
 		return false
 	}
-	s := jsTrim(command)
+	s := hookio.JSTrim(command)
 	if hasShellControl(s) {
 		return false
 	}

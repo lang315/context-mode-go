@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // The TS regexes of the Bash redirects (routing.mjs:733-818), in RE2 form.
@@ -39,7 +41,7 @@ func curlCheck(stripped string) (found, dangerous bool) {
 		return false, false
 	}
 	for _, seg := range chainSplit().Split(stripped, -1) {
-		if curlSegmentDangerous(jsTrim(seg)) {
+		if curlSegmentDangerous(hookio.JSTrim(seg)) {
 			return true, true
 		}
 	}

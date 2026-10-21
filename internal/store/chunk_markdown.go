@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // Chunk is one indexed section. ContentType is Code if HasCode else Prose.
@@ -38,7 +40,7 @@ func ChunkMarkdown(text string, maxBytes int) []Chunk {
 	currentHeading := ""
 
 	flush := func() {
-		joined := jsTrim(strings.Join(current, "\n"))
+		joined := hookio.JSTrim(strings.Join(current, "\n"))
 		if joined == "" {
 			return
 		}
@@ -63,7 +65,7 @@ func ChunkMarkdown(text string, maxBytes int) []Chunk {
 			if len(acc) == 0 {
 				return
 			}
-			p := jsTrim(strings.Join(acc, "\n\n"))
+			p := hookio.JSTrim(strings.Join(acc, "\n\n"))
 			if p == "" {
 				return
 			}
@@ -96,7 +98,7 @@ func ChunkMarkdown(text string, maxBytes int) []Chunk {
 		if m := mdHeading().FindStringSubmatch(line); m != nil {
 			flush()
 			level := len(m[1])
-			heading := jsTrim(m[2])
+			heading := hookio.JSTrim(m[2])
 			for len(stack) > 0 && stack[len(stack)-1].level >= level {
 				stack = stack[:len(stack)-1]
 			}
@@ -112,7 +114,7 @@ func ChunkMarkdown(text string, maxBytes int) []Chunk {
 			i++
 			for i < len(lines) {
 				code = append(code, lines[i])
-				if strings.HasPrefix(lines[i], fence) && jsTrim(lines[i]) == fence {
+				if strings.HasPrefix(lines[i], fence) && hookio.JSTrim(lines[i]) == fence {
 					i++
 					break
 				}

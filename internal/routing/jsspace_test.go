@@ -3,18 +3,20 @@ package routing
 import (
 	"math"
 	"testing"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 func TestIsJSSpace(t *testing.T) {
 	// Expected values from node: /\s/.test(c) for each code point.
 	for _, r := range []rune{'\t', '\n', '\v', '\f', '\r', ' ', 0xa0, 0x1680, 0x2000, 0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff} {
-		if !isJSSpace(r) {
-			t.Errorf("isJSSpace(%U) = false, want true", r)
+		if !hookio.IsJSSpace(r) {
+			t.Errorf("hookio.IsJSSpace(%U) = false, want true", r)
 		}
 	}
 	for _, r := range []rune{'a', '-', 0x85, 0x180e, 0x200b, 0} {
-		if isJSSpace(r) {
-			t.Errorf("isJSSpace(%U) = true, want false", r)
+		if hookio.IsJSSpace(r) {
+			t.Errorf("hookio.IsJSSpace(%U) = true, want false", r)
 		}
 	}
 }
@@ -29,8 +31,8 @@ func TestJSTrim(t *testing.T) {
 		" \t ":               "",
 	}
 	for in, want := range cases {
-		if got := jsTrim(in); got != want {
-			t.Errorf("jsTrim(%q) = %q, want %q", in, got, want)
+		if got := hookio.JSTrim(in); got != want {
+			t.Errorf("hookio.JSTrim(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

@@ -17,17 +17,6 @@ const (
 	jsNotWS = "[^" + wsBody + "]" // JS \S
 )
 
-func isJSSpace(r rune) bool {
-	switch r {
-	case '\t', '\n', '\v', '\f', '\r', ' ', 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff:
-		return true
-	}
-	return r >= 0x2000 && r <= 0x200a
-}
-
-// jsTrim is String.prototype.trim.
-func jsTrim(s string) string { return strings.TrimFunc(s, isJSSpace) }
-
 // asciiLower lowercases A-Z only. A JS regexp with `i` and no `u` folds
 // ASCII letters only, where Go's (?i) would also fold U+017F and U+212A.
 func asciiLower(s string) string {
