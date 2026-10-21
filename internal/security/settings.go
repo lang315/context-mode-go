@@ -19,7 +19,7 @@ import (
 // It applies to Bash deny, the project boundary, Read allow and Read deny.
 var caseInsensitive = runtime.GOOS == "darwin"
 
-// bashRule is one `Bash(glob)` deny entry; pattern is the full entry text.
+// bashRule is one `Bash(glob)` entry; pattern is the full entry text.
 type bashRule struct {
 	pattern string
 	re      *regexp.Regexp
@@ -34,6 +34,8 @@ type fileRule struct {
 // fileRules holds the rules parsed from one settings file.
 type fileRules struct {
 	bashDeny  []bashRule
+	bashAsk   []bashRule // read by EvaluateCommand only
+	bashAllow []bashRule // read by EvaluateCommand only
 	readDeny  []fileRule
 	readAllow []fileRule
 }
@@ -112,8 +114,8 @@ func (p *Policy) rules() []*fileRules {
 var toolPattern = regexp.MustCompile(`^(\w+)\((.+)\)$`)
 
 // parseSettingsFile ports readSingleSettings + readToolPermissionPatterns
-// extractGlobs (security.ts:321-351, 434-461): only permissions.deny
-// Bash()/Read() and permissions.allow Read() entries are kept.
+// extractGlobs (security.ts:321-351, 434-461): permissions.deny Bash()/Read(),
+// permissions.allow Bash()/Read() and permissions.ask Bash() entries are kept.
 func parseSettingsFile(path string) (*fileRules, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -140,8 +142,20 @@ func parseSettingsFile(path string) (*fileRules, error) {
 		}
 	}
 	for _, entry := range stringsOf(perms["allow"]) {
-		if m := toolPattern.FindStringSubmatch(entry); m != nil && m[1] == "Read" {
+		m := toolPattern.FindStringSubmatch(entry)
+		if m == nil {
+			continue
+		}
+		switch m[1] {
+		case "Bash":
+			r.bashAllow = append(r.bashAllow, bashRule{pattern: entry, re: globToRegex(m[2], caseInsensitive)})
+		case "Read":
 			r.readAllow = append(r.readAllow, fileRule{glob: m[2], re: fileGlobToRegex(m[2], caseInsensitive)})
+		}
+	}
+	for _, entry := range stringsOf(perms["ask"]) {
+		if m := toolPattern.FindStringSubmatch(entry); m != nil && m[1] == "Bash" {
+			r.bashAsk = append(r.bashAsk, bashRule{pattern: entry, re: globToRegex(m[2], caseInsensitive)})
 		}
 	}
 	return r, nil
