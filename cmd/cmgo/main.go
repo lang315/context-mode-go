@@ -26,7 +26,7 @@ func main() {
 // because the MCP transport needs a ReadCloser.
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: cmgo <serve|hook|install|uninstall|doctor|upgrade|version>")
+		fmt.Fprintln(stderr, "usage: cmgo <serve|hook|install|uninstall|doctor|upgrade|import|version>")
 		return 2
 	}
 	switch args[0] {
@@ -49,6 +49,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return doctorCmd(args[1:], stdout, stderr)
 	case "upgrade":
 		return upgradeCmd(args[1:], stdout, stderr)
+	case "import":
+		return runImport(args[1:], stdout, stderr, os.Getenv)
 	default:
 		fmt.Fprintf(stderr, "cmgo: unknown command %q\n", args[0])
 		return 2

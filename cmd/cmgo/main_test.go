@@ -42,9 +42,9 @@ func TestRunHook(t *testing.T) {
 	}
 }
 
-// doctor and upgrade reach their commands: a usage error exits 2.
+// doctor, upgrade and import reach their commands: a usage error exits 2.
 func TestRunDispatchesNewCommands(t *testing.T) {
-	for _, args := range [][]string{{"doctor", "extra"}, {"upgrade", "--nope"}} {
+	for _, args := range [][]string{{"doctor", "extra"}, {"upgrade", "--nope"}, {"import", "--nope"}} {
 		var out, errb bytes.Buffer
 		if code := run(args, strings.NewReader(""), &out, &errb); code != 2 || strings.Contains(errb.String(), "unknown command") {
 			t.Errorf("%v: exit %d, stderr %q", args, code, errb.String())
