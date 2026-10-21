@@ -8,11 +8,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/lang315/context-mode-go/internal/buildinfo"
 	"github.com/lang315/context-mode-go/internal/hookcmd"
 )
 
 // version is set at build time: go build -ldflags "-X main.version=v0.1.0".
-var version = "dev"
+// Without it, init resolves it from the build info (spec §1).
+var version string
+
+func init() { version = buildinfo.Version(version) }
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
