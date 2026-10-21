@@ -39,7 +39,8 @@ cmgo doctor                           # every line [OK]; exits 1 on any [FAIL]
 - adds its 7 hooks (PreToolUse, PostToolUse, PostToolUseFailure, UserPromptSubmit, SessionStart, Stop, PreCompact) to `~/.claude/settings.json`, keeping your own hooks in place and in order;
 - saves the original file as `settings.json.cmgo-bak`;
 - registers `cmgo serve` as a user MCP server with `claude mcp add --scope user`;
-- sets `statusLine` only when none is set; otherwise it prints a notice and leaves yours alone.
+- sets `statusLine` only when none is set; otherwise it prints a notice and leaves yours alone;
+- writes the skills below to `~/.claude/skills/` (or `$CLAUDE_CONFIG_DIR/skills/`). A skill of yours with the same name, or a cmgo skill you edited, is left alone.
 
 Open a new Claude Code session, or run `/reload-plugins`, to pick up the MCP server.
 
@@ -55,7 +56,7 @@ cmgo import
 ### Uninstall
 
 ```sh
-cmgo uninstall           # removes cmgo's hooks, MCP entry and (if it is cmgo's) statusLine
+cmgo uninstall           # removes cmgo's hooks, MCP entry, unedited skills and (if it is cmgo's) statusLine
 ```
 
 Re-enable the TS plugin in Claude Code if you want it back. The data in `~/.claude/cmgo/` is left in place.
@@ -66,11 +67,25 @@ Re-enable the TS plugin in Claude Code if you want it back. The data in `~/.clau
 |---|---|
 | `cmgo serve` | MCP server over stdio, one process per Claude Code session (Claude Code starts it) |
 | `cmgo install` / `uninstall` | Edit `settings.json` hooks and the user MCP entry; both take `--dry-run` |
-| `cmgo doctor` | Check version, storage, DB/FTS5, executor, runtimes, hooks, MCP registration, statusline, TS plugin |
+| `cmgo doctor` | Check version, storage, DB/FTS5, executor, runtimes, hooks, MCP registration, skills, statusline, TS plugin |
 | `cmgo upgrade` | `git pull` and `go install` from `--source` or `$CMGO_SOURCE` (else `go install …@latest`), then `cmgo install`; takes `--dry-run` |
 | `cmgo import` | One-time import of TS data; `--from`, `--dry-run`, `--force` |
 | `cmgo version` | Print the version |
 | `cmgo-hook <event>` | What the hooks run; also `cmgo-hook statusline` and `cmgo-hook version` |
+
+## Skills
+
+| Skill | What it does |
+|---|---|
+| `/ctx-stats` | Shows `ctx_stats` output in full |
+| `/ctx-doctor` | Runs `ctx_doctor` (or `cmgo doctor`) and repeats the fix hints |
+| `/ctx-search` | Searches the knowledge base and session memory with `ctx_search` |
+| `/ctx-upgrade` | Runs the `ctx_upgrade` command and shows the steps as a checklist |
+| `/ctx-purge` | Asks for the scope, warns, then calls `ctx_purge` |
+
+Typing `ctx stats`, `ctx doctor`, `ctx upgrade` or `ctx purge` in the chat also works, through the routing block that SessionStart adds.
+
+Each installed `SKILL.md` ends with a `cmgo-skill` line that holds the sha256 of the text above it. `cmgo install` updates and `cmgo uninstall` removes only files whose hash still matches.
 
 ## MCP tools
 

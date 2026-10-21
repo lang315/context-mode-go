@@ -62,6 +62,7 @@ func TestReportHealthy(t *testing.T) {
 		"[OK] Hooks: 7/7 events registered in " + e.SettingsPath,
 		"[OK] Hook binary: " + hook,
 		"[OK] MCP server: registered (" + e.Binary + " serve)",
+		"[OK] Skills: 5/5 in " + filepath.Join(filepath.Dir(e.SettingsPath), "skills"),
 		"[OK] Statusline: cmgo",
 		"[OK] TS plugin: not enabled",
 	}, "\n")

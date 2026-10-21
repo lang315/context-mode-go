@@ -102,6 +102,33 @@ func checkMCP(claudeJSON, binary string) string {
 	return "[WARN] MCP server: registered at " + cmd + " — fix: cmgo install"
 }
 
+// checkSkills reports cmgo's skills: how many are current, which are
+// missing or outdated (cmgo install fixes both), and which are a user's or
+// edited, which install leaves alone.
+func checkSkills(r install.SkillReport, err error) string {
+	if err != nil {
+		return "[WARN] Skills: could not read " + r.Dir + " — " + err.Error()
+	}
+	total := len(r.Current) + len(r.Missing) + len(r.Outdated) + len(r.Foreign)
+	line := fmt.Sprintf("Skills: %d/%d in %s", len(r.Current), total, r.Dir)
+	if len(r.Current) == total {
+		return "[OK] " + line
+	}
+	if len(r.Missing) > 0 {
+		line += "; missing " + strings.Join(r.Missing, ", ")
+	}
+	if len(r.Outdated) > 0 {
+		line += "; outdated " + strings.Join(r.Outdated, ", ")
+	}
+	if len(r.Foreign) > 0 {
+		line += "; not cmgo's or edited (left as is): " + strings.Join(r.Foreign, ", ")
+	}
+	if len(r.Missing)+len(r.Outdated) > 0 {
+		line += " — fix: cmgo install"
+	}
+	return "[WARN] " + line
+}
+
 func checkStatusLine(st install.Status) string {
 	switch {
 	case st.OwnStatusLine:

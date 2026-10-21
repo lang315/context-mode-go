@@ -28,6 +28,7 @@ func Report(ctx context.Context, e Env) (text string, failed bool) {
 		checkHooks(e.SettingsPath, st, serr),
 		checkHookBinary(hookBin),
 		checkMCP(e.ClaudeJSONPath, e.Binary),
+		checkSkills(install.Skills(e.SettingsPath)),
 	}
 	// Without a readable settings file there is no statusline or plugin to report.
 	if serr == nil {
