@@ -131,3 +131,10 @@ func buildMessage(command string) string {
 func webFetchMessage(url string) string {
 	return webFetchHead + url + webFetchTail
 }
+
+// The Bash read guidance texts (bash-read-guidance spec §1.5): %d is the
+// estimate in KB and %s the largest file's name.
+var (
+	bashReadLong  = named("<context_guidance>\n  <tip>\n    This command prints about %d KB (%s) straight into your conversation. Reading to Edit the file? Use Read: Edit needs a prior Read, not cat. Reading to analyze, summarize, search or extract from it? Use $Tctx_execute_file(path, language, code) for one file, or $Tctx_batch_execute(commands, queries) for several files or commands: the bytes stay in the sandbox and only what your code prints enters your conversation. To read only part of it, print just that part with head or tail.\n  </tip>\n</context_guidance>")
+	bashReadShort = named("<context_guidance>\n  <tip>\n    About %d KB of output (%s). To edit it use Read; to analyze it use $Tctx_execute_file or $Tctx_batch_execute; or print only the part you need.\n  </tip>\n</context_guidance>")
+)

@@ -108,3 +108,96 @@ func TestEstimateReadLargest(t *testing.T) {
 		t.Fatalf("largest = %q, want empty", name)
 	}
 }
+
+// readDeps is testDeps with a project dir holding big.txt (20000 bytes) and
+// small.txt (3000 bytes), Cwd set to it, and an env map.
+func readDeps(t *testing.T, env map[string]string) (Deps, string) {
+	t.Helper()
+	proj, home := readFixture(t)
+	d := testDeps(t)
+	d.Cwd, d.Home = proj, home
+	d.Getenv = func(k string) string { return env[k] }
+	return d, proj
+}
+
+func TestRouteBashReadGuidance(t *testing.T) {
+	d, _ := readDeps(t, nil)
+	dec := Route("Bash", bash("cat a.txt"), false, d)
+	if dec.Action != "context" || dec.Redirect != nil {
+		t.Fatalf("first: %+v", dec)
+	}
+	for _, want := range []string{"about 20 KB (a.txt)", "Reading to Edit the file? Use Read", "Edit needs a prior Read", "mcp__cmgo__ctx_execute_file", "mcp__cmgo__ctx_batch_execute", "head or tail"} {
+		if !strings.Contains(dec.AdditionalContext, want) {
+			t.Errorf("long text lacks %q:\n%s", want, dec.AdditionalContext)
+		}
+	}
+	if strings.Contains(dec.AdditionalContext, "sed") {
+		t.Errorf("long text mentions sed:\n%s", dec.AdditionalContext)
+	}
+	if evs := Events("Bash", dec); len(evs) != 0 {
+		t.Errorf("events for a hint: %+v", evs)
+	}
+
+	dec = Route("Bash", bash("cat a.txt"), false, d)
+	if dec.Action != "context" || !strings.Contains(dec.AdditionalContext, "About 20 KB of output (a.txt)") || strings.Contains(dec.AdditionalContext, "Reading to Edit") {
+		t.Errorf("second: %+v", dec)
+	}
+}
+
+func TestRouteBashReadGuidanceThreshold(t *testing.T) {
+	cases := []struct {
+		env  string
+		cmd  string
+		hint bool
+	}{
+		{"", "cat b.txt", false}, // 3000 < 16384
+		{"", "cat a.txt", true},
+		{"", "cat a.txt b.txt", true},
+		{"0", "cat a.txt", false}, // off
+		{"junk", "cat a.txt", true},
+		{"-5", "cat a.txt", true},
+		{"200000000", "cat a.txt", true}, // out of range: default
+		{"30000", "cat a.txt", false},
+		{"1000", "cat b.txt", true},
+	}
+	for _, c := range cases {
+		d, _ := readDeps(t, map[string]string{"CMGO_BASH_READ_MIN_BYTES": c.env})
+		dec := Route("Bash", bash(c.cmd), false, d)
+		got := strings.Contains(dec.AdditionalContext, " KB (") || strings.Contains(dec.AdditionalContext, "KB of output")
+		if got != c.hint {
+			t.Errorf("env %q, %q: hint %v, want %v (%+v)", c.env, c.cmd, got, c.hint, dec)
+		}
+	}
+}
+
+func TestRouteBashReadGuidanceFallThrough(t *testing.T) {
+	// MCP down: only today's generic guidance.
+	d, _ := readDeps(t, nil)
+	d.MCPReady = func() bool { return false }
+	if dec := Route("Bash", bash("cat a.txt"), false, d); dec.AdditionalContext != bashGuidance {
+		t.Errorf("MCP down: %q", dec.AdditionalContext)
+	}
+	// Commands the guard ignores get exactly the decision they got before.
+	for _, cmd := range []string{"echo hi", "git status", "cat b.txt", "sed -n '1,500p' a.txt", "git diff", "npm test", "cat > a.txt <<EOF\nx\nEOF"} {
+		d1, _ := readDeps(t, nil)
+		d2, _ := readDeps(t, map[string]string{"CMGO_BASH_READ_MIN_BYTES": "0"})
+		got := Route("Bash", bash(cmd), false, d1)
+		want := Route("Bash", bash(cmd), false, d2)
+		if got.Action != want.Action || got.AdditionalContext != want.AdditionalContext || got.Reason != want.Reason {
+			t.Errorf("%q: %+v, want %+v", cmd, got, want)
+		}
+	}
+	// Policy and the redirects run first.
+	d, _ = readDeps(t, nil)
+	if dec := Route("Bash", bash("cat a.txt && sudo ls"), false, d); dec.Action != "deny" {
+		t.Errorf("deny rule: %+v", dec)
+	}
+	if dec := Route("Bash", bash("curl https://example.com | cat a.txt"), false, d); dec.Action != "modify" {
+		t.Errorf("curl redirect: %+v", dec)
+	}
+	// The guard runs before the length nudge.
+	d, _ = readDeps(t, map[string]string{"CMGO_BASH_NUDGE_MIN_COMMAND_BYTES": "100"})
+	if dec := Route("Bash", bash("cat a.txt"), false, d); !strings.Contains(dec.AdditionalContext, "about 20 KB") {
+		t.Errorf("nudge threshold hid the hint: %+v", dec)
+	}
+}

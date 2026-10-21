@@ -15,6 +15,8 @@ type Deps struct {
 	Policy     *security.Policy
 	Getenv     func(string) string // CMGO_BASH_NUDGE_MIN_COMMAND_BYTES
 	MCPReady   func() bool         // usually func() bool { return MCPReady(RunDir) }
+	Cwd        string              // dir that relative paths in a command resolve against
+	Home       string              // for ~ in a command
 }
 
 // Redirect is the TS redirectMeta: what a redirect kept out of the context.
@@ -112,6 +114,9 @@ func routeBash(in *hookio.Object, subagent bool, d Deps) Decision {
 	}
 	if isStructurallyBounded(command) {
 		return Decision{}
+	}
+	if text, ok := bashReadGuidance(command, d); ok { // before the nudge: it is about output, not command length
+		return Decision{Action: "context", AdditionalContext: text}
 	}
 	if n := nudgeMinBytes(d.Getenv); n > 0 && len(command) < n {
 		return Decision{}

@@ -1,11 +1,14 @@
 package routing
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // Bash read guidance (spec: bash-read-guidance §1): estimate how many bytes a
@@ -15,7 +18,42 @@ const (
 	readGuardMaxCommand   = 4096 // longer commands are scripts, not reads
 	readGuardMaxStats     = 8
 	readGuardBytesPerLine = 64 // upper-side average for source and Markdown
+
+	// readGuardDefaultMin is about half of the ~30,000 characters Claude Code
+	// lets a Bash result carry (spec §1.4).
+	readGuardDefaultMin = 16384
 )
+
+// readGuardMin ports nothing from TS: CMGO_BASH_READ_MIN_BYTES is an int in
+// [1, 100000000], else the default; 0 turns the guidance off (returned as 0).
+func readGuardMin(getenv func(string) string) int64 {
+	if getenv == nil {
+		return readGuardDefaultMin
+	}
+	if n, ok := jsParseInt(getenv("CMGO_BASH_READ_MIN_BYTES")); ok && n >= 0 && n <= 100_000_000 {
+		return n
+	}
+	return readGuardDefaultMin
+}
+
+// bashReadGuidance returns the hint for a Bash command that prints at least
+// the threshold from files, once the MCP server is up (spec §1). The first
+// hint of a session is the long text, later ones the short text.
+func bashReadGuidance(command string, d Deps) (string, bool) {
+	min := readGuardMin(d.Getenv)
+	if min == 0 || d.MCPReady == nil {
+		return "", false
+	}
+	total, name := estimateRead(command, d.Cwd, d.Home)
+	if total < min || !d.MCPReady() {
+		return "", false
+	}
+	tmpl := bashReadShort
+	if guidanceOnce(d.RunDir, d.SessionID, "bashread") {
+		tmpl = bashReadLong
+	}
+	return fmt.Sprintf(tmpl, (total+1023)/1024, hookio.JSPrefix(name, 120)), true
+}
 
 // rgWord is one shell word with its quotes removed.
 type rgWord struct {
