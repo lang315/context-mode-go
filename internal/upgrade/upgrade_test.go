@@ -101,7 +101,7 @@ func TestUpgradeFromModule(t *testing.T) {
 			t.Fatalf("%s: %v", c.name, err)
 		}
 		wantRuns := []string{
-			"dir= env=GOPRIVATE=" + c.goprivate + " go install " + Module + "/cmd/cmgo@latest " + Module + "/cmd/cmgo-hook@latest",
+			"dir= env=GOPRIVATE=" + c.goprivate + ",GIT_TERMINAL_PROMPT=0 go install " + Module + "/cmd/cmgo@latest " + Module + "/cmd/cmgo-hook@latest",
 			"dir= env= " + c.gobin + "/cmgo install",
 		}
 		if !slices.Equal(r.runs, wantRuns) {
@@ -212,5 +212,17 @@ func TestUpgradeBinDirFromGoEnv(t *testing.T) {
 		if last := r.runs[len(r.runs)-1]; !strings.HasSuffix(last, " "+c.want+"/cmgo install") {
 			t.Errorf("%s: last run %q, want %s/cmgo install", c.name, last, c.want)
 		}
+	}
+}
+
+// The module install runs with GIT_TERMINAL_PROMPT=0, so a missing git
+// credential fails fast instead of waiting for input nobody can give (spec §2).
+func TestUpgradeFromModuleDisablesGitPrompt(t *testing.T) {
+	o, r, _ := opts(map[string]string{"GOBIN": "/gobin", "GOPRIVATE": "example.com/x"})
+	if err := Upgrade(o); err != nil {
+		t.Fatal(err)
+	}
+	if want := "dir= env=GOPRIVATE=example.com/x,github.com/lang315/*,GIT_TERMINAL_PROMPT=0 go install "; !strings.HasPrefix(r.runs[0], want) {
+		t.Fatalf("install run %q, want prefix %q", r.runs[0], want)
 	}
 }

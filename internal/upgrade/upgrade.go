@@ -91,7 +91,8 @@ func plan(o Options) ([]step, error) {
 			private = cur + "," + private
 		}
 		args := []string{"install", Module + "/cmd/cmgo@latest", Module + "/cmd/cmgo-hook@latest"}
-		env := []string{"GOPRIVATE=" + private}
+		// GIT_TERMINAL_PROMPT=0: a missing credential fails fast; ctx_upgrade can never answer a prompt.
+		env := []string{"GOPRIVATE=" + private, "GIT_TERMINAL_PROMPT=0"}
 		steps = append(steps, o.command(env[0]+" go "+strings.Join(args, " "), "", env, "go", args...))
 	}
 	cmgo := filepath.Join(o.goBin(), "cmgo")
