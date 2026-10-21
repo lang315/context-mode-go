@@ -74,7 +74,7 @@ The estimate uses the real file size, so it is exact for `cat` and an upper boun
 
 - Default threshold **16,384 bytes** (16 KiB) of estimated output, about half of the Bash output cap of about 30,000 characters (§0). A call that prints more than half of what Bash can ever return is the one worth a hint.
 - **Why stricter than Read.** `routeRead` gives guidance above `readRedirectMin = 50_000` bytes (`route.go:38`). That bar cannot be reused here, for three reasons:
-  1. It is a *file size* bar; the cap makes a Bash output of 50 KB impossible. In the replay only 2 of 681 `cat` / `nl` calls reach an estimate of 50,000, against 132 at 16 KiB.
+  1. It is a *file size* bar; the cap makes a Bash output of 50 KB impossible. In the prototype replay only 2 of the 690 `cat` / `nl` calls with a real file reach an estimate of 50,000, against 132 at 16 KiB.
   2. Read's high bar protects the read-then-Edit flow. Edit needs a prior Read, not `cat`, so `cat` is never that prerequisite.
   3. A `cat` that prints half the cap is already one of the largest single payloads a Bash call can add.
   The resulting inconsistency is real and accepted: a Read of a 49 KB file gets no extra hint, a `cat` of a 17 KB file does. Lowering `readRedirectMin` would break TS parity (`routing.mjs:853`) and the golden files, so it is out of scope.
