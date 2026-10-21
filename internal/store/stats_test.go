@@ -2,6 +2,7 @@ package store
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -344,5 +345,83 @@ func TestSessionLineEmptyID(t *testing.T) {
 	s := statsFixture(t) // srvX wrote with cc_pid 0, so window ''
 	if kept, raw, _, err := s.SessionLine(""); err != nil || kept != 0 || raw != 0 {
 		t.Fatalf("SessionLine(\"\") = %d %d %v, want 0 0", kept, raw, err)
+	}
+}
+
+// stats_totals holds the running lifetime sums, so the statusline never sums
+// tool_stats. Each write updates both tables in one transaction.
+func TestAddToolStatMaintainsTotals(t *testing.T) {
+	s := openTest(t)
+	add := func(server, project, started, tool string, returned, kept int64) {
+		t.Helper()
+		if err := s.AddToolStat(server, 1, project, started, tool, returned, kept); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add("a", "/p", "2026-10-21 08:00:00", "ctx_execute", 10, 90)
+	add("a", "/p", "2026-10-21 08:00:00", "ctx_search", 5, 0)
+	add("b", "/p", "2026-10-22 08:00:00", "ctx_execute", 1, 2) // a later server of the same project
+	add("c", "/q", "2026-10-20 08:00:00", "ctx_execute", 7, 3)
+
+	type totals struct {
+		calls, returned, kept int64
+		first                 string
+	}
+	get := func(project string) totals {
+		t.Helper()
+		var x totals
+		if err := s.db.QueryRow("SELECT calls, bytes_returned, bytes_kept, first_at FROM stats_totals WHERE project = ?", project).Scan(&x.calls, &x.returned, &x.kept, &x.first); err != nil {
+			t.Fatalf("%s: %v", project, err)
+		}
+		return x
+	}
+	if got, want := get("/p"), (totals{3, 16, 92, "2026-10-21 08:00:00"}); got != want {
+		t.Errorf("/p totals = %+v, want %+v", got, want)
+	}
+	if got, want := get("/q"), (totals{1, 7, 3, "2026-10-20 08:00:00"}); got != want {
+		t.Errorf("/q totals = %+v, want %+v", got, want)
+	}
+	snap, err := s.Stats(StatsQuery{ServerID: "a", Project: "/p"})
+	if err != nil || snap.LifetimeKept != 95 || snap.LifetimeSince != "2026-10-20 08:00:00" {
+		t.Fatalf("Stats lifetime = %d since %q, %v; want 95 since 2026-10-20 08:00:00", snap.LifetimeKept, snap.LifetimeSince, err)
+	}
+}
+
+// The statusline runs on every redraw: its two queries must not scan the
+// tables that grow, tool_stats and session_events.
+func TestStatusLineQueriesDoNotScanGrowingTables(t *testing.T) {
+	s := openTest(t)
+	plan := func(q string, args ...any) string {
+		t.Helper()
+		rows, err := s.db.Query("EXPLAIN QUERY PLAN "+q, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		var out []string
+		for rows.Next() {
+			var id, parent, unused int
+			var detail string
+			if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+				t.Fatal(err)
+			}
+			out = append(out, detail)
+		}
+		return strings.Join(out, "\n")
+	}
+	session := plan("SELECT tool, SUM(calls), SUM(bytes_returned), SUM(bytes_kept) FROM tool_stats WHERE window = ? GROUP BY tool ORDER BY tool", "s1")
+	if !strings.Contains(session, "tool_stats USING INDEX tool_stats_window") || strings.Contains(session, "SCAN tool_stats") {
+		t.Errorf("session query plan:\n%s", session)
+	}
+	life := plan("SELECT " + lifetimeKept)
+	if strings.Contains(life, "tool_stats") {
+		t.Errorf("lifetime query plan reads tool_stats:\n%s", life)
+	}
+	// stats_totals has one row per project; the redirect sum reads only the
+	// partial index that holds the redirect rows.
+	for _, want := range []string{"stats_totals", "session_events USING COVERING INDEX session_events_redirect"} {
+		if !strings.Contains(life, want) {
+			t.Errorf("lifetime query plan lacks %q:\n%s", want, life)
+		}
 	}
 }

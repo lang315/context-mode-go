@@ -102,6 +102,13 @@ CREATE INDEX session_events_evict ON session_events(session_id, priority, id);`,
 );
 CREATE INDEX tool_stats_window ON tool_stats(window);
 CREATE INDEX tool_stats_project ON tool_stats(project);
+CREATE TABLE stats_totals (         -- running lifetime sums, one row per project
+  project TEXT PRIMARY KEY,
+  calls INTEGER NOT NULL DEFAULT 0,
+  bytes_returned INTEGER NOT NULL DEFAULT 0,
+  bytes_kept INTEGER NOT NULL DEFAULT 0,
+  first_at TEXT NOT NULL
+);
 ALTER TABLE session_meta ADD COLUMN cc_pid INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE session_meta ADD COLUMN linked_at TEXT NOT NULL DEFAULT '';  -- UTC with milliseconds, set by SetSessionCC
 CREATE INDEX session_meta_cc ON session_meta(cc_pid, project, linked_at);

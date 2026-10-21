@@ -17,16 +17,30 @@ type ToolStat struct {
 // there is none, or ccPID is 0), so after a /clear or /resume the calls go to
 // that session's rows (stats spec §1.2). The first call of a (serverID, tool,
 // window) inserts the row with startedAt, the server start. One statement:
-// the window is read in the same transaction as the write.
+// the window is read in the same transaction as the write. The project's
+// stats_totals row, the running lifetime sums the statusline reads, is
+// updated in that transaction too.
 func (s *Store) AddToolStat(serverID string, ccPID int, project, startedAt, tool string, returned, kept int64) error {
-	_, err := s.db.Exec(`INSERT INTO tool_stats(server_id, cc_pid, project, tool, calls, bytes_returned, bytes_kept, started_at, window, updated_at)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`INSERT INTO tool_stats(server_id, cc_pid, project, tool, calls, bytes_returned, bytes_kept, started_at, window, updated_at)
 VALUES(?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, CASE WHEN ?2 = 0 THEN '' ELSE COALESCE((`+newestSession+`), '') END, datetime('now'))
 ON CONFLICT(server_id, tool, window) DO UPDATE SET calls = calls + 1,
   bytes_returned = bytes_returned + excluded.bytes_returned,
   bytes_kept = bytes_kept + excluded.bytes_kept,
   updated_at = excluded.updated_at`,
-		serverID, ccPID, project, tool, returned, kept, startedAt)
-	return err
+		serverID, ccPID, project, tool, returned, kept, startedAt); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO stats_totals(project, calls, bytes_returned, bytes_kept, first_at) VALUES(?1, 1, ?2, ?3, ?4)
+ON CONFLICT(project) DO UPDATE SET calls = calls + 1, bytes_returned = bytes_returned + ?2, bytes_kept = bytes_kept + ?3`,
+		project, returned, kept, startedAt); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // newestSession selects the id of the session most recently linked to Claude
@@ -90,8 +104,9 @@ func rawBytes(tools []ToolStat) int64 {
 	return n
 }
 
-// lifetimeKept is the all-projects kept-out total (stats spec §2 "Lifetime").
-const lifetimeKept = `(SELECT COALESCE(SUM(bytes_kept), 0) FROM tool_stats) +
+// lifetimeKept is the all-projects kept-out total (stats spec §2 "Lifetime"):
+// the stats_totals rows, one per project, and the redirects' bytes.
+const lifetimeKept = `(SELECT COALESCE(SUM(bytes_kept), 0) FROM stats_totals) +
   (SELECT COALESCE(SUM(bytes_avoided), 0) FROM session_events WHERE category = 'redirect')`
 
 // Stats gathers the ctx_stats numbers. The caller's session is the one most
@@ -139,7 +154,7 @@ WHERE session_id = ? AND category = 'redirect'`, st.SessionID).Scan(&st.Redirect
   (SELECT count(*) FROM session_events WHERE project = ?),
   `+lifetimeKept+`,
   (SELECT count(*) FROM session_meta),
-  (SELECT COALESCE(MIN(started_at), '') FROM tool_stats)`, q.Project, q.Project, q.Project, q.Project).Scan(
+  (SELECT COALESCE(MIN(first_at), '') FROM stats_totals)`, q.Project, q.Project, q.Project, q.Project).Scan(
 		&st.ProjectSources, &st.ProjectContentBytes, &st.ProjectSessions, &st.ProjectEvents,
 		&st.LifetimeKept, &st.LifetimeSessions, &st.LifetimeSince)
 	return st, err
