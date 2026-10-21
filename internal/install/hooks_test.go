@@ -1,6 +1,9 @@
 package install
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -40,7 +43,7 @@ func TestHookEvents(t *testing.T) {
 }
 
 func TestHookCommand(t *testing.T) {
-	if got := hookCommand(hookBin, "stop"); got != `"/opt/cmgo/bin/cmgo-hook" stop` {
+	if got := hookCommand(hookBin, "stop"); got != `/opt/cmgo/bin/cmgo-hook stop` {
 		t.Fatalf("got %s", got)
 	}
 }
@@ -92,7 +95,7 @@ func TestAddHooksEmpty(t *testing.T) {
         "hooks": [
           {
             "type": "command",
-            "command": "\"/opt/cmgo/bin/cmgo-hook\" ` + he.Arg + `"
+            "command": "/opt/cmgo/bin/cmgo-hook ` + he.Arg + `"
           }
         ]
       }
@@ -151,5 +154,49 @@ func TestStripHooksDropsEmptiedHooksKey(t *testing.T) {
 	}
 	if _, ok := root.get("hooks"); !ok {
 		t.Fatal("hooks removed")
+	}
+}
+
+// Claude Code runs the command through sh -c, so $, backtick and backslash in
+// the install path must not expand.
+func TestHookCommandIsShellSafe(t *testing.T) {
+	for _, dir := range []string{"my$HOME dir", "it's here", "back`tick`", `back\slash`, `dq"uote`, "plain"} {
+		t.Run(dir, func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), dir, "cmgo-hook")
+			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte("#!/bin/sh\nprintf '%s|%s\\n' \"$0\" \"$1\"\n"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			cmd := hookCommand(p, "stop")
+			out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+			if err != nil || string(out) != p+"|stop\n" {
+				t.Fatalf("sh -c %s\n got %q (%v)\nwant %q", cmd, out, err, p+"|stop\n")
+			}
+			if !isOwnCommand(cmd) {
+				t.Fatalf("isOwnCommand rejects its own command %s", cmd)
+			}
+		})
+	}
+}
+
+func TestIsOwnCommandQuotingForms(t *testing.T) {
+	for cmd, want := range map[string]bool{
+		`'/opt/cmgo/bin/cmgo-hook' pretooluse`:  true,
+		`'/old place/cmgo-hook' stop`:           true,
+		`'/it'\''s/cmgo-hook' stop`:             true,
+		`'/my$HOME dir/cmgo-hook' sessionstart`: true,
+		`"/old/cmgo-hook" stop`:                 true, // old installs
+		`/usr/local/bin/cmgo-hook stop`:         true,
+		`'/x/cmgo-hook' unknown`:                false,
+		`'/x/cmgo-hook' stop extra`:             false,
+		`'/x/cmgo-dev' hook stop`:               false,
+		`'/x/cmgo-hook stop`:                    false,
+		`'/opt/cmgo/bin/cmgo' hook pretooluse`:  true,
+	} {
+		if got := isOwnCommand(cmd); got != want {
+			t.Errorf("%q: %v, want %v", cmd, got, want)
+		}
 	}
 }

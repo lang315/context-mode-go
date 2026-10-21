@@ -19,23 +19,53 @@ var HookEvents = []struct{ Event, Arg, Matcher string }{
 	{"Stop", "stop", ""},
 }
 
-// hookCommand quotes the hook binary so a path with spaces still runs.
-func hookCommand(hookBinary, arg string) string { return `"` + hookBinary + `" ` + arg }
+// hookCommand quotes the hook binary for sh -c, which Claude Code runs it
+// through: $, backtick, backslash and quotes in the install path stay literal.
+func hookCommand(hookBinary, arg string) string { return shellQuote(hookBinary) + " " + arg }
+
+// shellWord reads the first word of a shell command line: single-quoted,
+// double-quoted (older installs wrote that form) or bare, joined as sh does
+// ('it'\”s' is it's). It returns the word and the rest of the line.
+func shellWord(cmd string) (word, rest string, ok bool) {
+	var b strings.Builder
+	for i := 0; i < len(cmd); i++ {
+		switch c := cmd[i]; c {
+		case '\'':
+			j := strings.IndexByte(cmd[i+1:], '\'')
+			if j < 0 {
+				return "", "", false
+			}
+			b.WriteString(cmd[i+1 : i+1+j])
+			i += j + 1
+		case '"':
+			j := strings.IndexByte(cmd[i+1:], '"')
+			if j < 0 {
+				return "", "", false
+			}
+			b.WriteString(cmd[i+1 : i+1+j])
+			i += j + 1
+		case '\\':
+			if i+1 < len(cmd) {
+				i++
+				b.WriteByte(cmd[i])
+			}
+		case ' ', '\t':
+			return b.String(), cmd[i:], true
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String(), "", true
+}
 
 // isOwnCommand reports whether cmd is a cmgo hook command from any install
-// location: first token (quoted or bare) with basename cmgo-hook, then
-// "<arg>"; or the form from before cmgo-hook existed, basename cmgo, then
-// "hook <arg>". Both match so a reinstall replaces either.
+// location: first word (single-quoted, double-quoted or bare) with basename
+// cmgo-hook, then "<arg>"; or the form from before cmgo-hook existed,
+// basename cmgo, then "hook <arg>". Both match so a reinstall replaces either.
 func isOwnCommand(cmd string) bool {
-	var exe, rest string
-	if s, ok := strings.CutPrefix(cmd, `"`); ok {
-		i := strings.IndexByte(s, '"')
-		if i < 0 {
-			return false
-		}
-		exe, rest = s[:i], s[i+1:]
-	} else {
-		exe, rest, _ = strings.Cut(cmd, " ")
+	exe, rest, ok := shellWord(cmd)
+	if !ok {
+		return false
 	}
 	f := strings.Fields(rest)
 	var arg string

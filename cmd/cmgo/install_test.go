@@ -53,7 +53,7 @@ func TestInstallAndUninstall(t *testing.T) {
 		t.Fatalf("exit %d\nstdout %q\nstderr %q", code, out, errs)
 	}
 	b, _ := os.ReadFile(settings)
-	if !strings.Contains(string(b), `"command": "\"`+cmgo+`-hook\" pretooluse"`) {
+	if !strings.Contains(string(b), `"command": "`+cmgo+`-hook pretooluse"`) {
 		t.Fatalf("settings:\n%s", b)
 	}
 	// claude.json now says cmgo is registered, as claude mcp add would leave it.
@@ -90,7 +90,7 @@ func TestInstallDefaultBinaryDryRun(t *testing.T) {
 	exe, _ := os.Executable()
 	exe, _ = filepath.EvalSymlinks(exe)
 	code, out, errs := runCmd(t, "install", "--dry-run")
-	if code != 0 || !strings.Contains(out, `\"`+filepath.Join(filepath.Dir(exe), "cmgo-hook")+`\" sessionstart`) {
+	if code != 0 || !strings.Contains(out, filepath.Join(filepath.Dir(exe), "cmgo-hook")+` sessionstart`) {
 		t.Fatalf("exit %d\nstdout %q\nstderr %q", code, out, errs)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); err == nil {
