@@ -58,7 +58,9 @@ func registerPurge(s *mcp.Server, d *Deps) {
 		InputSchema: json.RawMessage(purgeSchema),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true), IdempotentHint: true, OpenWorldHint: new(bool)},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return purgeTool(d, req.Params.Arguments), nil
+		res := purgeTool(d, req.Params.Arguments)
+		d.Stats.Record(d, "ctx_purge", 0, res)
+		return res, nil
 	})
 }
 
@@ -114,6 +116,6 @@ func purgeTool(d *Deps, raw json.RawMessage) *mcp.CallToolResult {
 		if sources == 0 && sessions == 0 {
 			return TextResult("Nothing to purge for this project ("+d.Cfg.ProjectKey+").", false)
 		}
-		return TextResult("Purged: knowledge base (FTS5), session events. All session data for this project has been permanently deleted.", false)
+		return TextResult("Purged: knowledge base (FTS5), session events, session stats. All session data for this project has been permanently deleted.", false)
 	}
 }

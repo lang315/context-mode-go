@@ -2,6 +2,9 @@ package mcpserver
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -88,5 +91,74 @@ func TestStatsExecuteFileKept(t *testing.T) {
 	want := store.ToolStat{Tool: "ctx_execute_file", Calls: 1, BytesReturned: int64(len(text)), BytesKept: int64(3000 + len(stdout) - len(text))}
 	if got := row("ctx_execute_file"); got != want {
 		t.Fatalf("%+v, want %+v", got, want)
+	}
+}
+
+// ctx_batch_execute: raw is the sum of every command's stdout + stderr
+// bytes, in serial and in parallel mode.
+func TestStatsBatchKept(t *testing.T) {
+	for _, concurrency := range []int{1, 2} {
+		h := newHarness(t, nil)
+		row := h.recordStats()
+		text, isErr := h.call("ctx_batch_execute", args(
+			"commands", []map[string]string{
+				{"label": "letters", "command": `head -c 50000 /dev/zero | tr '\0' b`},
+				{"label": "errs", "command": "printf xy >&2"},
+			},
+			"queries", []string{"letters"}, "concurrency", concurrency))
+		want := store.ToolStat{Tool: "ctx_batch_execute", Calls: 1, BytesReturned: int64(len(text)), BytesKept: int64(50000 + 2 - len(text))}
+		if got := row("ctx_batch_execute"); isErr || got != want || len(text) > 20000 {
+			t.Fatalf("concurrency %d: %+v, want %+v (isErr %v, returned %d)", concurrency, got, want, isErr, len(text))
+		}
+	}
+}
+
+// ctx_fetch_and_index: raw is the fetched body bytes, or on a cache hit the
+// cached source's content bytes.
+func TestStatsFetchKept(t *testing.T) {
+	body := strings.Repeat("zebrafish line of text\n", 2000)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprint(w, body)
+	}))
+	defer srv.Close()
+	h := newHarness(t, nil)
+	row := h.recordStats()
+
+	first, isErr := h.call("ctx_fetch_and_index", args("url", srv.URL+"/a", "source", "big"))
+	raw := int64(len(strings.TrimSpace(body)))
+	want := store.ToolStat{Tool: "ctx_fetch_and_index", Calls: 1, BytesReturned: int64(len(first)), BytesKept: raw - int64(len(first))}
+	if got := row("ctx_fetch_and_index"); isErr || got != want {
+		t.Fatalf("fetch: %+v, want %+v (isErr %v)", got, want, isErr)
+	}
+
+	cached, isErr := h.call("ctx_fetch_and_index", args("url", srv.URL+"/a", "source", "big"))
+	src, err := h.Deps.Store.SourceByLabel(h.Deps.Cfg.ProjectKey, fetchCacheKey("big", true, srv.URL+"/a"))
+	if err != nil || src == nil {
+		t.Fatal(src, err)
+	}
+	content, err := h.Deps.Store.SourceBytes(src.ID)
+	if err != nil || content < 40000 {
+		t.Fatalf("SourceBytes = %d, %v", content, err)
+	}
+	want.Calls, want.BytesReturned = 2, want.BytesReturned+int64(len(cached))
+	want.BytesKept += content - int64(len(cached))
+	if got := row("ctx_fetch_and_index"); isErr || !strings.Contains(cached, "cached") || got != want {
+		t.Fatalf("cache hit: %+v, want %+v\n%s", got, want, cached)
+	}
+}
+
+// ctx_search and ctx_purge have no raw size: they only return bytes.
+func TestStatsSearchAndPurgeReturnOnly(t *testing.T) {
+	h := newHarness(t, nil)
+	row := h.recordStats()
+	h.index("notes", store.Chunk{Title: "Alpha", Content: strings.Repeat("gizmo text ", 500)})
+	found, _ := h.call("ctx_search", args("queries", []string{"gizmo"}))
+	if got, want := row("ctx_search"), (store.ToolStat{Tool: "ctx_search", Calls: 1, BytesReturned: int64(len(found))}); got != want {
+		t.Fatalf("search: %+v, want %+v", got, want)
+	}
+	cancelled, _ := h.call("ctx_purge", `{}`)
+	if got, want := row("ctx_purge"), (store.ToolStat{Tool: "ctx_purge", Calls: 1, BytesReturned: int64(len(cancelled))}); got != want {
+		t.Fatalf("purge: %+v, want %+v", got, want)
 	}
 }

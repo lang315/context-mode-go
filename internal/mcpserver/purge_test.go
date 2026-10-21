@@ -11,7 +11,7 @@ const (
 	purgeCancelled = "Purge cancelled. Pass confirm: true to proceed."
 	purgeAmbiguous = "Ambiguous purge: sessionId implies scope:'session', cannot combine with scope:'project'. " +
 		"Use scope:'project' WITHOUT sessionId for the legacy whole-project wipe."
-	purgeProjectMsg = "Purged: knowledge base (FTS5), session events. All session data for this project has been permanently deleted."
+	purgeProjectMsg = "Purged: knowledge base (FTS5), session events, session stats. All session data for this project has been permanently deleted."
 )
 
 func TestPurgeArgumentChecks(t *testing.T) {
