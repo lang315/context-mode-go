@@ -22,7 +22,7 @@ func main() {
 // because the MCP transport needs a ReadCloser.
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: cmgo <serve|hook|version>")
+		fmt.Fprintln(stderr, "usage: cmgo <serve|hook|install|uninstall|version>")
 		return 2
 	}
 	switch args[0] {
@@ -39,6 +39,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return 2
 		}
 		return hookcmd.Run(args[1], hookcmd.IO{Getenv: os.Getenv, Getwd: os.Getwd, Stdin: stdin, Stdout: stdout, Now: time.Now})
+	case "install", "uninstall":
+		return installCmd(args[0], args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "cmgo: unknown command %q\n", args[0])
 		return 2
