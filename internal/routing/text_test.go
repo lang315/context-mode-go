@@ -30,8 +30,9 @@ func TestRoutingBlock(t *testing.T) {
 		commands, bootstrap bool
 		want                pinned
 	}{
-		// The full TS text: every <ctx_commands> entry has a cmgo tool (spec §4 of sub-project 5).
-		{true, false, pinned{"routing block with commands", 4239, "52c54ed411336a4795911e32dee0ea8c103c0d41b793d942355d3eca57ca4e47"}},
+		// The full TS text: every <ctx_commands> entry has a cmgo tool (spec §4 of
+		// sub-project 5), with the ctx purge line of HOOKS-KNOWN-DIFFS strings:ctx-purge.
+		{true, false, pinned{"routing block with commands", 4367, "4937b4bdd2567489c2cff8a33a6d46b5856f05586a21712eceb1db1671d44347"}},
 		{false, true, pinned{"agent routing suffix", 4105, "8c756c25026a96477fac96011f6869f83d1a4974640c5bff5373d76ba5de762c"}},
 		{false, false, pinned{"SessionStart routing block", 3481, "6b7c33490c32133a9bfe5a11b240236f6732a0f700c581ad90f46d6868edd023"}},
 	}

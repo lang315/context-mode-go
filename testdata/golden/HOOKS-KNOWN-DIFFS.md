@@ -10,7 +10,8 @@ listed difference goes away, and they fail if any unlisted case differs.
 
 Case ID forms: `pretooluse:<i>` (the `i` field of a case in
 `hooks-pretooluse.json`); `capture:<name>` (the `name` field of a tool case
-in `hooks-capture.json`). `hooks-strings.json` has no differences.
+in `hooks-capture.json`); `strings:<name>` (a difference in the
+`hooks-strings.json` texts, applied by `TestGoldenStrings`).
 
 ## Cases
 
@@ -23,6 +24,7 @@ in `hooks-capture.json`). `hooks-strings.json` has no differences.
 | `pretooluse:30` | `hooks-pretooluse.json` | spec §2.3: `ctx_batch_execute` is not a PreToolUse matcher, so cmgo writes nothing (TS pins `cwd`) |
 | `pretooluse:31` | `hooks-pretooluse.json` | spec §2.3: external-MCP guidance dropped; the TS `mcp__` matcher never fires in Claude Code (R1 P11) |
 | `capture:git -C checkout (TS bug)` | `hooks-capture.json` | spec §3.4: the parsed git subcommand is matched, so cmgo records `cwd` and `git branch` (TS records neither) |
+| `strings:ctx-purge` | `hooks-strings.json` (routing blocks with `includeCommands`) | The `ctx purge` action asks whether to purge one session or the whole project and warns before calling `ctx_purge`, as the `/ctx-purge` skill does. TS says `Call purge MCP tool with confirm: true. Warn: irreversible.`, which lets the model delete the whole project without asking. |
 | `capture:Read CLAUDE.md CC object response` | `hooks-capture.json` | spec §3.4: `rule_content` stores `tool_response.file.content` (TS stores the stringified response object) |
 
 ## Dropped event types (applied to every capture case)
