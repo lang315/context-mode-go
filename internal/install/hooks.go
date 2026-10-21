@@ -60,27 +60,33 @@ func shellWord(cmd string) (word, rest string, ok bool) {
 	return b.String(), "", true
 }
 
-// isOwnCommand reports whether cmd is a cmgo hook command from any install
-// location: first word (single-quoted, double-quoted or bare) with basename
-// cmgo-hook, then "<arg>"; or the form from before cmgo-hook existed,
-// basename cmgo, then "hook <arg>". Both match so a reinstall replaces either.
-func isOwnCommand(cmd string) bool {
+// ownArg returns the event arg of a cmgo-hook command from any install
+// location, else "": first word (single-quoted, double-quoted or bare) with
+// basename cmgo-hook, then "<arg>"; or the form from before cmgo-hook
+// existed, basename cmgo, then "hook <arg>". Both match so a reinstall
+// replaces either.
+func ownArg(cmd string) string {
 	exe, rest, ok := shellWord(cmd)
 	if !ok {
-		return false
+		return ""
 	}
 	f := strings.Fields(rest)
-	var arg string
 	switch filepath.Base(exe) {
 	case "cmgo-hook":
 		if len(f) == 1 {
-			arg = f[0]
+			return f[0]
 		}
 	case "cmgo":
 		if len(f) == 2 && f[0] == "hook" {
-			arg = f[1]
+			return f[1]
 		}
 	}
+	return ""
+}
+
+// isOwnCommand reports whether cmd is a cmgo hook command of a HookEvents arg.
+func isOwnCommand(cmd string) bool {
+	arg := ownArg(cmd)
 	return arg != "" && slices.ContainsFunc(HookEvents, func(h struct{ Event, Arg, Matcher string }) bool { return h.Arg == arg })
 }
 
