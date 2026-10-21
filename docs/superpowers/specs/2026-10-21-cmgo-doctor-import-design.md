@@ -57,8 +57,8 @@ Check details:
 2. **With a source dir:**
    - `git -C <dir> pull --ff-only`;
    - then `go install ./cmd/cmgo ./cmd/cmgo-hook`, with the dir as working directory.
-3. **Without one:** `go install github.com/lang315/context-mode-go/cmd/cmgo@latest github.com/lang315/context-mode-go/cmd/cmgo-hook@latest`, with `GOPRIVATE=github.com/lang315/*` added to the environment, because the repo is private.
-4. **Then:** run `<GOBIN or GOPATH/bin>/cmgo install` from the new binary. This refreshes the hooks, the MCP registration (the path may have changed) and the statusline.
+3. **Without one:** `go install github.com/lang315/context-mode-go/cmd/cmgo@latest github.com/lang315/context-mode-go/cmd/cmgo-hook@latest`, with `GOPRIVATE=github.com/lang315/*` added to the environment, because the repo is private. `GIT_TERMINAL_PROMPT=0` is also set, so a missing credential fails fast instead of waiting for input that `ctx_upgrade` can never give.
+4. **Then:** run `<bin dir>/cmgo install` from the new binary. The bin dir comes from `go env GOBIN GOPATH`, so values set with `go env -w` count: GOBIN, else the first GOPATH entry + `/bin`. This refreshes the hooks, the MCP registration (the path may have changed) and the statusline.
 5. **Output:** print one line per step as `[x] <step>` or `[ ] <step> — <error>`, and stop at the first failure. Exit 1 on failure.
 
 Two rules apply throughout:
@@ -86,6 +86,8 @@ Two dirs are read:
 - **Clean up:** the temp dir is removed afterwards.
 - **One import per DB:** in `meta`, key `ts_import`, value `<RFC3339 time> <n sessions> <n sources>`. If the key exists, import stops with a message unless `--force` is given.
 - **`--dry-run`:** prints the counts and writes nothing to `cmgo.db`.
+- **Bad files:** an unreadable or corrupt TS DB is skipped and counted (reason `unreadable`); it never aborts the run.
+- **Torn copies:** a copy that SQLite reports as malformed (a TS process wrote between copying the `.db` and the `-wal`) is copied again once. If that fails too, the file is skipped as `unreadable`, and the summary suggests closing Claude Code sessions that still run the TS plugin before importing.
 
 ### 3.3 Mapping
 - **Project:**
@@ -95,7 +97,7 @@ Two dirs are read:
 - **Session events:**
   - **Which rows:** rows of sessions whose `session_meta.last_event_at`, or newest event, is within `store.SessionRetention`.
   - **Columns:** `type`, `category`, `priority`, `data`, `source_hook`, `bytes_avoided` and `created_at` are copied verbatim, through a store import function. It bypasses dedup and cap but cuts `data` to 32 KiB and recomputes `data_hash`.
-  - **Order and duplicates:** rows go in `id` order. Duplicate `(session_id, type, data_hash, created_at)` rows across DBs are skipped.
+  - **Order and duplicates:** rows go in `id` order. A row is skipped when a row with the same `(session_id, type, data_hash, created_at)` is already in `cmgo.db` from another source DB or an earlier run. Repeats inside one source DB are kept, as TS stored them.
   - **Missing columns:** found with `PRAGMA table_xinfo`; they take their defaults.
 - **Session meta:** `started_at`, `last_event_at`, `compact_count`, `event_count` = imported rows, `cc_pid` = 0. An existing cmgo session with the same id is merged, not replaced.
 - **Content:**
@@ -103,6 +105,7 @@ Two dirs are read:
   - **Which sources:** sources with `indexed_at` within the 14-day source retention.
   - **How they are written:** each source and its `chunks` rows (title, content, content_type) go through a store import function. It writes `sources` (keeping `label` and `indexed_at`), `chunks`, `chunks_trigram` and `vocabulary`, the same way `Index` does, without re-chunking.
   - **Conflicts:** an existing cmgo source with the same `(project, label)` wins and the TS one is skipped.
+  - **The `session-events` label is not imported.** It is TS's events dump, and cmgo answers that source from the events table.
 - **Not imported:** `session_resume`, `tool_calls` (cmgo keeps its own stats from this point on), stats JSON files, events markdown, and logs.
 
 ### 3.4 Output
