@@ -67,7 +67,7 @@ func (s *Store) CompactSession(sessionID, project string) (n, files int, err err
 	}
 	ev := Event{Type: "compaction_summary", Category: "compaction", Priority: 1,
 		Data: fmt.Sprintf("Session compacted. %d events, %d files touched.", n, files)}
-	if _, err := insertEvents(tx, sessionID, project, "PreCompact", []Event{ev}); err != nil {
+	if _, _, err := insertEvents(tx, sessionID, project, "PreCompact", []Event{ev}); err != nil {
 		return 0, 0, err
 	}
 	if _, err := tx.Exec("UPDATE session_meta SET compact_count = compact_count + 1 WHERE session_id = ?", sessionID); err != nil {

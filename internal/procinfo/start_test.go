@@ -39,15 +39,15 @@ func TestSystemOwnProcessStart(t *testing.T) {
 	}
 }
 
-// parseStatStart reads field 22 (starttime, clock ticks after boot) of a
-// Linux /proc/<pid>/stat line; comm may hold spaces and ')'.
+// parseStat also reads field 22 (starttime, clock ticks after boot); comm may
+// hold spaces and ')'. A line without field 22 gives 0 (unknown).
 func TestParseStatStart(t *testing.T) {
 	line := "77 (a) b) S 1 77 77 0 -1 4194304 0 0 0 0 5 3 0 0 20 0 1 0 123456 1000 10\n"
-	if ticks, err := parseStatStart(line); err != nil || ticks != 123456 {
-		t.Fatalf("parseStatStart = %d, %v; want 123456", ticks, err)
+	if ppid, ticks, err := parseStat(line); err != nil || ppid != 1 || ticks != 123456 {
+		t.Fatalf("parseStat = %d, %d, %v; want 1, 123456", ppid, ticks, err)
 	}
-	if _, err := parseStatStart("77 (x) S 1 2"); err == nil {
-		t.Fatal("short stat: want an error")
+	if _, ticks, err := parseStat("77 (x) S 1 2"); err != nil || ticks != 0 {
+		t.Fatalf("short stat = %d, %v; want 0, nil", ticks, err)
 	}
 }
 

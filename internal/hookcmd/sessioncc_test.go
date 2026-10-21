@@ -40,6 +40,20 @@ func metaDB(t *testing.T, env map[string]string) *sql.DB {
 	return db
 }
 
+// noClaude makes every process lookup fail, so no claude ancestor is found,
+// and returns the count of lookups made.
+func noClaude(t *testing.T) *int {
+	t.Helper()
+	old := procLookup
+	t.Cleanup(func() { procLookup = old })
+	lookups := new(int)
+	procLookup = func(int) (procinfo.Info, error) {
+		*lookups++
+		return procinfo.Info{}, errors.New("no such process")
+	}
+	return lookups
+}
+
 // sessionCC reads a session's session_meta.cc_pid, or -1 when it has no row.
 func sessionCC(t *testing.T, env map[string]string, sid string) int {
 	t.Helper()
@@ -109,24 +123,19 @@ func linkedAt(t *testing.T, env map[string]string, sid string) string {
 // With no claude ancestor only the session's first hook walks the process
 // tree; later hooks do not pay for it again.
 func TestHookWalksOnceWithoutClaudeAncestor(t *testing.T) {
-	old := procLookup
-	t.Cleanup(func() { procLookup = old })
-	lookups := 0
-	procLookup = func(int) (procinfo.Info, error) { lookups++; return procinfo.Info{}, errors.New("no such process") }
+	lookups := noClaude(t)
 	env := hookEnv(t)
 	callHook(t, env, "userpromptsubmit", `{"session_id":"s1","prompt":"one"}`)
-	first := lookups
+	first := *lookups
 	callHook(t, env, "userpromptsubmit", `{"session_id":"s1","prompt":"two"}`)
-	if first == 0 || lookups != first {
-		t.Fatalf("lookups after hook 1 = %d, after hook 2 = %d; want one walk", first, lookups)
+	if first == 0 || *lookups != first {
+		t.Fatalf("lookups after hook 1 = %d, after hook 2 = %d; want one walk", first, *lookups)
 	}
 }
 
 // With no claude ancestor the row still exists, with cc_pid 0 (never linked).
 func TestHookSessionStartNoClaudeAncestor(t *testing.T) {
-	old := procLookup
-	t.Cleanup(func() { procLookup = old })
-	procLookup = func(int) (procinfo.Info, error) { return procinfo.Info{}, errors.New("no such process") }
+	noClaude(t)
 	env := hookEnv(t)
 	callHook(t, env, "sessionstart", `{"session_id":"s1","source":"clear"}`)
 	if cc := sessionCC(t, env, "s1"); cc != 0 {

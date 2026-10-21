@@ -28,15 +28,13 @@ func System() Lookup {
 		if err != nil {
 			return Info{}, err
 		}
-		ppid, err := parseStat(string(b))
+		ppid, ticks, err := parseStat(string(b))
 		if err != nil {
 			return Info{}, err
 		}
 		info := Info{PPID: ppid}
-		if bt, err := btime(); err == nil {
-			if ticks, err := parseStatStart(string(b)); err == nil {
-				info.Start = time.Unix(bt+ticks/userHZ, ticks%userHZ*int64(time.Second/userHZ))
-			}
+		if bt, err := btime(); err == nil && ticks > 0 {
+			info.Start = time.Unix(bt, 0).Add(time.Duration(ticks) * time.Second / userHZ)
 		}
 		info.Exe, _ = os.Readlink(dir + "exe")
 		if b, err := os.ReadFile(dir + "cmdline"); err == nil {

@@ -50,40 +50,40 @@ ON CONFLICT(project) DO UPDATE SET calls = calls + 1, bytes_returned = bytes_ret
 const newestSession = `SELECT session_id FROM session_meta WHERE cc_pid = ?2 AND project = ?3
 ORDER BY linked_at DESC, rowid DESC LIMIT 1`
 
+// linkedNow is the linked_at value of a link made now. Both link paths use it:
+// newestSession orders sessions by it, so they must write the same format.
+const linkedNow = `strftime('%Y-%m-%d %H:%M:%f', 'now')`
+
 // SetSessionCC records the Claude Code pid that owns a session and when it was
 // linked (stats spec §1.2). Every SessionStart source calls it, so /clear and
 // /resume re-link in the same process. A session not seen yet gets its
 // session_meta row, as InsertEvents' upsert would create it.
 func (s *Store) SetSessionCC(sessionID, project string, ccPID int) error {
 	_, err := s.db.Exec(`INSERT INTO session_meta(session_id, project, started_at, last_event_at, cc_pid, linked_at)
-VALUES(?1, ?2, datetime('now'), datetime('now'), ?3, strftime('%Y-%m-%d %H:%M:%f', 'now'))
+VALUES(?1, ?2, datetime('now'), datetime('now'), ?3, `+linkedNow+`)
 ON CONFLICT(session_id) DO UPDATE SET cc_pid = excluded.cc_pid, linked_at = excluded.linked_at`, sessionID, project, ccPID)
 	return err
 }
 
 // InsertEventsAndLink is InsertEvents that also links a session no cmgo
 // SessionStart has seen, such as one started before cmgo was installed, in
-// the same transaction (stats spec §1.2). claudePID finds the Claude Code
+// the same transaction (stats spec §1.2). findClaude returns the Claude Code
 // pid and when that process started; it runs only while the session's
 // linked_at is empty, so once per session, also when it finds none (cc_pid
 // stays 0, unknown). A linked session is left alone: its linked_at picks the
 // window.
-func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs []Event, claudePID func() (int, time.Time)) (int, error) {
+func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs []Event, findClaude func() (int, time.Time)) (int, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback()
-	inserted, err := insertEvents(tx, sessionID, project, sourceHook, evs)
+	inserted, linkedAt, err := insertEvents(tx, sessionID, project, sourceHook, evs)
 	if err != nil {
 		return 0, err
 	}
-	var linkedAt string
-	if err := tx.QueryRow("SELECT linked_at FROM session_meta WHERE session_id = ?", sessionID).Scan(&linkedAt); err != nil {
-		return 0, err
-	}
 	if linkedAt == "" {
-		cc, start := claudePID()
+		cc, start := findClaude()
 		if err := linkLate(tx, sessionID, project, cc, start); err != nil {
 			return 0, err
 		}
@@ -92,14 +92,14 @@ func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs [
 }
 
 // linkLate records cc as the session's Claude Code pid. The rows that
-// process's servers wrote for the project before the link, with an empty window, then
-// move to the session. Only servers started at or after ccStart are this
+// process's servers wrote for the project before the link, with an empty
+// window, then move to the session. Only servers started at or after ccStart are this
 // process's, so the rows of an earlier process that had the same pid stay
 // put; a zero ccStart (unknown) takes every row. No row of the session's
 // window can exist yet: a server writes that window only once the session is
 // linked to its pid.
 func linkLate(tx *sql.Tx, sessionID, project string, cc int, ccStart time.Time) error {
-	if _, err := tx.Exec(`UPDATE session_meta SET cc_pid = ?, linked_at = strftime('%Y-%m-%d %H:%M:%f', 'now') WHERE session_id = ?`,
+	if _, err := tx.Exec(`UPDATE session_meta SET cc_pid = ?, linked_at = `+linkedNow+` WHERE session_id = ?`,
 		cc, sessionID); err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func linkLate(tx *sql.Tx, sessionID, project string, cc int, ccStart time.Time) 
 	}
 	// started_at has whole seconds, so ccStart is cut to the second as well.
 	_, err := tx.Exec("UPDATE tool_stats SET window = ? WHERE cc_pid = ? AND project = ? AND window = '' AND started_at >= ?",
-		sessionID, cc, project, ccStart.UTC().Format("2006-01-02 15:04:05"))
+		sessionID, cc, project, ccStart.UTC().Format(sqliteTime))
 	return err
 }
 
