@@ -122,7 +122,7 @@ Fixes:
 
 ### 3.2 `sort: "timeline"`
 For each query, the result list is built from three sources:
-1. **Content store:** the existing timeline path (core §3.3), with project scope.
+1. **Content store:** the matches of the existing search pipeline (core §3.3), with project scope. The newest `effectiveLimit` of them are taken by `indexed_at`, not the best-ranked ones.
 2. **Session events** of the current project, all sessions (`store.SessionEventsForSearch(project, query, source, limit)`):
    - a row matches when every whitespace-separated term of the query (case-insensitive, ASCII folding as SQLite `LIKE`) occurs in `data` or in `category`;
    - `source`, when given, must equal `category` exactly;
@@ -143,7 +143,7 @@ Candidate files, in order:
 
 `<claude dir>` is `$CLAUDE_CONFIG_DIR` when set, else `<home>/.claude` (`config.Config.ClaudeDir`, added in sub-project 2). The user `CLAUDE.md` in item 2 is read from the same dir.
 
-`<slug>` is the absolute project dir as given, with every `/` and `.` replaced by `-`. That is Claude Code's layout, for example `/Users/lang/x.y` gives `-Users-lang-x-y`.
+`<slug>` is the absolute project dir as given, with every character other than ASCII letters and digits replaced by `-`. That is Claude Code's layout, for example `/Users/lang/x.y_z` gives `-Users-lang-x-y-z`.
 
 Matching and snippets follow AM:57-188: terms of 3 or more characters, a word-bounded case-insensitive match, a ±200/500 character window snapped to blank lines, files over 1,000,000 bytes skipped, and at most one result per file. Title `[auto-memory] <label>`, origin `auto-memory`, timestamp = file mtime.
 
