@@ -5,11 +5,15 @@ import (
 	"syscall"
 )
 
-// Shutdown sends SIGTERM to every backgrounded process group and forgets them.
+// Shutdown sends SIGTERM to every backgrounded process group and SIGKILL to every
+// run still in flight, then forgets them. Safe to call more than once.
 // Port of executor.ts:268-276 (cleanupBackgrounded).
 func (e *Executor) Shutdown() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	for pgid := range e.fg {
+		syscall.Kill(-pgid, syscall.SIGKILL)
+	}
 	for pgid := range e.bg {
 		syscall.Kill(-pgid, syscall.SIGTERM) // already gone: ESRCH, ignored
 	}

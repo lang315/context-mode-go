@@ -113,6 +113,15 @@ func (e *Executor) spawn(ctx context.Context, argv []string, cwd string, env []s
 	if err := cmd.Start(); err != nil {
 		return Result{Stderr: err.Error(), ExitCode: 1}
 	}
+	pgid := cmd.Process.Pid
+	e.mu.Lock()
+	e.fg[pgid] = struct{}{}
+	e.mu.Unlock()
+	defer func() {
+		e.mu.Lock()
+		delete(e.fg, pgid)
+		e.mu.Unlock()
+	}()
 	done := make(chan error, 1) // buffered: a backgrounded run's Wait finishes with no reader
 	go func() { done <- cmd.Wait() }()
 

@@ -28,12 +28,17 @@ type rpcPeer struct {
 
 func startServe(t *testing.T, env map[string]string) *rpcPeer {
 	t.Helper()
+	return startServeCtx(t, context.Background(), env)
+}
+
+func startServeCtx(t *testing.T, ctx context.Context, env map[string]string) *rpcPeer {
+	t.Helper()
 	inR, inW := io.Pipe()
 	outR, outW := io.Pipe()
 	errb := &bytes.Buffer{}
 	p := &rpcPeer{t: t, in: inW, out: bufio.NewReader(outR), done: make(chan int, 1), errb: errb}
 	go func() {
-		p.done <- serve(context.Background(), serveIO{
+		p.done <- serve(ctx, serveIO{
 			getenv: func(k string) string { return env[k] },
 			getwd:  os.Getwd,
 			in:     inR,
@@ -181,6 +186,42 @@ func TestServeShutdownKillsForegroundRun(t *testing.T) {
 	if n := pgrepCount(t, marker); n > 0 {
 		exec.Command("pkill", "-f", marker).Run()
 		t.Fatalf("%d process(es) left running after shutdown", n)
+	}
+}
+
+// SIGINT/SIGTERM reach serve as a cancelled ctx: a running foreground command
+// with no timeout must be killed and serve must return promptly.
+func TestServeCancelKillsForegroundRun(t *testing.T) {
+	env := testEnv(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	p := startServeCtx(t, ctx, env)
+	p.initialize()
+	marker := fmt.Sprintf("sleep %d", 4001+os.Getpid()%5000)
+	p.send(map[string]any{"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": map[string]any{
+		"name": "ctx_execute", "arguments": map[string]any{"language": "shell", "code": marker},
+	}})
+	deadline := time.Now().Add(5 * time.Second)
+	for pgrepCount(t, marker) < 1 && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if pgrepCount(t, marker) < 1 {
+		t.Fatal("command never started")
+	}
+	cancel()
+	select {
+	case <-p.done:
+	case <-time.After(3 * time.Second):
+		exec.Command("pkill", "-f", marker).Run()
+		t.Fatal("serve did not return within 3s of cancel")
+	}
+	deadline = time.Now().Add(2 * time.Second)
+	for pgrepCount(t, marker) > 0 && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if n := pgrepCount(t, marker); n > 0 {
+		exec.Command("pkill", "-f", marker).Run()
+		t.Fatalf("%d process(es) left running after cancel", n)
 	}
 }
 

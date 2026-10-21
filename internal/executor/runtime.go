@@ -43,6 +43,7 @@ type Executor struct {
 	mu       sync.Mutex
 	runtimes map[Language]string // "" = not available
 	bg       map[int]struct{}    // pgids of backgrounded runs
+	fg       map[int]struct{}    // pgids of runs in flight; Shutdown kills them
 }
 
 // New returns an Executor whose default cwd is projectDir.
@@ -54,6 +55,7 @@ func New(projectDir string) *Executor {
 		getenv:     os.Getenv,
 		runtimes:   map[Language]string{},
 		bg:         map[int]struct{}{},
+		fg:         map[int]struct{}{},
 	}
 }
 

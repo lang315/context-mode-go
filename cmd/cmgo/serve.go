@@ -60,6 +60,8 @@ func serve(ctx context.Context, sio serveIO) int {
 	}
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	// A signal cancels ctx; kill running commands now instead of waiting for Run to drain.
+	defer context.AfterFunc(ctx, ex.Shutdown)()
 	// Lift the 16 MB frame cap: TS accepted any size of tool argument.
 	t := &mcp.IOTransport{Reader: sio.in, Writer: sio.out, MaxLineLength: -1}
 	if err := mcpserver.New(d, version).Run(ctx, t); err != nil && ctx.Err() == nil && err != io.EOF {
