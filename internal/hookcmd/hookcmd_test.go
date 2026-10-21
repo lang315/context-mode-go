@@ -1,0 +1,221 @@
+package hookcmd
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/lang315/context-mode-go/internal/routing"
+	"github.com/lang315/context-mode-go/internal/store"
+)
+
+// hookEnv is a temp HOME, CMGO_DIR and project dir, never the real ones.
+func hookEnv(t *testing.T) map[string]string {
+	t.Helper()
+	root := t.TempDir()
+	project := filepath.Join(root, "project")
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return map[string]string{"HOME": filepath.Join(root, "home"), "CMGO_DIR": filepath.Join(root, "data"), "CLAUDE_PROJECT_DIR": project}
+}
+
+var hookNow = time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+
+// callHook runs one hook fire and returns its stdout.
+func callHook(t *testing.T, env map[string]string, event, stdin string) string {
+	t.Helper()
+	var out bytes.Buffer
+	code := Run(event, IO{
+		Getenv: func(k string) string { return env[k] },
+		Getwd:  os.Getwd,
+		Stdin:  strings.NewReader(stdin),
+		Stdout: &out,
+		Now:    func() time.Time { return hookNow },
+	})
+	if code != 0 {
+		t.Fatalf("%s: exit %d", event, code)
+	}
+	return out.String()
+}
+
+// eventRows returns a session's rows as "type|category|priority|data|hook|bytes".
+func eventRows(t *testing.T, env map[string]string, sid string) []string {
+	t.Helper()
+	st, err := store.Open(filepath.Join(env["CMGO_DIR"], "cmgo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	evs, err := st.SessionEvents(sid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []string
+	for _, e := range evs {
+		rows = append(rows, fmt.Sprintf("%s|%s|%d|%s|%s|%d", e.Type, e.Category, e.Priority, e.Data, e.SourceHook, e.BytesAvoided))
+	}
+	return rows
+}
+
+func assertRows(t *testing.T, got []string, want ...string) {
+	t.Helper()
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("rows:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func noDB(t *testing.T, env map[string]string) {
+	t.Helper()
+	if _, err := os.Stat(filepath.Join(env["CMGO_DIR"], "cmgo.db")); err == nil {
+		t.Fatal("the store was opened with no event to write")
+	}
+}
+
+func hookErrors(env map[string]string) string {
+	b, _ := os.ReadFile(filepath.Join(env["CMGO_DIR"], "hook-errors.log"))
+	return string(b)
+}
+
+const curlInput = `{"tool_name":"Bash","tool_input":{"command":"curl https://x.com"},"session_id":"s1"}`
+
+func TestHookPreToolUsePassthrough(t *testing.T) {
+	env := hookEnv(t)
+	for _, in := range []string{
+		`{"tool_name":"Bash","tool_input":{"command":"git status"},"session_id":"s1"}`,
+		curlInput, // no live cmgo serve: redirects are gated off
+	} {
+		if out := callHook(t, env, "pretooluse", in); out != "" {
+			t.Fatalf("%s: got %q", in, out)
+		}
+	}
+	// A missing or non-object tool_input is an empty command: Bash guidance, once.
+	if out := callHook(t, env, "pretooluse", `{"tool_name":"Bash","session_id":"s2"}`); !strings.Contains(out, `"additionalContext":"<context_guidance>`) {
+		t.Fatalf("missing tool_input: got %q", out)
+	}
+	if out := callHook(t, env, "pretooluse", `{"tool_name":"Bash","tool_input":"x","session_id":"s2"}`); out != "" {
+		t.Fatalf("second guidance: got %q", out)
+	}
+	noDB(t, env)
+	if s := hookErrors(env); s != "" {
+		t.Fatalf("errors logged: %s", s)
+	}
+}
+
+func TestHookPreToolUseRedirect(t *testing.T) {
+	env := hookEnv(t)
+	remove, err := routing.WriteSentinel(filepath.Join(env["CMGO_DIR"], "run"), os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer remove()
+	out := callHook(t, env, "pretooluse", curlInput)
+	want := `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"context-mode: curl/wget redirected. Call mcp__cmgo__ctx_execute(language, code)`
+	if !strings.HasPrefix(out, want) || !strings.HasSuffix(out, "\"}}\n") {
+		t.Fatalf("got %q", out)
+	}
+	rows := eventRows(t, env, "s1")
+	if len(rows) != 2 || rows[0] != "bash-redirected|redirect|2|Bash: curl https://x.com|PreToolUse|8192" ||
+		!strings.HasPrefix(rows[1], "rejected|rejected-approach|2|Bash: context-mode: curl/wget redirected.") {
+		t.Fatalf("rows: %q", rows)
+	}
+	// A subagent call is gated off even with a live server.
+	if out := callHook(t, env, "pretooluse", `{"tool_name":"Bash","tool_input":{"command":"curl https://x.com"},"session_id":"s1","agent_id":"a"}`); out != "" {
+		t.Fatalf("subagent: got %q", out)
+	}
+}
+
+func TestHookPreToolUseSecurityDeny(t *testing.T) {
+	env := hookEnv(t)
+	dir := filepath.Join(env["CLAUDE_PROJECT_DIR"], ".claude")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"permissions":{"deny":["Bash(rm -rf *)"]}}`), 0o644)
+	out := callHook(t, env, "pretooluse", `{"tool_name":"Bash","tool_input":{"command":"rm -rf /x"},"session_id":"s1"}`)
+	want := `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Blocked by security policy: matches deny pattern Bash(rm -rf *)"}}` + "\n"
+	if out != want {
+		t.Fatalf("got %q", out)
+	}
+	assertRows(t, eventRows(t, env, "s1"),
+		"rejected|rejected-approach|2|Bash: Blocked by security policy: matches deny pattern Bash(rm -rf *)|PreToolUse|0")
+}
+
+// The project dir comes from input.cwd when no env var names it.
+func TestHookProjectFromInputCwd(t *testing.T) {
+	env := hookEnv(t)
+	project := env["CLAUDE_PROJECT_DIR"]
+	delete(env, "CLAUDE_PROJECT_DIR")
+	os.MkdirAll(filepath.Join(project, ".claude"), 0o755)
+	os.WriteFile(filepath.Join(project, ".claude", "settings.json"), []byte(`{"permissions":{"deny":["Bash(rm -rf *)"]}}`), 0o644)
+	in := fmt.Sprintf(`{"tool_name":"Bash","tool_input":{"command":"rm -rf /x"},"session_id":"s1","cwd":%q}`, project)
+	if out := callHook(t, env, "pretooluse", in); !strings.Contains(out, `"permissionDecision":"deny"`) {
+		t.Fatalf("got %q", out)
+	}
+}
+
+var errLine = regexp.MustCompile(`^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\S* pid=\d+ pretooluse: \S`)
+
+func TestHookFailOpen(t *testing.T) {
+	env := hookEnv(t)
+	if out := callHook(t, env, "pretooluse", `{"tool_name":`); out != "" {
+		t.Fatalf("malformed: got %q", out)
+	}
+	if s := hookErrors(env); !errLine.MatchString(s) || strings.Count(s, "\n") != 1 {
+		t.Fatalf("log: %q", s)
+	}
+	if out := callHook(t, env, "nope", curlInput); out != "" {
+		t.Fatalf("unknown event: got %q", out)
+	}
+}
+
+// Spec §1.2: empty stdin produces no output and is not an error.
+func TestHookEmptyStdin(t *testing.T) {
+	env := hookEnv(t)
+	if out := callHook(t, env, "pretooluse", " \n"); out != "" {
+		t.Fatalf("got %q", out)
+	}
+	if s := hookErrors(env); s != "" {
+		t.Fatalf("log: %q", s)
+	}
+}
+
+type failWriter struct{}
+
+func (failWriter) Write([]byte) (int, error) { panic("boom") }
+
+func TestHookRecoversPanic(t *testing.T) {
+	env := hookEnv(t)
+	dir := filepath.Join(env["CLAUDE_PROJECT_DIR"], ".claude")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"permissions":{"deny":["Bash(rm -rf *)"]}}`), 0o644)
+	code := Run("pretooluse", IO{
+		Getenv: func(k string) string { return env[k] },
+		Getwd:  os.Getwd,
+		Stdin:  strings.NewReader(`{"tool_name":"Bash","tool_input":{"command":"rm -rf /x"}}`),
+		Stdout: failWriter{},
+		Now:    time.Now,
+	})
+	if code != 0 || !strings.Contains(hookErrors(env), "pretooluse: panic: boom") {
+		t.Fatalf("exit %d, log %q", code, hookErrors(env))
+	}
+}
+
+func TestHookStdinTimeout(t *testing.T) {
+	defer func(d time.Duration) { stdinTimeout = d }(stdinTimeout)
+	stdinTimeout = 50 * time.Millisecond
+	env := hookEnv(t)
+	r, w := io.Pipe() // never closed: stdin that does not end
+	defer w.Close()
+	var out bytes.Buffer
+	code := Run("pretooluse", IO{
+		Getenv: func(k string) string { return env[k] }, Getwd: os.Getwd, Stdin: r, Stdout: &out, Now: time.Now,
+	})
+	if code != 0 || out.Len() != 0 || !strings.Contains(hookErrors(env), "pretooluse: stdin") {
+		t.Fatalf("exit %d, out %q, log %q", code, out.String(), hookErrors(env))
+	}
+}
