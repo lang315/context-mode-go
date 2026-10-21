@@ -138,7 +138,7 @@ func registerExecute(s *mcp.Server, d *Deps) {
 		if err != nil {
 			return ErrorResult("Runtime error: %v", err), nil
 		}
-		raw = int64(len(r.Stdout) + len(r.Stderr))
+		raw = int64(len(r.Stdout)+len(r.Stderr)) + r.SandboxBytes
 		echo := buildExecuteEcho(string(e.lang), e.code, "")
 		if r.TimedOut {
 			partial := strings.TrimSpace(r.Stdout)

@@ -43,7 +43,7 @@ hard line breaks, blockquotes, and removal of script/style/nav/header/footer/nos
 
 No golden case differs because of a §2.2 item, so none is skipped:
 
-- Byte counters / batch `NODE_OPTIONS` preload: batch commands in `tools.json`
+- Batch `NODE_OPTIONS` fs preload: batch commands in `tools.json`
   never start `node`, so no `__CM_FS__` line appears on either side.
 - Timeline sort (`t11`): differs on purpose, session memory spec §3.2. TS
   keeps the best ranked matches and sorts them oldest first; cmgo ranks up to

@@ -115,7 +115,7 @@ Session events are kept for 7 days after a session's last event and capped at 10
 
 - Claude Code only; no other agent adapters.
 - Fixes for TS behaviors that never worked on Claude Code: the "Last Request" section after compaction, newest-first timeline search, and auto-memory reading Claude Code's real memory directory.
-- `ctx_stats` reports measured bytes (output produced minus output returned), not estimates. It drops the projections.
+- `ctx_stats` reports measured bytes (output produced minus output returned), not estimates. It drops the projections. For JS/TS `ctx_execute` runs, the bytes the code read through `fs` or the network count as produced, as in TS; reads in shell, Python and other languages are not counted.
 - Not ported: the PreCompact XML snapshot, `ctx_insight`, token and cost reports from transcripts.
 
 The full list, with reasons, is in the specs under `docs/superpowers/specs/` and in `testdata/golden/*KNOWN-DIFFS.md`.

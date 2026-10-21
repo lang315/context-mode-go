@@ -28,6 +28,7 @@ type Result struct {
 	Stdout, Stderr         string
 	ExitCode               int
 	TimedOut, Backgrounded bool
+	SandboxBytes           int64 // bytes a ctx_execute JS/TS run read through fs or the network
 }
 
 // Run writes the script to a fresh temp dir, runs it, and removes the dir unless the
@@ -82,6 +83,9 @@ func (e *Executor) Run(ctx context.Context, r Request) (Result, error) {
 
 	res := e.spawn(ctx, argv, cwd, env, r.Timeout, r.Background)
 	keep = res.Backgrounded
+	if file == "" && (r.Language == JavaScript || r.Language == TypeScript) { // only wrapJS reports counts
+		res.Stderr, res.SandboxBytes = takeCounters(res.Stderr)
+	}
 	return res, nil
 }
 

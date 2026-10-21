@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -80,15 +81,88 @@ func binaryLiteral(s string) string {
 	return "<<" + strings.Join(n, ", ") + ">>"
 }
 
-// wrapJS wraps JS/TS in an async main so top-level await works.
-// Port of server.ts:1756-1820 without the __CM_FS__/__CM_NET__ counters and the
-// require-shadowing IIFE that only fed them (spec §2.2).
+// wrapJS wraps JS/TS in an async main so top-level await works, and counts
+// the bytes the code reads through fs.readFileSync/readFile, fetch and
+// http(s).get/request. The counts go to stderr at exit as __CM_FS__:<n> and
+// __CM_NET__:<n> lines, which takeCounters removes. Port of server.ts:1756-1820.
 func wrapJS(code string, background bool) string {
-	s := "\nasync function __cm_main(){\n" + code + "\n}\n__cm_main().catch(e=>{console.error(e);process.exitCode=1});"
+	s := jsCounters + code + "\n}\n__cm_main().catch(e=>{console.error(e);process.exitCode=1});"
 	if background {
 		s += "\nsetInterval(()=>{},2147483647);"
 	}
-	return s
+	return s + "\n})(typeof require!=='undefined'?require:null);"
+}
+
+// jsCounters is the part of the server.ts:1761-1817 template before the code.
+const jsCounters = `
+// FS read instrumentation — count bytes read via fs.readFileSync/readFile
+let __cm_fs=0;
+process.on('exit',()=>{if(__cm_fs>0)try{process.stderr.write('__CM_FS__:'+__cm_fs+'\n')}catch{}});
+(function(){
+  try{
+    var f=typeof require!=='undefined'?require('fs'):null;
+    if(!f)return;
+    var ors=f.readFileSync;
+    f.readFileSync=function(){var r=ors.apply(this,arguments);if(Buffer.isBuffer(r))__cm_fs+=r.length;else if(typeof r==='string')__cm_fs+=Buffer.byteLength(r);return r;};
+    var orf=f.readFile;
+    if(orf)f.readFile=function(){var a=Array.from(arguments),cb=a.pop();orf.apply(this,a.concat([function(e,d){if(!e&&d){if(Buffer.isBuffer(d))__cm_fs+=d.length;else if(typeof d==='string')__cm_fs+=Buffer.byteLength(d);}cb(e,d);}]));};
+  }catch{}
+})();
+let __cm_net=0;
+// Report network bytes on process exit — works with both promise and callback patterns.
+// process.on('exit') fires after all I/O completes, unlike .finally() which fires
+// when __cm_main() resolves (immediately for callback-based http.get without await).
+process.on('exit',()=>{if(__cm_net>0)try{process.stderr.write('__CM_NET__:'+__cm_net+'\n')}catch{}});
+;(function(__cm_req){
+// Intercept globalThis.fetch
+const __cm_f=globalThis.fetch;
+globalThis.fetch=async(...a)=>{const r=await __cm_f(...a);
+try{const cl=r.clone();const b=await cl.arrayBuffer();__cm_net+=b.byteLength}catch{}
+return r};
+// Shadow CJS require with http/https network tracking.
+const __cm_hc=new Map();
+const __cm_hm=new Set(['http','https','node:http','node:https']);
+function __cm_wf(m,origFn){return function(...a){
+  const li=a.length-1;
+  if(li>=0&&typeof a[li]==='function'){const oc=a[li];a[li]=function(res){
+    res.on('data',function(c){__cm_net+=c.length});oc(res);};}
+  const req=origFn.apply(m,a);
+  const oOn=req.on.bind(req);
+  req.on=function(ev,cb,...r){
+    if(ev==='response'){return oOn(ev,function(res){
+      res.on('data',function(c){__cm_net+=c.length});cb(res);
+    },...r);}
+    return oOn(ev,cb,...r);
+  };
+  return req;
+}}
+var require=__cm_req?function(id){
+  const m=__cm_req(id);
+  if(!__cm_hm.has(id))return m;
+  const k=id.replace('node:','');
+  if(__cm_hc.has(k))return __cm_hc.get(k);
+  const w=Object.create(m);
+  if(typeof m.get==='function')w.get=__cm_wf(m,m.get);
+  if(typeof m.request==='function')w.request=__cm_wf(m,m.request);
+  __cm_hc.set(k,w);return w;
+}:__cm_req;
+if(__cm_req){if(__cm_req.resolve)require.resolve=__cm_req.resolve;
+if(__cm_req.cache)require.cache=__cm_req.cache;}
+async function __cm_main(){
+`
+
+// counterLine matches a wrapJS counter line with the newlines around it, as
+// the server.ts:1830-1842 replace does.
+var counterLine = regexp.MustCompile(`\n?__CM_(?:FS|NET)__:(\d+)\n?`)
+
+// takeCounters removes the counter lines from stderr and returns their sum.
+func takeCounters(stderr string) (string, int64) {
+	var n int64
+	for _, m := range counterLine.FindAllStringSubmatch(stderr, -1) {
+		v, _ := strconv.ParseInt(m[1], 10, 64)
+		n += v
+	}
+	return counterLine.ReplaceAllString(stderr, ""), n
 }
 
 // prepareCode applies every source transform before the script is written:

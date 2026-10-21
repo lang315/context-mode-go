@@ -205,7 +205,7 @@ Tool names, parameter names, defaults, thresholds and output text are kept, so e
 
 | TS behavior | cmgo | Why |
 |---|---|---|
-| The JS/TS wrapper adds byte counters (`__CM_FS__`, `__CM_NET__`). Batch commands get a `NODE_OPTIONS` fs preload | The `async function __cm_main(){…}` wrapper (S:1756-1820) is ported without the counters. Batch commands get no preload | The counters only feed stats (sub-project 4). The preload costs a Node start in every batch command |
+| The JS/TS wrapper adds byte counters (`__CM_FS__`, `__CM_NET__`). Batch commands get a `NODE_OPTIONS` fs preload | The `async function __cm_main(){…}` wrapper (S:1756-1820) is ported with the counters, which feed `ctx_execute`'s raw bytes in stats. Batch commands get no preload | The preload costs a Node start in every batch command |
 | Fetch runs in a Node subprocess, with DNS patched to re-check IPs | Fetch runs in-process with `net/http`. IPs are checked in `net.Dialer.Control` against the address actually dialed. `Transport.Proxy = nil` | No Node needed. Checking at dial time closes the DNS-rebinding gap between the lookup check and the connect |
 | One content DB per project (`content/<sha256[:16]>.db`). DBs older than 14 days are deleted on every first open | One DB with a `project` column. Sources older than 14 days are deleted at most once per 24 h (time kept in `meta`) | One file instead of hundreds. Startup writes nothing on most days |
 | `mmap_size` 256 MB | No mmap | mmap pages raise footprint and RSS. The OS page cache is enough |
