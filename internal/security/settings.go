@@ -19,7 +19,7 @@ import (
 // It applies to Bash deny, the project boundary, Read allow and Read deny.
 var caseInsensitive = runtime.GOOS == "darwin"
 
-// bashRule is one `Bash(glob)` deny entry; pattern is the full entry text.
+// bashRule is one `Bash(glob)` entry; pattern is the full entry text.
 type bashRule struct {
 	pattern string
 	re      *regexp.Regexp
@@ -34,6 +34,8 @@ type fileRule struct {
 // fileRules holds the rules parsed from one settings file.
 type fileRules struct {
 	bashDeny  []bashRule
+	bashAsk   []bashRule // read by EvaluateCommand only
+	bashAllow []bashRule // read by EvaluateCommand only
 	readDeny  []fileRule
 	readAllow []fileRule
 }
@@ -47,22 +49,33 @@ type cacheEntry struct {
 // Policy evaluates commands and paths against Claude Code settings files.
 type Policy struct {
 	projectDir string
-	home       string
+	claudeDir  string
 	warn       io.Writer
 
 	mu    sync.Mutex
 	cache map[string]cacheEntry
 }
 
-// NewPolicy returns a Policy reading settings under projectDir and home.
-// An empty projectDir or home skips the files rooted there.
+// NewPolicy returns a Policy reading settings under projectDir and
+// home/.claude. An empty projectDir or home skips the files rooted there.
 func NewPolicy(projectDir, home string) *Policy {
-	return &Policy{projectDir: projectDir, home: home, warn: os.Stderr, cache: map[string]cacheEntry{}}
+	claudeDir := ""
+	if home != "" {
+		claudeDir = filepath.Join(home, ".claude")
+	}
+	return NewPolicyDir(projectDir, claudeDir)
+}
+
+// NewPolicyDir is NewPolicy with the Claude config dir given directly, for
+// when $CLAUDE_CONFIG_DIR moves the global settings.json away from ~/.claude.
+func NewPolicyDir(projectDir, claudeDir string) *Policy {
+	return &Policy{projectDir: projectDir, claudeDir: claudeDir, warn: os.Stderr, cache: map[string]cacheEntry{}}
 }
 
 // settingsPaths ports readBashPolicies / readToolPermissionPatterns file order
-// (security.ts:363-394, 426-490). Only the claude global is read: adapter
-// globals and CLAUDE_CONFIG_DIR are dropped (spec §4.5).
+// (security.ts:363-394, 426-490). Only the claude global is read, from the
+// Claude config dir (cmgo follows CLAUDE_CONFIG_DIR, as install does): adapter
+// globals are dropped (spec §4.5).
 func (p *Policy) settingsPaths() []string {
 	var paths []string
 	if p.projectDir != "" {
@@ -70,8 +83,8 @@ func (p *Policy) settingsPaths() []string {
 			filepath.Join(p.projectDir, ".claude", "settings.local.json"),
 			filepath.Join(p.projectDir, ".claude", "settings.json"))
 	}
-	if p.home != "" {
-		paths = append(paths, filepath.Join(p.home, ".claude", "settings.json"))
+	if p.claudeDir != "" {
+		paths = append(paths, filepath.Join(p.claudeDir, "settings.json"))
 	}
 	return paths
 }
@@ -112,8 +125,8 @@ func (p *Policy) rules() []*fileRules {
 var toolPattern = regexp.MustCompile(`^(\w+)\((.+)\)$`)
 
 // parseSettingsFile ports readSingleSettings + readToolPermissionPatterns
-// extractGlobs (security.ts:321-351, 434-461): only permissions.deny
-// Bash()/Read() and permissions.allow Read() entries are kept.
+// extractGlobs (security.ts:321-351, 434-461): permissions.deny Bash()/Read(),
+// permissions.allow Bash()/Read() and permissions.ask Bash() entries are kept.
 func parseSettingsFile(path string) (*fileRules, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -140,8 +153,20 @@ func parseSettingsFile(path string) (*fileRules, error) {
 		}
 	}
 	for _, entry := range stringsOf(perms["allow"]) {
-		if m := toolPattern.FindStringSubmatch(entry); m != nil && m[1] == "Read" {
+		m := toolPattern.FindStringSubmatch(entry)
+		if m == nil {
+			continue
+		}
+		switch m[1] {
+		case "Bash":
+			r.bashAllow = append(r.bashAllow, bashRule{pattern: entry, re: globToRegex(m[2], caseInsensitive)})
+		case "Read":
 			r.readAllow = append(r.readAllow, fileRule{glob: m[2], re: fileGlobToRegex(m[2], caseInsensitive)})
+		}
+	}
+	for _, entry := range stringsOf(perms["ask"]) {
+		if m := toolPattern.FindStringSubmatch(entry); m != nil && m[1] == "Bash" {
+			r.bashAsk = append(r.bashAsk, bashRule{pattern: entry, re: globToRegex(m[2], caseInsensitive)})
 		}
 	}
 	return r, nil

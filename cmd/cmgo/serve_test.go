@@ -132,6 +132,37 @@ func TestServeListsFiveToolsAndExitsOnEOF(t *testing.T) {
 	}
 }
 
+// Spec §2.5: the MCP-ready sentinel lives exactly as long as serve.
+func TestServeWritesSentinel(t *testing.T) {
+	env := testEnv(t)
+	p := startServe(t, env)
+	p.initialize() // the store is open, so the sentinel is written
+	sentinel := filepath.Join(env["CMGO_DIR"], "run", fmt.Sprintf("mcp-ready-%d", os.Getpid()))
+	if b, err := os.ReadFile(sentinel); err != nil || string(b) != fmt.Sprint(os.Getpid()) {
+		t.Fatalf("sentinel %q: %v", b, err)
+	}
+	p.in.Close()
+	if code := <-p.done; code != 0 {
+		t.Fatalf("exit %d: %s", code, p.errb.String())
+	}
+	if _, err := os.Stat(sentinel); err == nil {
+		t.Fatal("sentinel left after serve returned")
+	}
+}
+
+// A sentinel that cannot be written costs the redirects, not the server.
+func TestServeSentinelErrorIsAWarning(t *testing.T) {
+	env := testEnv(t)
+	os.MkdirAll(env["CMGO_DIR"], 0o755)
+	os.WriteFile(filepath.Join(env["CMGO_DIR"], "run"), []byte("x"), 0o644) // run/ cannot be a dir
+	p := startServe(t, env)
+	p.initialize()
+	p.in.Close()
+	if code := <-p.done; code != 0 || !strings.Contains(p.errb.String(), "cmgo: mcp-ready sentinel skipped:") {
+		t.Fatalf("exit %d, stderr %q", code, p.errb.String())
+	}
+}
+
 func TestServeFailsOnUnusableDataDir(t *testing.T) {
 	env := testEnv(t)
 	blocker := filepath.Join(t.TempDir(), "file")
@@ -263,4 +294,26 @@ func TestServeConcurrentSessionsSameDB(t *testing.T) {
 	b.in.Close()
 	<-a.done
 	<-b.done
+}
+
+// ctx_execute checks deny rules itself; the global ones live in
+// $CLAUDE_CONFIG_DIR/settings.json when that is set.
+func TestServeDeniesFromClaudeConfigDir(t *testing.T) {
+	env := testEnv(t)
+	cfg := filepath.Join(t.TempDir(), "claudecfg")
+	os.MkdirAll(cfg, 0o755)
+	os.WriteFile(filepath.Join(cfg, "settings.json"), []byte(`{"permissions":{"deny":["Bash(echo cmgodenied*)"]}}`), 0o644)
+	env["CLAUDE_CONFIG_DIR"] = cfg
+	p := startServe(t, env)
+	p.initialize()
+	p.send(map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": map[string]any{
+		"name": "ctx_execute", "arguments": map[string]any{"language": "shell", "code": "echo cmgodenied"},
+	}})
+	res := p.recv(2)["result"].(map[string]any)
+	text := res["content"].([]any)[0].(map[string]any)["text"].(string)
+	if res["isError"] != true || !strings.Contains(text, "deny") {
+		t.Fatalf("not denied: %v", res)
+	}
+	p.in.Close()
+	<-p.done
 }
