@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 // skillFS holds cmgo's user skills, one skills/<name>/SKILL.md each.
@@ -116,4 +118,43 @@ func uninstallSkills(o Options) error {
 		_ = os.Remove(filepath.Dir(path)) // only succeeds when empty
 	}
 	return nil
+}
+
+// SkillReport is the state of cmgo's skills in Dir, by name in sort order:
+// Missing ones are absent, Outdated ones are unedited copies of an older
+// cmgo, and Foreign ones are a user's file or an edited copy.
+type SkillReport struct {
+	Dir                        string
+	Total                      int
+	Missing, Outdated, Foreign []string
+}
+
+// Skills reports the cmgo skills next to the settings file, for cmgo doctor.
+func Skills(settingsPath string) (SkillReport, error) {
+	r := SkillReport{Dir: filepath.Join(filepath.Dir(settingsPath), "skills")}
+	paths, err := skillPaths(Options{SettingsPath: settingsPath})
+	if err != nil {
+		return r, err
+	}
+	names := slices.Sorted(maps.Keys(paths))
+	r.Total = len(names)
+	for _, name := range names {
+		body, err := skillFS.ReadFile("skills/" + name + "/SKILL.md")
+		if err != nil {
+			return r, err
+		}
+		got, err := os.ReadFile(paths[name])
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			r.Missing = append(r.Missing, name)
+		case err != nil:
+			return r, err
+		case bytes.Equal(got, withMarker(body)):
+		case isOwnSkill(got):
+			r.Outdated = append(r.Outdated, name)
+		default:
+			r.Foreign = append(r.Foreign, name)
+		}
+	}
+	return r, nil
 }

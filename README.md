@@ -67,7 +67,7 @@ Re-enable the TS plugin in Claude Code if you want it back. The data in `~/.clau
 |---|---|
 | `cmgo serve` | MCP server over stdio, one process per Claude Code session (Claude Code starts it) |
 | `cmgo install` / `uninstall` | Edit `settings.json` hooks and the user MCP entry; both take `--dry-run` |
-| `cmgo doctor` | Check version, storage, DB/FTS5, executor, runtimes, hooks, MCP registration, statusline, TS plugin |
+| `cmgo doctor` | Check version, storage, DB/FTS5, executor, runtimes, hooks, MCP registration, skills, statusline, TS plugin |
 | `cmgo upgrade` | `git pull` and `go install` from `--source` or `$CMGO_SOURCE` (else `go install …@latest`), then `cmgo install`; takes `--dry-run` |
 | `cmgo import` | One-time import of TS data; `--from`, `--dry-run`, `--force` |
 | `cmgo version` | Print the version |

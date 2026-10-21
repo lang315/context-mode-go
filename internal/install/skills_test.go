@@ -1,6 +1,7 @@
 package install
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -103,3 +104,32 @@ func TestDryRunWritesNoSkills(t *testing.T) {
 
 // stripMarker drops the trailing marker line of an installed skill.
 func stripMarker(s string) string { return s[:strings.LastIndex(s, "<!-- cmgo-skill")] }
+
+// Skills reports which cmgo skills are missing, outdated (an unedited older
+// cmgo copy) or foreign (a user's file or an edited copy).
+func TestSkillsReport(t *testing.T) {
+	o, _ := newOpts(t)
+	if err := Install(o); err != nil {
+		t.Fatal(err)
+	}
+	r, err := Skills(o.SettingsPath)
+	if err != nil || r.Total != len(skillNames) || len(r.Missing)+len(r.Outdated)+len(r.Foreign) != 0 ||
+		r.Dir != filepath.Join(filepath.Dir(o.SettingsPath), "skills") {
+		t.Fatalf("fresh install: %+v, %v", r, err)
+	}
+	removeFile(t, skillPath(o, "ctx-stats"))
+	writeSettings(t, skillPath(o, "ctx-doctor"), readFile(t, skillPath(o, "ctx-doctor"))+"mine\n", 0o644)
+	old := strings.Replace(stripMarker(readFile(t, skillPath(o, "ctx-search"))), "# cmgo search", "# old search", 1)
+	writeSettings(t, skillPath(o, "ctx-search"), string(withMarker([]byte(old))), 0o644)
+	r, err = Skills(o.SettingsPath)
+	if err != nil || strings.Join(r.Missing, ",") != "ctx-stats" || strings.Join(r.Outdated, ",") != "ctx-search" || strings.Join(r.Foreign, ",") != "ctx-doctor" {
+		t.Fatalf("got %+v, %v", r, err)
+	}
+}
+
+func removeFile(t *testing.T, path string) {
+	t.Helper()
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+}
