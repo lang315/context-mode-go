@@ -22,37 +22,45 @@ type ImportedEvent struct {
 	CreatedAt        string
 }
 
-// ImportEvents writes rows in order in one transaction, bypassing the dedup
-// window and the per-session cap, but cutting data to MaxEventData and
-// recomputing data_hash. A row whose (session_id, type, data_hash,
-// created_at) already exists is a duplicate and is skipped, so a second
-// import of the same data inserts nothing. session_meta is merged: the
-// earliest start, the latest activity, event_count plus the rows inserted,
-// the larger compact_count; an existing row keeps its project and cc_pid.
-func (s *Store) ImportEvents(sess ImportedSession, rows []ImportedEvent) (inserted, dupes int, err error) {
+// ImportEvents writes the batches in order in one transaction, bypassing the
+// dedup window and the per-session cap, but cutting data to MaxEventData and
+// recomputing data_hash. A batch is the rows of one source DB. A row whose
+// (session_id, type, data_hash, created_at) already exists from an earlier
+// batch or an earlier import is a duplicate and is skipped, so a second import
+// of the same data inserts nothing; repeats inside one batch are kept, as TS
+// stored them. session_meta is merged: the earliest start, the latest
+// activity, event_count plus the rows inserted, the larger compact_count; an
+// existing row keeps its project and cc_pid.
+func (s *Store) ImportEvents(sess ImportedSession, batches ...[]ImportedEvent) (inserted, dupes int, err error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, 0, err
 	}
 	defer tx.Rollback()
-	for _, r := range rows {
-		data := cutData(r.Data)
-		hash := EventDataHash(data)
-		var n int
-		if err := tx.QueryRow("SELECT count(*) FROM session_events WHERE session_id = ? AND type = ? AND data_hash = ? AND created_at = ?",
-			sess.ID, r.Type, hash, r.CreatedAt).Scan(&n); err != nil {
-			return 0, 0, err
+	for _, rows := range batches {
+		fresh := make([]bool, len(rows)) // checked before the batch writes, so its own repeats count as new
+		hashes := make([]string, len(rows))
+		for i, r := range rows {
+			hashes[i] = EventDataHash(cutData(r.Data))
+			var n int
+			if err := tx.QueryRow("SELECT count(*) FROM session_events WHERE session_id = ? AND type = ? AND data_hash = ? AND created_at = ?",
+				sess.ID, r.Type, hashes[i], r.CreatedAt).Scan(&n); err != nil {
+				return 0, 0, err
+			}
+			fresh[i] = n == 0
 		}
-		if n > 0 {
-			dupes++
-			continue
-		}
-		if _, err := tx.Exec(`INSERT INTO session_events(session_id, project, type, category, priority, data, data_hash, source_hook, bytes_avoided, created_at)
+		for i, r := range rows {
+			if !fresh[i] {
+				dupes++
+				continue
+			}
+			if _, err := tx.Exec(`INSERT INTO session_events(session_id, project, type, category, priority, data, data_hash, source_hook, bytes_avoided, created_at)
 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			sess.ID, sess.Project, r.Type, r.Category, r.Priority, data, hash, r.SourceHook, r.BytesAvoided, r.CreatedAt); err != nil {
-			return 0, 0, err
+				sess.ID, sess.Project, r.Type, r.Category, r.Priority, cutData(r.Data), hashes[i], r.SourceHook, r.BytesAvoided, r.CreatedAt); err != nil {
+				return 0, 0, err
+			}
+			inserted++
 		}
-		inserted++
 	}
 	if _, err := tx.Exec(`INSERT INTO session_meta(session_id, project, started_at, last_event_at, event_count, compact_count)
 VALUES(?, ?, ?, ?, ?, ?)

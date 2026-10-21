@@ -382,3 +382,18 @@ func TestRunSkipsTwiceTornCopy(t *testing.T) {
 		t.Fatalf("report = %+v (copies of the torn DB: %d)\nwant     %+v", got, calls[torn], want)
 	}
 }
+
+// Two identical rows inside one TS DB are both imported (spec §3.3).
+func TestRunKeepsRepeatsWithinOneDB(t *testing.T) {
+	root := t.TempDir()
+	db := tsDB(t, filepath.Join(root, "sessions", "aaaaaaaaaaaaaaaa.db"), sessionDDL)
+	addMeta(t, db, "s1", "/Proj/A", ago(2*time.Hour), ago(time.Hour), 0)
+	for range 2 {
+		addEvent(t, db, "s1", "file_read", "/Proj/A/main.go", "/Proj/A", ago(time.Hour))
+	}
+	o := options(t, root)
+	got, err := Run(o)
+	if err != nil || got.Events != 2 || got.DupEvents != 0 {
+		t.Fatalf("report = %+v, %v; want 2 events, 0 duplicates", got, err)
+	}
+}

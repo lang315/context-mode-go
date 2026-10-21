@@ -103,7 +103,8 @@ type tsSession struct {
 	// missing or stale meta row still gives the session's real activity.
 	startedAt, lastEventAt string
 	compact                int
-	events                 []store.ImportedEvent // in id order
+	events                 []store.ImportedEvent   // in id order
+	fromOtherDBs           [][]store.ImportedEvent // the session's events in later DBs (worktrees), one batch per DB
 }
 
 // sessions reads every session that has events, in first-event order.

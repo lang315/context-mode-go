@@ -124,7 +124,7 @@ func Run(o Options) (Report, error) {
 			continue
 		}
 		ins, dupes, err := st.ImportEvents(store.ImportedSession{ID: s.id, Project: s.projectDir,
-			StartedAt: s.startedAt, LastEventAt: s.lastEventAt, CompactCount: s.compact}, s.events)
+			StartedAt: s.startedAt, LastEventAt: s.lastEventAt, CompactCount: s.compact}, append([][]store.ImportedEvent{s.events}, s.fromOtherDBs...)...)
 		if err != nil {
 			return r, fmt.Errorf("session %s: %w", s.id, err)
 		}
@@ -194,7 +194,7 @@ func readSessionDBs(dir, tmp string, cp copyFunc, r *Report) ([]tsSession, map[s
 				continue
 			}
 			m := &out[i]
-			m.events = append(m.events, s.events...)
+			m.fromOtherDBs = append(m.fromOtherDBs, s.events)
 			m.startedAt = minTime(m.startedAt, s.startedAt)
 			m.lastEventAt = max(m.lastEventAt, s.lastEventAt)
 			m.compact = max(m.compact, s.compact)

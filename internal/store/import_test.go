@@ -69,12 +69,11 @@ func TestImportEventsSkipsDuplicatesAndMergesMeta(t *testing.T) {
 	row := ImportedEvent{Type: "file_read", Category: "file", Priority: 1, Data: "/a.go", SourceHook: "PostToolUse", CreatedAt: "2020-01-01 00:00:00"}
 	sess := ImportedSession{ID: "s1", Project: "/ts-project", StartedAt: "2020-01-01 00:00:00", LastEventAt: "2020-01-01 00:00:00", CompactCount: 3}
 
-	// The second copy of row in one batch is a duplicate (same session, type, hash, created_at).
-	ins, dupes, err := s.ImportEvents(sess, []ImportedEvent{row, row})
-	if err != nil || ins != 1 || dupes != 1 {
-		t.Fatalf("first import = %d, %d, %v; want 1, 1, nil", ins, dupes, err)
+	ins, dupes, err := s.ImportEvents(sess, []ImportedEvent{row})
+	if err != nil || ins != 1 || dupes != 0 {
+		t.Fatalf("first import = %d, %d, %v; want 1, 0, nil", ins, dupes, err)
 	}
-	// A re-run (import --force) inserts nothing and leaves event_count alone.
+	// A re-run (import --force) finds the row from the earlier run: it inserts nothing and leaves event_count alone.
 	ins, dupes, err = s.ImportEvents(sess, []ImportedEvent{row})
 	if err != nil || ins != 0 || dupes != 1 {
 		t.Fatalf("second import = %d, %d, %v; want 0, 1, nil", ins, dupes, err)
@@ -145,5 +144,28 @@ func TestMeta(t *testing.T) {
 		if v, ok, err := s.Meta("ts_import"); err != nil || !ok || v != want {
 			t.Fatalf("Meta = %q, %v, %v; want %q", v, ok, err, want)
 		}
+	}
+}
+
+// A repeat inside one source DB is a real event and is kept; the same rows
+// from a second source DB, or from an earlier import, are duplicates.
+func TestImportEventsKeepsRepeatsWithinOneSource(t *testing.T) {
+	s := openTest(t)
+	row := ImportedEvent{Type: "file_read", Category: "file", Priority: 1, Data: "/a.go", SourceHook: "PostToolUse", CreatedAt: "2026-10-20 10:00:00"}
+	sess := ImportedSession{ID: "s1", Project: "/p", StartedAt: row.CreatedAt, LastEventAt: row.CreatedAt}
+
+	ins, dupes, err := s.ImportEvents(sess, []ImportedEvent{row, row})
+	if err != nil || ins != 2 || dupes != 0 {
+		t.Fatalf("one DB with two identical rows = %d, %d, %v; want 2, 0, nil", ins, dupes, err)
+	}
+	// The same rows from a second DB, and one new row.
+	other := row
+	other.Data = "/b.go"
+	ins, dupes, err = s.ImportEvents(sess, []ImportedEvent{row, row}, []ImportedEvent{row, other})
+	if err != nil || ins != 1 || dupes != 3 {
+		t.Fatalf("second DB = %d, %d, %v; want 1, 3, nil", ins, dupes, err)
+	}
+	if got, _ := s.SessionEvents("s1"); len(got) != 3 {
+		t.Fatalf("rows = %d, want 3", len(got))
 	}
 }
