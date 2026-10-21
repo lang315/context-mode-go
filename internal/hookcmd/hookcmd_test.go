@@ -324,6 +324,38 @@ func TestHookStop(t *testing.T) {
 		`turn_end|session|1|{"stop_hook_active":true,"last_assistant_message":null}|Stop|0`)
 }
 
+func TestHookPreCompact(t *testing.T) {
+	env := hookEnv(t)
+	// A session with no events is left untouched (TS precompact.mjs:47).
+	if out := callHook(t, env, "precompact", `{"session_id":"s1","trigger":"auto"}`); out != "{}\n" {
+		t.Fatalf("got %q", out)
+	}
+	if rows := eventRows(t, env, "s1"); len(rows) != 0 {
+		t.Fatalf("rows: %q", rows)
+	}
+	callHook(t, env, "posttooluse", `{"tool_name":"Read","tool_input":{"file_path":"/p/a.go"},"tool_response":"x","session_id":"s1"}`)
+	callHook(t, env, "userpromptsubmit", `{"prompt":"hello","session_id":"s1"}`)
+	if out := callHook(t, env, "precompact", `{"session_id":"s1","trigger":"manual"}`); out != "{}\n" {
+		t.Fatalf("got %q", out)
+	}
+	assertRows(t, eventRows(t, env, "s1"),
+		"file_read|file|1|/p/a.go|PostToolUse|0",
+		"user_prompt|user-prompt|1|hello|UserPromptSubmit|0",
+		"intent|intent|4|implement|UserPromptSubmit|0",
+		"compaction_summary|compaction|1|Session compacted. 3 events, 1 files touched.|PreCompact|0")
+	if s := hookErrors(env); s != "" {
+		t.Fatalf("errors logged: %s", s)
+	}
+
+	// Like stop, a failed DB open still prints {}.
+	blocker := filepath.Join(t.TempDir(), "file")
+	os.WriteFile(blocker, []byte("x"), 0o644)
+	env["CMGO_DIR"] = filepath.Join(blocker, "data") // parent is a regular file
+	if out := callHook(t, env, "precompact", `{"session_id":"s1"}`); out != "{}\n" {
+		t.Fatalf("no DB: got %q", out)
+	}
+}
+
 // install writes $CLAUDE_CONFIG_DIR/settings.json, so a deny rule there must
 // be enforced even though HOME/.claude has none.
 func TestHookPreToolUseDenyFromClaudeConfigDir(t *testing.T) {

@@ -60,6 +60,7 @@ var hookHandlers = map[string]func(*hookCtx) error{
 	"userpromptsubmit":   userPromptSubmit,
 	"stop":               stop,
 	"sessionstart":       sessionStart,
+	"precompact":         preCompact,
 }
 
 // Run runs one hook fire and always exits 0 (spec §1.2): an error or panic
@@ -227,6 +228,21 @@ func stop(h *hookCtx) error {
 	// the output, so print first and still return the write error to be logged.
 	_, werr := io.WriteString(h.out, "{}\n")
 	if err := h.insertEvents("Stop", []store.Event{capture.Stop(active, msg)}); err != nil {
+		return err
+	}
+	return werr
+}
+
+// preCompact records the compaction (spec §2.1) and prints {} as TS
+// precompact.mjs does, first, so a DB error cannot swallow it.
+func preCompact(h *hookCtx) error {
+	_, werr := io.WriteString(h.out, "{}\n")
+	st, err := store.OpenWith(h.cfg.DBPath, store.Options{BusyTimeout: dbBusyTimeout})
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	if _, _, err := st.CompactSession(h.sid, h.cfg.ProjectKey); err != nil {
 		return err
 	}
 	return werr
