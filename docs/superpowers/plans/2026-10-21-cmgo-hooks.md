@@ -13569,3 +13569,30 @@ The machine was busy with other sessions during the latency run (load average ab
 - **The latency bench:** the concurrent case passed with 0.2 ms to spare. Package-level regexes in `routing`, `capture`, `hookio`, `security` and `store` cost about 0.9 ms of the hook's start-up (`GODEBUG=inittrace=1`). Compiling them lazily is a possible follow-up.
 - **The installer:** it was never run against the real `~/.claude`, by design.
 - **Live Claude Code:** the PostToolUseFailure `error` field, and whether Claude Code applies `updatedInput` without a `permissionDecision` for `Agent`, were not checked against Claude Code itself. Both come from the TS behavior and the Claude Code docs.
+
+## Appendix C: Execution notes (2026-10-21)
+
+The plan was executed task by task on branch `sp2-hooks`, with a review at seven checkpoints (Tasks 1, 4, 9, 14, 23, 31, 39) and a whole-branch review at the end. Every file of Tasks 1-39 matched this plan byte for byte, and `diff -rq` of the finished tree against the draft module was empty. The Node generator, run for real in Task 1, produced the expected md5s.
+
+**Errata in this plan:** none found during execution. Several "Expected: FAIL" lines name only the first undefined symbol where the real run lists a few; the meaning is the same.
+
+**Fixed after the whole-branch review** (one commit each, test first):
+
+| Finding | Fix |
+|---|---|
+| High: a locked DB stalled Claude Code for up to 30 s per hook fire, because a hook process inherited `busy_timeout(30000)` and `migrate()` took the write lock on every open | `store.OpenWith(path, Options{BusyTimeout})`; hooks use 2 s and drop their events on BUSY (one log line); `migrate()` reads `user_version` without a lock and skips the transaction when the DB is up to date |
+| Medium: an MCP registration at an old binary path was never updated | Install removes and re-adds `mcpServers.cmgo` when its command or args differ |
+| Medium: install read `~/.claude.json` even with `CLAUDE_CONFIG_DIR` set | Reads `$CLAUDE_CONFIG_DIR/.claude.json` when set |
+| PreToolUse security ignored `$CLAUDE_CONFIG_DIR/settings.json` | `config.Config.ClaudeDir` and `security.NewPolicyDir`, used by hooks and serve |
+| Hook commands were not shell-safe (`$`, backtick, `\` in the path) | Single-quote escaping; own-command detection accepts single-quoted, double-quoted and bare forms |
+| Stop printed nothing when its DB write failed (TS always prints `{}`) | `{}` is printed first |
+| Spec §5.1 `--hook-binary` was missing | Implemented |
+| `"agent_id": null` counted as a subagent (TS uses `!= null`) | Null means the main session |
+| At the cap, a new less important event evicted a more important row | The new event is skipped when every row is more important; equal priority still evicts the oldest |
+
+**Final state:** 346 tests pass, 0 fail, `go test -race ./...` is clean. Bench at load average 5.1-5.3: every hook case p95 ≤ 7.7 ms, the 4-worker concurrent case p95 9.76 ms; idle writes 0 bytes in 60 s.
+
+**Open follow-ups (not fixed):**
+- The 4-worker hook case has little margin (p95 9.7-9.8 ms on a loaded machine). Compiling the package-level regexes lazily would save about 0.9 ms of start-up.
+- A hook that must migrate a fresh or old DB still needs the write lock; under contention it drops its events after 2 s.
+- Concurrent `cmgo install` and Claude Code edits of `settings.json` can lose one side's update (same as TS).
