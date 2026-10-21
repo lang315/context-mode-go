@@ -172,3 +172,28 @@ func TestRerankHelpers(t *testing.T) {
 		t.Fatalf("countAdjacentPairs = %d", got)
 	}
 }
+
+// A NUL byte pasted into a query must not reach SQLite (it ends the MATCH string).
+func TestSanitizeStripsNUL(t *testing.T) {
+	for in, want := range map[string]string{"\x00gizmo": `"gizmo"`, "giz\x00mo": `"gizmo"`, "\x00": `""`} {
+		if got := SanitizeQuery(in); got != want {
+			t.Errorf("SanitizeQuery(%q) = %q; want %q", in, got, want)
+		}
+	}
+	for in, want := range map[string]string{"\x00gizmo": `"gizmo"`, "gi\x00": "", "\x00": ""} {
+		if got := SanitizeTrigramQuery(in); got != want {
+			t.Errorf("SanitizeTrigramQuery(%q) = %q; want %q", in, got, want)
+		}
+	}
+}
+
+func TestSearchWithNULInQuery(t *testing.T) {
+	s := openTest(t)
+	if _, err := s.Index("p", "notes", []Chunk{{Title: "Alpha", Content: "gizmo text"}}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := s.SearchWithFallback("\x00gizmo", SearchOpts{Project: "p", Limit: 3})
+	if err != nil || len(res) != 1 {
+		t.Fatalf("res=%v err=%v", res, err)
+	}
+}

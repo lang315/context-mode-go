@@ -71,6 +71,7 @@ func quoteOr(words []string) string {
 
 // SanitizeQuery builds the porter MATCH expression, OR mode (ST:90-111).
 func SanitizeQuery(q string) string {
+	q = strings.ReplaceAll(q, "\x00", "") // a NUL ends the MATCH string in SQLite
 	var words []string
 	for _, w := range jsFields(porterStrip.ReplaceAllString(q, " ")) {
 		switch strings.ToUpper(w) {
@@ -89,6 +90,7 @@ func SanitizeQuery(q string) string {
 // SanitizeTrigramQuery builds the trigram MATCH expression, OR mode; "" means
 // skip the trigram search (ST:113-125).
 func SanitizeTrigramQuery(q string) string {
+	q = strings.ReplaceAll(q, "\x00", "")
 	cleaned := jsTrim(trigramStrip.ReplaceAllString(q, ""))
 	if u16len(cleaned) < 3 {
 		return ""
