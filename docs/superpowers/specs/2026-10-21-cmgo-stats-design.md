@@ -71,7 +71,7 @@ Hooks, the statusline and `cmgo serve` all run under the same Claude Code proces
   - On darwin the walk uses `sysctl kern.proc.pid.<pid>` (`golang.org/x/sys/unix.SysctlKinfoProc`, already in the module graph).
   - On Linux it reads `/proc/<pid>/stat`.
   - If no ancestor matches, `cc_pid` is 0.
-- **SessionStart** stores `cc_pid` in `session_meta` for its session id.
+- **SessionStart** (every source, `clear` included, because `/clear` starts a new session in the same Claude Code process) stores `cc_pid` in `session_meta` for its session id. It is the hook's first DB write, so server calls that follow are tagged with the new session.
 - **`cmgo serve`** computes `cc_pid` once at start and writes it in every `tool_stats` row.
 - **Each `tool_stats` write is tagged** with `window` = the `started_at` of the newest `session_meta` row with the server's `cc_pid` and project, read in the same transaction (`''` when there is none).
 - **A session's server stats** are the rows with its `cc_pid`, project and `window` = its `started_at`. After `/clear`, the new session gets a new `started_at`, so its calls go to new rows, and the previous session's rows stay with it.
@@ -136,7 +136,7 @@ Output, plain text with no ANSI, because Claude Code's stdout is a pipe:
 
 ## 4. Other changes
 - **Routing block:** it gains the `ctx stats` command lines from TS `<ctx_commands>` (RB:62-77), rewording "context savings question" to keep the same trigger list.
-- **`cmgo install`:** sets `statusLine` to `{"type":"command","command":"'<hook binary>' statusline"}` only when `statusLine` is absent. When another statusline is set, it prints a notice and leaves it. `uninstall` removes `statusLine` only when it is cmgo's.
+- **`cmgo install`:** sets `statusLine` to `{"type":"command","command":"<shell-quoted hook binary> statusline"}` when it is absent or is cmgo's own, so a reinstall from a new path updates it. When another statusline is set, it prints a notice and leaves it. `uninstall` removes `statusLine` only when it is cmgo's.
 - **`ctx_purge`, project scope:** also deletes the project's `tool_stats` rows. The message lists `session stats`.
 
 ## 5. Testing
