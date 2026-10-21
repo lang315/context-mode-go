@@ -11,7 +11,7 @@ const (
 	purgeCancelled = "Purge cancelled. Pass confirm: true to proceed."
 	purgeAmbiguous = "Ambiguous purge: sessionId implies scope:'session', cannot combine with scope:'project'. " +
 		"Use scope:'project' WITHOUT sessionId for the legacy whole-project wipe."
-	purgeProjectMsg = "Purged: knowledge base (FTS5), session events. All session data for this project has been permanently deleted."
+	purgeProjectMsg = "Purged: knowledge base (FTS5), session events, session stats. All session data for this project has been permanently deleted."
 )
 
 func TestPurgeArgumentChecks(t *testing.T) {
@@ -106,5 +106,29 @@ func TestPurgeProjectNothingToPurge(t *testing.T) {
 	h.index("notes", store.Chunk{Title: "Alpha", Content: "gizmo text"})
 	if out, _ := h.call("ctx_purge", `{"confirm": true}`); out != purgeProjectMsg {
 		t.Fatalf("with data: %q", out)
+	}
+}
+
+// A project with only stats rows (no sources, no sessions) still has data to
+// purge; "Nothing to purge" is for a project with none of the three.
+func TestPurgeProjectStatsOnly(t *testing.T) {
+	h := newHarness(t, nil)
+	project := h.Deps.Cfg.ProjectKey
+	if err := h.Deps.Store.AddToolStat("srv", 1, project, "2026-10-21 08:00:00", "ctx_execute", 5, 50); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Deps.Store.AddToolStat("srv-other", 1, "/other/project", "2026-10-21 08:00:00", "ctx_execute", 5, 50); err != nil {
+		t.Fatal(err)
+	}
+	if out, isErr := h.call("ctx_purge", `{"confirm": true}`); isErr || out != purgeProjectMsg {
+		t.Fatalf("stats only: isErr=%v %q, want the purge message", isErr, out)
+	}
+	snap, err := h.Deps.Store.Stats(store.StatsQuery{ServerID: "srv", Project: project})
+	if err != nil || len(snap.Tools) != 0 || snap.LifetimeKept != 50 { // only /other/project's 50 remains
+		t.Fatalf("after purge: tools %+v lifetime %d, %v", snap.Tools, snap.LifetimeKept, err)
+	}
+	// Nothing left: now it says so.
+	if out, _ := h.call("ctx_purge", `{"confirm": true}`); out != "Nothing to purge for this project ("+project+")." {
+		t.Fatalf("second purge: %q", out)
 	}
 }

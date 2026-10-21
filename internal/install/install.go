@@ -28,8 +28,9 @@ type Options struct {
 }
 
 // Install replaces cmgo's hook commands in the settings file with the
-// HookEvents entries for o.HookBinary, keeping every other command, then
-// registers o.Binary as the MCP server.
+// HookEvents entries for o.HookBinary, keeping every other command, points
+// statusLine at it unless another statusline is set, then registers o.Binary
+// as the MCP server.
 func Install(o Options) error {
 	if o.HookBinary == "" {
 		o.HookBinary = filepath.Join(filepath.Dir(o.Binary), "cmgo-hook")
@@ -44,6 +45,10 @@ func Install(o Options) error {
 		return err
 	}
 	stripHooks(s.root)
+	// Before the hooks: a reinstall leaves statusLine in place while stripHooks
+	// drops and re-adds an emptied "hooks" key, so this keeps the order of a
+	// first install and the second install changes nothing.
+	addStatusLine(s, o)
 	if err := addHooks(s.root, o.HookBinary); err != nil {
 		return fmt.Errorf("%s: %w", o.SettingsPath, err)
 	}
@@ -54,20 +59,58 @@ func Install(o Options) error {
 	return registerMCP(o, true)
 }
 
-// Uninstall removes cmgo's hook commands and the MCP server. It leaves
-// enabledPlugins alone.
+// Uninstall removes cmgo's hook commands, its statusLine and the MCP server.
+// It leaves enabledPlugins and another statusline alone.
 func Uninstall(o Options) error {
 	s, err := loadSettings(o.SettingsPath)
 	if err != nil {
 		return err
 	}
 	// Nothing removed: do not create or reformat the user's file.
-	if stripHooks(s.root) == 0 && !o.DryRun {
+	if stripHooks(s.root)+stripStatusLine(s.root) == 0 && !o.DryRun {
 		fmt.Fprintf(o.Stdout, "cmgo: no cmgo hooks in %s\n", s.path)
 	} else if err := s.save(o); err != nil {
 		return err
 	}
 	return registerMCP(o, false)
+}
+
+// addStatusLine sets statusLine to cmgo-hook statusline when it is absent or
+// null. cmgo's own entry (from an earlier install) gets the new command and
+// keeps its other fields, such as padding. Another statusline is left as it
+// is, with a notice (stats spec §4).
+func addStatusLine(s *settings, o Options) {
+	cmd := hookCommand(o.HookBinary, "statusline")
+	v, ok := s.root.get("statusLine")
+	if sl, isObj := v.(*object); ok && isObj && isOwnStatusLine(sl) {
+		sl.set("command", cmd)
+		return
+	}
+	if !ok || v == nil {
+		sl := newObject()
+		sl.set("type", "command")
+		sl.set("command", cmd)
+		s.root.set("statusLine", sl) // in place when the key held null
+		return
+	}
+	fmt.Fprintf(o.Stderr, "cmgo: notice: statusLine in %s is not cmgo's; left as is (to use cmgo's, set its command to %s)\n", s.path, cmd)
+}
+
+// isOwnStatusLine reports whether a statusLine object runs cmgo-hook statusline.
+func isOwnStatusLine(sl *object) bool {
+	c, ok := sl.vals["command"].(string)
+	return ok && ownArg(c) == "statusline"
+}
+
+// stripStatusLine removes cmgo's statusLine and returns 1, else 0.
+func stripStatusLine(root *object) int {
+	if v, ok := root.get("statusLine"); ok {
+		if sl, ok := v.(*object); ok && isOwnStatusLine(sl) {
+			root.del("statusLine")
+			return 1
+		}
+	}
+	return 0
 }
 
 // checkPlugins warns about an enabled TS context-mode plugin, which would

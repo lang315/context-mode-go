@@ -15,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/lang315/context-mode-go/internal/procinfo"
 )
 
 // rpcPeer drives serve() over in-process pipes with newline-delimited JSON-RPC.
@@ -103,7 +105,7 @@ func testEnv(t *testing.T) map[string]string {
 	return map[string]string{"HOME": filepath.Join(root, "home"), "CMGO_DIR": filepath.Join(root, "data"), "CMGO_PROJECT_DIR": project}
 }
 
-func TestServeListsSixToolsAndExitsOnEOF(t *testing.T) {
+func TestServeListsSevenToolsAndExitsOnEOF(t *testing.T) {
 	env := testEnv(t)
 	p := startServe(t, env)
 	p.initialize()
@@ -114,7 +116,7 @@ func TestServeListsSixToolsAndExitsOnEOF(t *testing.T) {
 		names = append(names, tool.(map[string]any)["name"].(string))
 	}
 	sort.Strings(names)
-	want := "ctx_batch_execute,ctx_execute,ctx_execute_file,ctx_fetch_and_index,ctx_purge,ctx_search"
+	want := "ctx_batch_execute,ctx_execute,ctx_execute_file,ctx_fetch_and_index,ctx_purge,ctx_search,ctx_stats"
 	if strings.Join(names, ",") != want {
 		t.Fatalf("tools = %v", names)
 	}
@@ -313,6 +315,52 @@ func TestServeDeniesFromClaudeConfigDir(t *testing.T) {
 	text := res["content"].([]any)[0].(map[string]any)["text"].(string)
 	if res["isError"] != true || !strings.Contains(text, "deny") {
 		t.Fatalf("not denied: %v", res)
+	}
+	p.in.Close()
+	<-p.done
+}
+
+func TestNewStatsRecorder(t *testing.T) {
+	procs := map[int]procinfo.Info{
+		500: {PPID: 400, Exe: "/x/cmgo", Arg0: "cmgo"},
+		400: {PPID: 300, Exe: "/usr/bin/node", Arg0: "node"},
+		300: {PPID: 1, Exe: "/h/.local/share/claude/versions/2.1.304", Arg0: "claude"},
+	}
+	look := func(pid int) (procinfo.Info, error) {
+		p, ok := procs[pid]
+		if !ok {
+			return procinfo.Info{}, fmt.Errorf("no pid %d", pid)
+		}
+		return p, nil
+	}
+	start := time.Date(2026, 10, 21, 9, 30, 5, 123456789, time.FixedZone("x", 7200))
+	r := newStatsRecorder(500, start, look)
+	want := fmt.Sprintf("500-%d", start.UnixNano())
+	if r.ServerID != want || r.CCPID != 300 || r.StartedAt != "2026-10-21 07:30:05" {
+		t.Fatalf("recorder = %+v, want server %s", r, want)
+	}
+	if r := newStatsRecorder(400, start, look); r.CCPID != 300 {
+		t.Fatalf("from node: cc_pid %d", r.CCPID)
+	}
+	if r := newStatsRecorder(300, start, look); r.CCPID != 0 { // no claude ancestor above it
+		t.Fatalf("from claude itself: cc_pid %d", r.CCPID)
+	}
+}
+
+// serve records every tool call; ctx_stats reads the rows back.
+func TestServeRecordsToolStats(t *testing.T) {
+	env := testEnv(t)
+	p := startServe(t, env)
+	p.initialize()
+	call := func(id int, name string, args map[string]any) string {
+		p.send(map[string]any{"jsonrpc": "2.0", "id": id, "method": "tools/call", "params": map[string]any{"name": name, "arguments": args}})
+		res := p.recv(id)["result"].(map[string]any)
+		return res["content"].([]any)[0].(map[string]any)["text"].(string)
+	}
+	call(2, "ctx_execute", map[string]any{"language": "shell", "code": "echo hi"})
+	call(3, "ctx_execute", map[string]any{"language": "shell", "code": "echo again"})
+	if text := call(4, "ctx_stats", map[string]any{}); !strings.Contains(text, "\n  ctx_execute               2 calls") || !strings.HasSuffix(text, "\n\ncmgo "+version) {
+		t.Fatalf("ctx_stats:\n%s", text)
 	}
 	p.in.Close()
 	<-p.done

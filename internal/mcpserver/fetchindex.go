@@ -65,6 +65,7 @@ type fetchRequest struct {
 type fetchJob struct {
 	out  fetchOutcome
 	body fetch.Result
+	raw  int64 // bytes kept out before formatting: the body, or a cache hit's content (stats spec §1.3)
 }
 
 func registerFetchAndIndex(s *mcp.Server, d *Deps) {
@@ -77,34 +78,37 @@ func registerFetchAndIndex(s *mcp.Server, d *Deps) {
 		InputSchema: json.RawMessage(fetchSchema),
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: &no, OpenWorldHint: &yes},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleFetchAndIndex(ctx, d, req.Params.Arguments), nil
+		res, raw := handleFetchAndIndex(ctx, d, req.Params.Arguments)
+		d.Stats.Record(d, "ctx_fetch_and_index", raw, res)
+		return res, nil
 	})
 }
 
-// handleFetchAndIndex is the tool handler, S:3499-3671.
-func handleFetchAndIndex(ctx context.Context, d *Deps, raw json.RawMessage) *mcp.CallToolResult {
-	a, err := ParseArgs(raw)
+// handleFetchAndIndex is the tool handler, S:3499-3671. It also returns the
+// call's raw size, the sum of every job's raw bytes.
+func handleFetchAndIndex(ctx context.Context, d *Deps, args json.RawMessage) (*mcp.CallToolResult, int64) {
+	a, err := ParseArgs(args)
 	if err != nil {
-		return ArgError(err)
+		return ArgError(err), 0
 	}
 	batch, hasRequests, err := fetchRequests(a)
 	if err != nil {
-		return ArgError(err)
+		return ArgError(err), 0
 	}
 	concurrency, err := fetchInt(a, "concurrency", 1, 1, 8)
 	if err != nil {
-		return ArgError(err)
+		return ArgError(err), 0
 	}
 	ttl, err := fetchInt(a, "ttl", -1, 0, math.MaxInt64)
 	if err != nil {
-		return ArgError(err)
+		return ArgError(err), 0
 	}
 	force, _, err := a.Bool("force")
 	if err != nil {
-		return ArgError(err)
+		return ArgError(err), 0
 	}
 	if len(batch) == 0 {
-		return TextResult("ctx_fetch_and_index requires either `url` (single) or `requests: [{url, source?}, ...]` (batch).", true)
+		return TextResult("ctx_fetch_and_index requires either `url` (single) or `requests: [{url, source?}, ...]` (batch).", true), 0
 	}
 
 	single := !hasRequests && len(batch) == 1
@@ -126,7 +130,9 @@ func handleFetchAndIndex(ctx context.Context, d *Deps, raw json.RawMessage) *mcp
 
 	// Serial index drain in request order, S:3542-3570.
 	outs := make([]fetchOutcome, len(jobs))
+	var raw int64
 	for i, j := range jobs {
+		raw += j.raw
 		if j.out.kind != "" {
 			outs[i] = j.out
 			continue
@@ -141,7 +147,7 @@ func handleFetchAndIndex(ctx context.Context, d *Deps, raw json.RawMessage) *mcp
 	} else {
 		text, isErr = fetchBatchText(outs, eff, capped)
 	}
-	return TextResult(text, isErr)
+	return TextResult(text, isErr), raw
 }
 
 // fetchRequests normalizes {url, source} and requests[] (requests wins), S:3502-3506.
@@ -214,7 +220,11 @@ func fetchOne(ctx context.Context, d *Deps, r fetchRequest, force bool, ttl int6
 				ttlMs = fetchTTLDefaultMs
 			}
 			if age := d.Now().Sub(src.IndexedAt).Milliseconds(); age < ttlMs {
-				return fetchJob{out: fetchOutcome{kind: "cached", url: r.url, label: src.Label, chunks: src.ChunkCount, age: fetchAge(age), ttl: fetchTTL(ttlMs)}}
+				var raw int64
+				if d.Stats != nil { // the size scans the chunks; only stats need it
+					raw, _ = d.Store.SourceBytes(src.ID)
+				}
+				return fetchJob{out: fetchOutcome{kind: "cached", url: r.url, label: src.Label, chunks: src.ChunkCount, age: fetchAge(age), ttl: fetchTTL(ttlMs)}, raw: raw}
 			}
 		}
 	}
@@ -226,7 +236,7 @@ func fetchOne(ctx context.Context, d *Deps, r fetchRequest, force bool, ttl int6
 		}
 		return fetchJob{out: fetchOutcome{kind: "error", url: r.url, err: err.Error(), reason: reason}}
 	}
-	return fetchJob{body: res}
+	return fetchJob{body: res, raw: int64(len(res.Body))}
 }
 
 // fetchIndex is indexFetched, S:3378-3409: route by content kind, one store write.

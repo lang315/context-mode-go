@@ -58,6 +58,10 @@ func registerPurge(s *mcp.Server, d *Deps) {
 		InputSchema: json.RawMessage(purgeSchema),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true), IdempotentHint: true, OpenWorldHint: new(bool)},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		// Calls still queued would be written after the purge and leave stats
+		// rows of a purged project behind. ctx_purge itself is not recorded
+		// (stats spec §1.3): a purge must not leave a fresh row.
+		d.Stats.Flush(statsFlushWait)
 		return purgeTool(d, req.Params.Arguments), nil
 	})
 }
@@ -107,13 +111,13 @@ func purgeTool(d *Deps, raw json.RawMessage) *mcp.CallToolResult {
 		}
 		return TextResult("Purged session "+sessionID+": "+what+". Other sessions and project-wide stats preserved.", false)
 	default: // "project", or bare {confirm:true}
-		sources, sessions, err := d.Store.PurgeProject(d.Cfg.ProjectKey)
+		sources, sessions, stats, err := d.Store.PurgeProject(d.Cfg.ProjectKey)
 		if err != nil {
 			return ErrorResult("Purge error: %v", err)
 		}
-		if sources == 0 && sessions == 0 {
+		if sources == 0 && sessions == 0 && stats == 0 {
 			return TextResult("Nothing to purge for this project ("+d.Cfg.ProjectKey+").", false)
 		}
-		return TextResult("Purged: knowledge base (FTS5), session events. All session data for this project has been permanently deleted.", false)
+		return TextResult("Purged: knowledge base (FTS5), session events, session stats. All session data for this project has been permanently deleted.", false)
 	}
 }

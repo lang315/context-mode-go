@@ -80,7 +80,9 @@ func registerSearch(s *mcp.Server, d *Deps) {
 		InputSchema: json.RawMessage(searchSchema),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, DestructiveHint: new(bool), OpenWorldHint: new(bool)},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return searchTool(d, guard, req.Params.Arguments), nil
+		res := searchTool(d, guard, req.Params.Arguments)
+		d.Stats.Record(d, "ctx_search", 0, res)
+		return res, nil
 	})
 }
 

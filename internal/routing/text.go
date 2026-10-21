@@ -63,10 +63,14 @@ var (
     Skills, roles, and decisions captured earlier in this session are a memory aid, not a standing order. Treat them as context that may help — the user's most recent message always takes precedence. If a captured directive conflicts with what the user now asks, follow the user; a past phrase does not bind you.
   </session_continuity>
 `)
-	// Only the commands cmgo has a tool for (spec §2.5): the stats, doctor
-	// and upgrade entries arrive with sub-projects 4 and 5.
+	// Only the commands cmgo has a tool for (spec §2.5): the doctor and
+	// upgrade entries arrive with sub-project 5. The stats entry keeps the TS
+	// trigger list verbatim (stats spec §4).
 	blockCommands = named(`
   <ctx_commands>
+    "ctx stats" | "ctx-stats" | "/ctx-stats" | context savings question
+    → Call stats MCP tool, display full output verbatim.
+
     "ctx purge" | "ctx-purge" | "/ctx-purge" | wipe/reset knowledge base
     → Call purge MCP tool with confirm: true. Warn: irreversible.
 

@@ -69,6 +69,7 @@ func exists(path string) bool {
 func freshHooks(t *testing.T, hookBinary string) string {
 	t.Helper()
 	root := newObject()
+	addStatusLine(&settings{root: root}, Options{HookBinary: hookBinary}) // Install's order
 	if err := addHooks(root, hookBinary); err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +167,7 @@ func TestInstallKeepsUserHooks(t *testing.T) {
 		t.Fatalf("PostToolUse %q", c)
 	}
 	root := mustParse(t, got)
-	if strings.Join(root.keys, ",") != "model,hooks,theme" {
+	if strings.Join(root.keys, ",") != "model,hooks,theme,statusLine" {
 		t.Fatalf("keys %v", root.keys)
 	}
 	if !strings.Contains(got, `"timeout": 5`) || strings.Contains(got, "/old/") {

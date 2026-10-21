@@ -107,7 +107,9 @@ func registerBatch(s *mcp.Server, d *Deps) {
 		InputSchema: json.RawMessage(batchSchema),
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: &t, OpenWorldHint: &t},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return batchExecute(ctx, d, req.Params.Arguments), nil
+		res, raw := batchExecute(ctx, d, req.Params.Arguments)
+		d.Stats.Record(d, "ctx_batch_execute", raw, res)
+		return res, nil
 	})
 }
 
@@ -166,21 +168,22 @@ func parseBatchArgs(raw json.RawMessage) (batchArgs, error) {
 	return b, nil
 }
 
-// batchExecute is the ctx_batch_execute handler (S:3778-3892).
-func batchExecute(ctx context.Context, d *Deps, raw json.RawMessage) *mcp.CallToolResult {
-	b, err := parseBatchArgs(raw)
+// batchExecute is the ctx_batch_execute handler (S:3778-3892). It also
+// returns the commands' output bytes, the call's raw size (stats spec §1.3).
+func batchExecute(ctx context.Context, d *Deps, args json.RawMessage) (*mcp.CallToolResult, int64) {
+	b, err := parseBatchArgs(args)
 	if err != nil {
-		return ArgError(err)
+		return ArgError(err), 0
 	}
 	for _, c := range b.commands {
 		if blocked, pattern := d.Policy.CheckCommand(c.Command); blocked {
-			return TextResult(security.BlockedMessage(pattern), true)
+			return TextResult(security.BlockedMessage(pattern), true), 0
 		}
 	}
 
-	outputs, err := runBatchCommands(ctx, d.Exec, b)
+	outputs, raw, err := runBatchCommands(ctx, d.Exec, b)
 	if err != nil {
-		return ErrorResult("Batch execution error: %v", err)
+		return ErrorResult("Batch execution error: %v", err), raw
 	}
 	stdout := strings.Join(outputs, "\n")
 	totalLines := strings.Count(stdout, "\n") + 1
@@ -192,7 +195,7 @@ func batchExecute(ctx context.Context, d *Deps, raw json.RawMessage) *mcp.CallTo
 	source := "batch:" + jsPrefix(strings.Join(labels, ","), 80)
 	indexed, err := d.Store.Index(d.Cfg.ProjectKey, source, store.ChunkMarkdown(stdout, store.ChunkMaxBytes))
 	if err != nil {
-		return ErrorResult("Batch execution error: %v", err)
+		return ErrorResult("Batch execution error: %v", err), raw
 	}
 
 	lines := []string{
@@ -212,12 +215,12 @@ func batchExecute(ctx context.Context, d *Deps, raw json.RawMessage) *mcp.CallTo
 	lines = append(lines, "")
 	qr, err := formatBatchQueryResults(d.Store, d.Cfg.ProjectKey, b.queries, source, batchOutputCap, b.scope)
 	if err != nil {
-		return ErrorResult("Batch execution error: %v", err)
+		return ErrorResult("Batch execution error: %v", err), raw
 	}
 	lines = append(lines, qr...)
 	terms, err := d.Store.DistinctiveTerms(indexed.SourceID, batchTermsMax)
 	if err != nil {
-		return ErrorResult("Batch execution error: %v", err)
+		return ErrorResult("Batch execution error: %v", err), raw
 	}
 	if len(terms) > 0 {
 		lines = append(lines, "\nSearchable terms for follow-up: "+strings.Join(terms, ", "))
@@ -226,21 +229,22 @@ func batchExecute(ctx context.Context, d *Deps, raw json.RawMessage) *mcp.CallTo
 	}
 	// TS S:3810 also has a "Batch timed out after Nms. No output captured."
 	// branch; it needs zero outputs, which commands.min(1) makes unreachable.
-	return TextResult(strings.Join(lines, "\n"), false)
+	return TextResult(strings.Join(lines, "\n"), false), raw
 }
 
 // runBatchCommands runs every command as shell (S:1560-1641). Serial mode
 // shares one timeout budget and skips what is left once it runs out; an
 // executor error aborts the batch. Parallel mode gives each command the full
-// timeout and turns an executor error into that command's section.
-func runBatchCommands(ctx context.Context, ex *executor.Executor, b batchArgs) ([]string, error) {
+// timeout and turns an executor error into that command's section. raw is
+// the sum of the commands' stdout + stderr bytes.
+func runBatchCommands(ctx context.Context, ex *executor.Executor, b batchArgs) (outputs []string, raw int64, err error) {
 	run := func(c Command, timeout time.Duration) (executor.Result, error) {
 		return ex.Run(ctx, executor.Request{Language: executor.Shell, Code: c.Command, Timeout: timeout, Cwd: b.cwd})
 	}
 	budget := time.Duration(b.timeoutMs * float64(time.Millisecond))
 
 	if b.concurrency <= 1 {
-		outputs := make([]string, 0, len(b.commands))
+		outputs = make([]string, 0, len(b.commands))
 		start := time.Now()
 		for i, c := range b.commands {
 			var perCmd time.Duration
@@ -254,8 +258,9 @@ func runBatchCommands(ctx context.Context, ex *executor.Executor, b batchArgs) (
 			}
 			res, err := run(c, perCmd)
 			if err != nil {
-				return nil, err
+				return nil, raw, err
 			}
+			raw += int64(len(res.Stdout) + len(res.Stderr))
 			outputs = append(outputs, formatCommandOutput(c.Label, c.Command, combineExecOutput(res)))
 			if res.TimedOut {
 				for _, rest := range b.commands[i+1:] {
@@ -264,7 +269,7 @@ func runBatchCommands(ctx context.Context, ex *executor.Executor, b batchArgs) (
 				break
 			}
 		}
-		return outputs, nil
+		return outputs, raw, nil
 	}
 
 	var perCmd time.Duration
@@ -273,7 +278,8 @@ func runBatchCommands(ctx context.Context, ex *executor.Executor, b batchArgs) (
 		perCmd = budget
 		timeoutText = strconv.FormatFloat(b.timeoutMs, 'f', -1, 64)
 	}
-	outputs := make([]string, len(b.commands))
+	outputs = make([]string, len(b.commands))
+	sizes := make([]int, len(b.commands))
 	sem := make(chan struct{}, b.concurrency)
 	var wg sync.WaitGroup
 	for i, c := range b.commands {
@@ -286,6 +292,7 @@ func runBatchCommands(ctx context.Context, ex *executor.Executor, b batchArgs) (
 				outputs[i] = fmt.Sprintf("# %s\n\n(executor error: %v)\n", c.Label, err)
 				return
 			}
+			sizes[i] = len(res.Stdout) + len(res.Stderr)
 			out := formatCommandOutput(c.Label, c.Command, combineExecOutput(res))
 			if res.TimedOut {
 				out = strings.TrimSuffix(out, "\n") + "\n(timed out after " + timeoutText + "ms)\n"
@@ -294,7 +301,10 @@ func runBatchCommands(ctx context.Context, ex *executor.Executor, b batchArgs) (
 		}()
 	}
 	wg.Wait()
-	return outputs, nil
+	for _, n := range sizes {
+		raw += int64(n)
+	}
+	return outputs, raw, nil
 }
 
 func skippedSection(label string) string {

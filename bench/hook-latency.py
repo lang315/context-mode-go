@@ -1,6 +1,6 @@
 #!/usr/bin/env python3 -I
 """Criterion 1: `cmgo-hook <event>` wall time p95 <= 10 ms per case (spec §6.4,
-session memory spec §0 criterion 4).
+session memory spec §0 criterion 4, stats spec §0 criterion 3).
 
 Run: go build -o bin/ ./cmd/cmgo-hook && python3 -I bench/hook-latency.py bin/cmgo-hook [runs]
 
@@ -10,6 +10,9 @@ precompact and sessionstart compact cases run against a session pre-filled
 to 1000 events (the per-session cap) through the hook itself. The time
 is subprocess.run wall clock, so it includes the fork/exec cost. Then
 posttooluse runs from 4 threads at once, `runs` fires each, into the same DB.
+Last, `cmgo-hook statusline` runs against a second DB that the binary creates
+and migrates and that this script fills with sqlite3 to 100 sessions x 500
+events plus linked tool_stats rows; the DB file must not change.
 For context it also times /usr/bin/true and cmgo-hook with no arguments
 (usage, exit 2) the same way, and prints the 1-minute load average.
 """
@@ -26,6 +29,7 @@ import threading
 import time
 
 LIMIT_MS, WORKERS, MEM_EVENTS, MEM_SID = 10.0, 4, 1000, "bench-mem"
+STAT_SESSIONS, STAT_EVENTS = 100, 500
 
 
 def timed(argv, env, data=b""):
@@ -77,6 +81,47 @@ def fill_session(binary, env, db):
         con.close()
     if n != MEM_EVENTS:
         raise SystemExit(f"fill: {n} events, want {MEM_EVENTS}")
+
+
+def fill_stats(binary, env, db):
+    """Lets the binary create and migrate db, then replaces its rows with
+    STAT_SESSIONS sessions of STAT_EVENTS ~400-byte events each (1 in 20 a
+    redirect with bytes_avoided), per session six tool_stats rows whose
+    window is its id plus six of an older session of the same Claude Code
+    process, and the stats_totals row of each project."""
+    fire(binary, env, "posttooluse", read_payload(-1, "warm"))
+    con = sqlite3.connect(db)
+    try:
+        if con.execute("PRAGMA user_version").fetchone()[0] < 3:
+            raise SystemExit("stats fill: DB is older than migration 3")
+        con.execute("DELETE FROM session_events")
+        con.execute("DELETE FROM session_meta")
+        con.execute("DELETE FROM tool_stats")
+        con.execute("DELETE FROM stats_totals")
+        data = "x" * 400
+        for s in range(STAT_SESSIONS):
+            sid, project, started = f"stat-{s}", f"/bench/p{s % 5}", f"2026-10-{1 + s % 20:02d} 10:{s % 60:02d}:00"
+            con.execute("INSERT INTO session_meta(session_id, project, started_at, last_event_at, event_count, cc_pid, linked_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)", (sid, project, started, started, STAT_EVENTS, 1000 + s, started + ".000"))
+            con.executemany(
+                "INSERT INTO session_events(session_id, project, type, category, priority, data, data_hash, source_hook, "
+                "bytes_avoided, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [(sid, project, "file_read", "redirect" if e % 20 == 0 else "file", 2, data, f"{s:08X}{e:08X}",
+                  "PostToolUse", 8192 if e % 20 == 0 else 0, started) for e in range(STAT_EVENTS)])
+            for window in (sid, f"older-{sid}"):
+                con.executemany(
+                    "INSERT INTO tool_stats(server_id, cc_pid, project, tool, calls, bytes_returned, bytes_kept, "
+                    "started_at, window, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [(f"srv-{s}", 1000 + s, project, f"ctx_tool{t}", 10, 4000, 90000, started, window, started)
+                     for t in range(6)])
+        con.execute("INSERT INTO stats_totals(project, calls, bytes_returned, bytes_kept, first_at) "
+                    "SELECT project, SUM(calls), SUM(bytes_returned), SUM(bytes_kept), MIN(started_at) FROM tool_stats GROUP BY project")
+        con.commit()
+        n = con.execute("SELECT count(*), count(DISTINCT session_id) FROM session_events").fetchone()
+    finally:
+        con.close()
+    if n != (STAT_SESSIONS * STAT_EVENTS, STAT_SESSIONS):
+        raise SystemExit(f"stats fill: {n[0]} events in {n[1]} sessions")
 
 
 def main(binary, runs):
@@ -150,8 +195,24 @@ def main(binary, runs):
             raise SystemExit(f"concurrent posttooluse: {errors[0]}")
         ok &= report(f"posttooluse x{WORKERS} concurrent", times)
 
-        log = os.path.join(data, "hook-errors.log")
-        if os.path.exists(log):
+        stat_env = dict(env, CMGO_DIR=os.path.join(root, "stat-data"))
+        stat_db = os.path.join(stat_env["CMGO_DIR"], "cmgo.db")
+        fill_stats(binary, stat_env, stat_db)
+        db_before = (os.stat(stat_db).st_size, os.stat(stat_db).st_mtime_ns)
+        times = []
+        for i in range(runs):
+            ms, out = fire(binary, stat_env, "statusline", {"session_id": f"stat-{i % STAT_SESSIONS}"})
+            if i == 0 and not (out.startswith("cmgo  ●  ".encode()) and b" this chat " in out):
+                raise SystemExit(f"statusline: unexpected stdout {out[:200]!r}")
+            times.append(ms)
+        ok &= report(f"statusline ({STAT_SESSIONS} sessions, {STAT_SESSIONS * STAT_EVENTS} events)", times)
+        if (os.stat(stat_db).st_size, os.stat(stat_db).st_mtime_ns) != db_before:
+            print("FAIL: statusline changed the DB file")
+            ok = False
+
+        for log in (os.path.join(d, "hook-errors.log") for d in (data, stat_env["CMGO_DIR"])):
+            if not os.path.exists(log):
+                continue
             with open(log) as f:
                 lines = f.read().splitlines()
             print(f"FAIL: {len(lines)} hook error(s), first: {lines[0]}")

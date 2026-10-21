@@ -20,9 +20,10 @@ type Deps struct {
 	Policy *security.Policy
 	Fetch  *fetch.Fetcher
 	Now    func() time.Time // injectable clock; defaults to time.Now
+	Stats  *StatsRecorder   // nil records no tool_stats
 }
 
-// New builds the MCP server with all six tools registered.
+// New builds the MCP server with all seven tools registered.
 func New(d *Deps, version string) *mcp.Server {
 	if d.Now == nil {
 		d.Now = time.Now
@@ -34,5 +35,6 @@ func New(d *Deps, version string) *mcp.Server {
 	registerSearch(s, d)
 	registerFetchAndIndex(s, d)
 	registerPurge(s, d)
+	registerStats(s, d, version)
 	return s
 }

@@ -30,8 +30,8 @@ func TestRoutingBlock(t *testing.T) {
 		commands, bootstrap bool
 		want                pinned
 	}{
-		// The TS text minus the stats, doctor and upgrade entries (spec §2.5).
-		{true, false, pinned{"routing block with commands", 3799, "704bf46686ec6416d3f89ae4dcb59812ea4509e45a1daf517a3bc5cbd5c91a87"}},
+		// The TS text minus the doctor and upgrade entries (spec §2.5).
+		{true, false, pinned{"routing block with commands", 3931, "33c0cd36f55398f029ef06711282a7c1977b0a084536860ef2a500840dc2bc85"}},
 		{false, true, pinned{"agent routing suffix", 4105, "8c756c25026a96477fac96011f6869f83d1a4974640c5bff5373d76ba5de762c"}},
 		{false, false, pinned{"SessionStart routing block", 3481, "6b7c33490c32133a9bfe5a11b240236f6732a0f700c581ad90f46d6868edd023"}},
 	}

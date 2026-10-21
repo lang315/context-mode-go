@@ -14,6 +14,7 @@ import (
 	"github.com/lang315/context-mode-go/internal/executor"
 	"github.com/lang315/context-mode-go/internal/fetch"
 	"github.com/lang315/context-mode-go/internal/mcpserver"
+	"github.com/lang315/context-mode-go/internal/procinfo"
 	"github.com/lang315/context-mode-go/internal/routing"
 	"github.com/lang315/context-mode-go/internal/security"
 	"github.com/lang315/context-mode-go/internal/store"
@@ -32,6 +33,20 @@ type serveIO struct {
 	in     io.ReadCloser
 	out    io.WriteCloser
 	stderr io.Writer
+}
+
+// statsDrain is how long shutdown waits for queued stats records.
+const statsDrain = time.Second
+
+// newStatsRecorder identifies this server process in tool_stats (stats spec
+// §1.1-§1.2): pid plus start time, so a reused pid is a new server, and the
+// Claude Code ancestor that links it to the session hooks record.
+func newStatsRecorder(pid int, start time.Time, look procinfo.Lookup) *mcpserver.StatsRecorder {
+	return &mcpserver.StatsRecorder{
+		ServerID:  fmt.Sprintf("%d-%d", pid, start.UnixNano()),
+		CCPID:     procinfo.ClaudePID(pid, look),
+		StartedAt: start.UTC().Format("2006-01-02 15:04:05"),
+	}
 }
 
 // serve runs the MCP server until stdin closes or SIGINT/SIGTERM arrives,
@@ -66,7 +81,9 @@ func serve(ctx context.Context, sio serveIO) int {
 		Exec:   ex,
 		Policy: security.NewPolicyDir(cfg.ProjectDir, cfg.ClaudeDir),
 		Fetch:  fetch.New(cfg.FetchStrict),
+		Stats:  newStatsRecorder(os.Getpid(), time.Now(), procinfo.System()),
 	}
+	defer d.Stats.Close(statsDrain) // write what is queued, for at most this long
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	// A signal cancels ctx; kill running commands now instead of waiting for Run to drain.
