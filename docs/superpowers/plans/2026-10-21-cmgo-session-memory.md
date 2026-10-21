@@ -8161,3 +8161,27 @@ The machine was shared with other sessions during the run.
 - **The fail-first steps:** no task's Step 2 was run in this replay. The drafting agents recorded each "Expected: FAIL" line from a real run of their own task-by-task replay. Tasks 16 and 17 add tests or a bench case that pass when first written; their Step 2 says so.
 - **The Node generator:** Task 1 was not re-run; its two JSON files were copied from the draft. It had been run twice, with identical md5s both times (`memory-autoinjection.json` 41796614a4b90e665e8eefe1ee1192ab, `memory-directive.json` dc4783e4343795acab8e8414d207d17c).
 - **Live Claude Code:** compaction and resume were not tried in a live session.
+
+## Appendix C: Execution notes (2026-10-21)
+
+The plan was executed on branch `sp3-session-memory` with reviews at four checkpoints (Tasks 1, 4, 10, 18) and a whole-branch review. Every file of Tasks 1-18 matched this plan byte for byte, `diff -rq` of the finished tree against the draft was empty, and the Node generator reproduced the expected md5s.
+
+**Errata in this plan:** none found during execution.
+
+**Fixed after the whole-branch review** (one commit each, test first):
+
+| Finding | Fix |
+|---|---|
+| Medium: `ctx_purge(sessionId)` deleted the session in any project (one shared DB; TS had one DB per project) | `PurgeSession(sessionID, project)` filters by the current project |
+| Medium: a FIFO or a `/dev/zero` symlink as `CLAUDE.md` or a memory file hung or exhausted a timeline search | Only regular files are read, through a size-capped reader |
+| A project purge that matched nothing still said "permanently deleted" | Replies `Nothing to purge for this project (<key>).` |
+| The memory-dir slug replaced only `/` and `.` | Every character other than an ASCII letter or digit becomes `-` (spec §3.3 updated) |
+| Timeline took the best-ranked content matches, not the newest | Ranks up to 200 candidates and keeps the newest by `indexed_at` (spec §3.2 updated); one core golden expectation (t11, timeline) changed and is recorded in `testdata/golden/KNOWN-DIFFS.md` |
+| The `ctx_search` description advertised `error-resolution`, which cmgo never captures | Removed |
+| Perf: the 4-worker hook bench case sat at p95 9.3-10.3 ms | 44 package-level regexes compile on first use (`sync.OnceValue`); hook init time fell from about 0.9 ms to 0.15 ms |
+
+**Final state:** 384 tests pass, 0 fail, `go test -race ./...` clean. Bench at load average about 4.5: every hook case passes, `sessionstart compact` (1000 events) p95 7.78 ms, 4-worker case p95 9.02 ms; idle writes 0 bytes in 60 s.
+
+**Open follow-ups:**
+- The 4-worker hook case can still exceed 10 ms when the machine is heavily loaded (seen at load 6-10). The remaining time is process spawn and SQLite write contention.
+- The memory slug follows the spec rule; Claude Code's exact rule for non-BMP characters was not checked against its source.
