@@ -60,6 +60,31 @@ CREATE VIRTUAL TABLE chunks_trigram USING fts5(
   title, content, source_id UNINDEXED, content_type UNINDEXED,
   tokenize = 'trigram');
 CREATE TABLE vocabulary (word TEXT PRIMARY KEY);`,
+	// Session event capture (hooks spec §3.1).
+	`CREATE TABLE session_meta (
+  session_id TEXT PRIMARY KEY,
+  project TEXT NOT NULL,
+  started_at TEXT NOT NULL,         -- UTC 'YYYY-MM-DD HH:MM:SS', like sources.indexed_at
+  last_event_at TEXT NOT NULL,
+  event_count INTEGER NOT NULL DEFAULT 0,
+  compact_count INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE session_events (
+  id INTEGER PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  project TEXT NOT NULL,
+  type TEXT NOT NULL,
+  category TEXT NOT NULL,
+  priority INTEGER NOT NULL,        -- 1 = most important ... 4 = least
+  data TEXT NOT NULL,
+  data_hash TEXT NOT NULL,          -- sha256(data) hex, first 16, upper case (DB:1145)
+  source_hook TEXT NOT NULL,
+  bytes_avoided INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL          -- UTC 'YYYY-MM-DD HH:MM:SS'
+);
+CREATE INDEX session_events_session ON session_events(session_id, id);
+CREATE INDEX session_events_project ON session_events(project, id);
+CREATE INDEX session_events_evict ON session_events(session_id, priority, id);`,
 }
 
 // Open creates the parent directory, opens the DB with WAL pragmas and
