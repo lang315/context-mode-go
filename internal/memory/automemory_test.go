@@ -30,20 +30,21 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
-// memoryFixture returns a project dir and home with the three candidate kinds.
-func memoryFixture(t *testing.T) (project, home, memDir string) {
+// memoryFixture returns a project dir and Claude config dir (what
+// $CLAUDE_CONFIG_DIR names, else ~/.claude) with the three candidate kinds.
+func memoryFixture(t *testing.T) (project, claudeDir, memDir string) {
 	root := t.TempDir()
 	project = filepath.Join(root, "work", "my.app")
-	home = filepath.Join(root, "home")
-	memDir = filepath.Join(home, ".claude", "projects", ProjectSlug(project), "memory")
+	claudeDir = filepath.Join(root, "claude-config")
+	memDir = filepath.Join(claudeDir, "projects", ProjectSlug(project), "memory")
 	writeFile(t, filepath.Join(project, "CLAUDE.md"), "Project rules: run the widget tests.")
-	writeFile(t, filepath.Join(home, ".claude", "CLAUDE.md"), "User rules: prefer widget names.")
+	writeFile(t, filepath.Join(claudeDir, "CLAUDE.md"), "User rules: prefer widget names.")
 	writeFile(t, filepath.Join(memDir, "b.md"), "Widget note B.")
 	writeFile(t, filepath.Join(memDir, "a.md"), "Widget note A.")
 	writeFile(t, filepath.Join(memDir, "c.txt"), "widget ignored: not markdown")
 	// Another project's memory dir is never read.
-	writeFile(t, filepath.Join(home, ".claude", "projects", "-other", "memory", "x.md"), "widget elsewhere")
-	return project, home, memDir
+	writeFile(t, filepath.Join(claudeDir, "projects", "-other", "memory", "x.md"), "widget elsewhere")
+	return project, claudeDir, memDir
 }
 
 func hitLabels(hits []MemoryHit) string {
@@ -55,8 +56,8 @@ func hitLabels(hits []MemoryHit) string {
 }
 
 func TestSearchAutoMemoryCandidates(t *testing.T) {
-	project, home, memDir := memoryFixture(t)
-	hits := SearchAutoMemory("WIDGET", 10, project, home)
+	project, claudeDir, memDir := memoryFixture(t)
+	hits := SearchAutoMemory("WIDGET", 10, project, claudeDir)
 	if got := hitLabels(hits); got != "project/CLAUDE.md,user/CLAUDE.md,memory/a.md,memory/b.md" {
 		t.Fatalf("labels = %s", got)
 	}
@@ -68,25 +69,29 @@ func TestSearchAutoMemoryCandidates(t *testing.T) {
 	if err := os.Chtimes(filepath.Join(memDir, "a.md"), mtime, mtime); err != nil {
 		t.Fatal(err)
 	}
-	if hits := SearchAutoMemory("widget", 10, project, home); !hits[2].Timestamp.Equal(mtime) {
+	if hits := SearchAutoMemory("widget", 10, project, claudeDir); !hits[2].Timestamp.Equal(mtime) {
 		t.Fatalf("timestamp = %v", hits[2].Timestamp)
 	}
-	if got := hitLabels(SearchAutoMemory("widget", 2, project, home)); got != "project/CLAUDE.md,user/CLAUDE.md" {
+	if got := hitLabels(SearchAutoMemory("widget", 2, project, claudeDir)); got != "project/CLAUDE.md,user/CLAUDE.md" {
 		t.Fatalf("limit 2 = %s", got)
 	}
-	if hits := SearchAutoMemory("widget", 0, project, home); len(hits) != 0 {
+	if hits := SearchAutoMemory("widget", 0, project, claudeDir); len(hits) != 0 {
 		t.Fatalf("limit 0 = %v", hits)
 	}
 	// No project or user CLAUDE.md, no memory dir: nothing to search.
-	if hits := SearchAutoMemory("widget", 5, filepath.Join(home, "none"), filepath.Join(home, "nohome")); len(hits) != 0 {
+	if hits := SearchAutoMemory("widget", 5, filepath.Join(claudeDir, "none"), filepath.Join(claudeDir, "noconfig")); len(hits) != 0 {
 		t.Fatalf("empty = %v", hits)
+	}
+	// A project that is the config dir itself reads its CLAUDE.md once (AM:103).
+	if got := hitLabels(SearchAutoMemory("widget", 5, claudeDir, claudeDir)); got != "project/CLAUDE.md" {
+		t.Fatalf("project = config dir: %s", got)
 	}
 }
 
 func TestSearchAutoMemoryMatching(t *testing.T) {
 	root := t.TempDir()
 	project := filepath.Join(root, "p")
-	home := filepath.Join(root, "h")
+	claudeDir := filepath.Join(root, "c")
 	md := filepath.Join(project, "CLAUDE.md")
 	// Expected values from node running the AM:149-170 code on the same inputs.
 	cases := []struct {
@@ -102,7 +107,7 @@ func TestSearchAutoMemoryMatching(t *testing.T) {
 	}
 	for _, c := range cases {
 		writeFile(t, md, c.content)
-		hits := SearchAutoMemory(c.query, 5, project, home)
+		hits := SearchAutoMemory(c.query, 5, project, claudeDir)
 		got := ""
 		if len(hits) > 0 {
 			got = hits[0].Content
@@ -114,7 +119,7 @@ func TestSearchAutoMemoryMatching(t *testing.T) {
 
 	// Files over 1,000,000 bytes are skipped.
 	writeFile(t, md, "widget "+strings.Repeat("x", 1_000_000))
-	if hits := SearchAutoMemory("widget", 5, project, home); len(hits) != 0 {
+	if hits := SearchAutoMemory("widget", 5, project, claudeDir); len(hits) != 0 {
 		t.Fatal("large file was searched")
 	}
 }

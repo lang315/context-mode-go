@@ -44,6 +44,7 @@ func newHarness(t *testing.T, now func() time.Time) *harness {
 		ProjectDir: project,
 		ProjectKey: config.NormalizeProject(project),
 		Home:       home,
+		ClaudeDir:  filepath.Join(home, ".claude"),
 	}
 	st, err := store.Open(cfg.DBPath)
 	if err != nil {

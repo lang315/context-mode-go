@@ -22,23 +22,24 @@ type MemoryHit struct {
 const autoMemoryMaxBytes = 1_000_000
 
 // ProjectSlug is Claude Code's directory name for a project under
-// ~/.claude/projects: the absolute dir with every "/" and "." replaced by "-".
+// <claude dir>/projects: the absolute dir with every "/" and "." replaced by "-".
 func ProjectSlug(projectDir string) string {
 	return strings.NewReplacer("/", "-", ".", "-").Replace(projectDir)
 }
 
 // SearchAutoMemory ports searchAutoMemory (AM:57-188) for one query over
-// <projectDir>/CLAUDE.md, <home>/.claude/CLAUDE.md and the *.md files of
+// <projectDir>/CLAUDE.md, <claudeDir>/CLAUDE.md and the *.md files of
 // Claude Code's memory dir for the project, in that order, with at most one
-// hit per file and at most limit hits. TS read <configDir>/memory/<hash>/,
+// hit per file and at most limit hits. claudeDir is config.Config.ClaudeDir
+// ($CLAUDE_CONFIG_DIR, else ~/.claude). TS read <configDir>/memory/<hash>/,
 // a dir Claude Code does not write (spec §3.3).
-func SearchAutoMemory(query string, limit int, projectDir, home string) []MemoryHit {
+func SearchAutoMemory(query string, limit int, projectDir, claudeDir string) []MemoryHit {
 	type candidate struct{ path, label string }
 	cands := []candidate{{filepath.Join(projectDir, "CLAUDE.md"), "project/CLAUDE.md"}}
-	if userDir := filepath.Join(home, ".claude"); userDir != projectDir { // AM:103, no duplicate label
-		cands = append(cands, candidate{filepath.Join(userDir, "CLAUDE.md"), "user/CLAUDE.md"})
+	if claudeDir != projectDir { // AM:103, no duplicate label
+		cands = append(cands, candidate{filepath.Join(claudeDir, "CLAUDE.md"), "user/CLAUDE.md"})
 	}
-	memDir := filepath.Join(home, ".claude", "projects", ProjectSlug(projectDir), "memory")
+	memDir := filepath.Join(claudeDir, "projects", ProjectSlug(projectDir), "memory")
 	entries, _ := os.ReadDir(memDir) // sorted by name; a missing dir has no entries
 	for _, e := range entries {
 		if strings.HasSuffix(e.Name(), ".md") {

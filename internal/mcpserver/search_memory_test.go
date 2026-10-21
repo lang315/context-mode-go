@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lang315/context-mode-go/internal/memory"
 	"github.com/lang315/context-mode-go/internal/store"
 )
 
@@ -109,6 +110,27 @@ func TestSearchTimelineMergesSources(t *testing.T) {
 	}
 	if out, _ := h2.call("ctx_search", `{"queries": ["widget"], "sort": "timeline", "source": "notes"}`); !strings.HasPrefix(out, "## widget\nNo results found.") {
 		t.Fatalf("source filter reached auto-memory:\n%s", out)
+	}
+}
+
+// Auto-memory reads Claude Code's config dir, cfg.ClaudeDir ($CLAUDE_CONFIG_DIR
+// when set), not <home>/.claude (spec §3.3).
+func TestSearchTimelineReadsClaudeDir(t *testing.T) {
+	h := newHarness(t, nil)
+	h.Deps.Cfg.ClaudeDir = filepath.Join(t.TempDir(), "claude-config")
+	write := func(path, content string) {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(h.Deps.Cfg.ClaudeDir, "projects", memory.ProjectSlug(h.Project), "memory", "notes.md"), "Gadget notes.")
+	write(filepath.Join(h.Home, ".claude", "CLAUDE.md"), "gadget rules in home")
+	out, _ := h.call("ctx_search", `{"queries": ["gadget"], "sort": "timeline"}`)
+	if !strings.Contains(out, "### [auto-memory] memory/notes.md\n\nGadget notes.") || strings.Contains(out, "user/CLAUDE.md") {
+		t.Fatalf("auto-memory:\n%s", out)
 	}
 }
 

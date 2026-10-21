@@ -244,7 +244,7 @@ func searchHits(d *Deps, q string, sa searchArgs, opts store.SearchOpts) ([]sear
 	}
 	if sa.source == "" {
 		// Claude Code names its memory dir after the project dir as given, so ProjectDir, not ProjectKey.
-		for _, m := range memory.SearchAutoMemory(q, opts.Limit, d.Cfg.ProjectDir, d.Cfg.Home) {
+		for _, m := range memory.SearchAutoMemory(q, opts.Limit, d.Cfg.ProjectDir, d.Cfg.ClaudeDir) {
 			hits = append(hits, searchHit{"auto-memory", m.Source, m.Title, m.Content, "", m.Timestamp})
 		}
 	}
