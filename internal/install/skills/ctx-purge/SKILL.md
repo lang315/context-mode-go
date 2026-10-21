@@ -23,9 +23,4 @@ There are two scopes:
    - project: `{ "confirm": true, "scope": "project" }`
 4. Report the tool's message, which lists what was deleted.
 
-## Rules
-
-- `confirm: true` is always required; without it nothing is deleted.
-- `sessionId` together with `scope: "project"` is rejected as ambiguous.
-- `scope: "session"` needs a `sessionId`.
-- `/clear` and `/compact` delete nothing; `ctx_purge` is the only way to delete cmgo data.
+`/clear` and `/compact` delete nothing; `ctx_purge` is the only way to delete cmgo data.

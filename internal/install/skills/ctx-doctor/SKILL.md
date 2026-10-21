@@ -1,9 +1,7 @@
 ---
 name: ctx-doctor
 description: |
-  Run cmgo diagnostics: version, storage, database and FTS5, executor,
-  runtimes, hooks, hook binary, MCP registration, skills, statusline,
-  TS plugin.
+  Run cmgo diagnostics and show the [OK]/[WARN]/[FAIL] report.
   Trigger: /ctx-doctor, "ctx doctor", or "diagnose cmgo".
 user-invocable: true
 ---

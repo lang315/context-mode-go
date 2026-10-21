@@ -156,10 +156,10 @@ func TestCheckSkills(t *testing.T) {
 		err  error
 		want string
 	}{
-		{install.SkillReport{Dir: "/c/skills", Total: 5}, nil, "[OK] Skills: 5/5 in /c/skills"},
-		{install.SkillReport{Dir: "/c/skills", Total: 5, Missing: []string{"ctx-stats", "ctx-purge"}, Outdated: []string{"ctx-search"}}, nil,
+		{install.SkillReport{Dir: "/c/skills", Current: []string{"a", "b", "c", "d", "e"}}, nil, "[OK] Skills: 5/5 in /c/skills"},
+		{install.SkillReport{Dir: "/c/skills", Current: []string{"a", "b"}, Missing: []string{"ctx-stats", "ctx-purge"}, Outdated: []string{"ctx-search"}}, nil,
 			"[WARN] Skills: 2/5 in /c/skills; missing ctx-stats, ctx-purge; outdated ctx-search — fix: cmgo install"},
-		{install.SkillReport{Dir: "/c/skills", Total: 5, Foreign: []string{"ctx-doctor"}}, nil,
+		{install.SkillReport{Dir: "/c/skills", Current: []string{"a", "b", "c", "d"}, Foreign: []string{"ctx-doctor"}}, nil,
 			"[WARN] Skills: 4/5 in /c/skills; not cmgo's or edited (left as is): ctx-doctor"},
 		{install.SkillReport{Dir: "/c/skills"}, errors.New("boom"), "[WARN] Skills: could not read /c/skills — boom"},
 	}

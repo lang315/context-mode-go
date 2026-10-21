@@ -109,9 +109,9 @@ func checkSkills(r install.SkillReport, err error) string {
 	if err != nil {
 		return "[WARN] Skills: could not read " + r.Dir + " — " + err.Error()
 	}
-	current := r.Total - len(r.Missing) - len(r.Outdated) - len(r.Foreign)
-	line := fmt.Sprintf("Skills: %d/%d in %s", current, r.Total, r.Dir)
-	if current == r.Total {
+	total := len(r.Current) + len(r.Missing) + len(r.Outdated) + len(r.Foreign)
+	line := fmt.Sprintf("Skills: %d/%d in %s", len(r.Current), total, r.Dir)
+	if len(r.Current) == total {
 		return "[OK] " + line
 	}
 	if len(r.Missing) > 0 {

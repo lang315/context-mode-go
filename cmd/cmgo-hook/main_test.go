@@ -22,6 +22,7 @@ func TestNoServerDeps(t *testing.T) {
 		"github.com/lang315/context-mode-go/internal/executor",
 		"github.com/lang315/context-mode-go/internal/fetch",
 		"github.com/lang315/context-mode-go/internal/mcpserver",
+		"github.com/lang315/context-mode-go/internal/install", // embeds the skills
 	}
 	deps := strings.Fields(string(out))
 	if !slices.Contains(deps, "github.com/lang315/context-mode-go/internal/hookcmd") {

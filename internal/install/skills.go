@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -37,47 +36,88 @@ func isOwnSkill(b []byte) bool {
 	return i >= 0 && bytes.Equal(withMarker(b[:i]), b)
 }
 
-// skillPaths maps each embedded skill to its SKILL.md in the skills dir next
-// to the settings file, which is the Claude config dir.
-func skillPaths(o Options) (map[string]string, error) {
+// skillsDir is the skills dir next to the settings file, which is the Claude
+// config dir.
+func skillsDir(settingsPath string) string {
+	return filepath.Join(filepath.Dir(settingsPath), "skills")
+}
+
+// skillPath is where the named skill's SKILL.md goes in dir.
+func skillPath(dir, name string) string { return filepath.Join(dir, name, "SKILL.md") }
+
+// SkillReport is the state of cmgo's skills in Dir, by name in sort order:
+// Current ones match this cmgo, Missing ones are absent, Outdated ones are
+// unedited copies of an older cmgo, and Foreign ones are a user's file or an
+// edited copy.
+type SkillReport struct {
+	Dir                                 string
+	Current, Missing, Outdated, Foreign []string
+}
+
+// Skills reports the cmgo skills next to the settings file. Install,
+// uninstall and cmgo doctor all act on it, so they agree on what is cmgo's.
+func Skills(settingsPath string) (SkillReport, error) {
+	r := SkillReport{Dir: skillsDir(settingsPath)}
 	entries, err := fs.ReadDir(skillFS, "skills")
+	if err != nil {
+		return r, err
+	}
+	for _, e := range entries {
+		name := e.Name()
+		want, err := embeddedSkill(name)
+		if err != nil {
+			return r, err
+		}
+		got, err := os.ReadFile(skillPath(r.Dir, name))
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			r.Missing = append(r.Missing, name)
+		case err != nil:
+			return r, err
+		case bytes.Equal(got, want):
+			r.Current = append(r.Current, name)
+		case isOwnSkill(got):
+			r.Outdated = append(r.Outdated, name)
+		default:
+			r.Foreign = append(r.Foreign, name)
+		}
+	}
+	return r, nil
+}
+
+// embeddedSkill is the named skill as install writes it, marker included.
+func embeddedSkill(name string) ([]byte, error) {
+	body, err := skillFS.ReadFile("skills/" + name + "/SKILL.md")
 	if err != nil {
 		return nil, err
 	}
-	paths := map[string]string{}
-	for _, e := range entries {
-		paths[e.Name()] = filepath.Join(filepath.Dir(o.SettingsPath), "skills", e.Name(), "SKILL.md")
-	}
-	return paths, nil
+	return withMarker(body), nil
 }
 
-// installSkills writes or updates each cmgo skill. A file in its place that
-// is not an unedited cmgo skill is left as it is, with a notice. A dry run
-// lists the files it would write.
+// noticeForeign says which skills install and uninstall leave alone.
+func noticeForeign(o Options, r SkillReport) {
+	for _, name := range r.Foreign {
+		fmt.Fprintf(o.Stderr, "cmgo: notice: %s is not cmgo's or was edited; left as is\n", skillPath(r.Dir, name))
+	}
+}
+
+// installSkills writes the missing and outdated cmgo skills. A dry run lists
+// the files it would write.
 func installSkills(o Options) error {
-	paths, err := skillPaths(o)
+	r, err := Skills(o.SettingsPath)
 	if err != nil {
 		return err
 	}
-	for name, path := range paths {
-		body, err := skillFS.ReadFile("skills/" + name + "/SKILL.md")
-		if err != nil {
-			return err
-		}
-		want := withMarker(body)
-		old, err := os.ReadFile(path)
-		switch {
-		case err == nil && bytes.Equal(old, want):
-			continue
-		case err == nil && !isOwnSkill(old):
-			fmt.Fprintf(o.Stderr, "cmgo: notice: %s is not cmgo's or was edited; left as is\n", path)
-			continue
-		case err != nil && !errors.Is(err, fs.ErrNotExist):
-			return err
-		}
+	noticeForeign(o, r)
+	for _, name := range slices.Concat(r.Missing, r.Outdated) {
+		path := skillPath(r.Dir, name)
 		if o.DryRun {
 			fmt.Fprintf(o.Stdout, "skill: %s\n", path)
 			continue
+		}
+		want, err := embeddedSkill(name)
+		if err != nil {
+			return err
 		}
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err
@@ -89,25 +129,16 @@ func installSkills(o Options) error {
 	return nil
 }
 
-// uninstallSkills removes each unedited cmgo skill and then its directory if
-// that is empty. Other files, and edited copies, stay.
+// uninstallSkills removes the current and outdated cmgo skills, then each
+// one's directory if that is empty.
 func uninstallSkills(o Options) error {
-	paths, err := skillPaths(o)
+	r, err := Skills(o.SettingsPath)
 	if err != nil {
 		return err
 	}
-	for _, path := range paths {
-		old, err := os.ReadFile(path)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if !isOwnSkill(old) {
-			fmt.Fprintf(o.Stderr, "cmgo: notice: %s is not cmgo's or was edited; left as is\n", path)
-			continue
-		}
+	noticeForeign(o, r)
+	for _, name := range slices.Concat(r.Current, r.Outdated) {
+		path := skillPath(r.Dir, name)
 		if o.DryRun {
 			fmt.Fprintf(o.Stdout, "remove skill: %s\n", path)
 			continue
@@ -118,43 +149,4 @@ func uninstallSkills(o Options) error {
 		_ = os.Remove(filepath.Dir(path)) // only succeeds when empty
 	}
 	return nil
-}
-
-// SkillReport is the state of cmgo's skills in Dir, by name in sort order:
-// Missing ones are absent, Outdated ones are unedited copies of an older
-// cmgo, and Foreign ones are a user's file or an edited copy.
-type SkillReport struct {
-	Dir                        string
-	Total                      int
-	Missing, Outdated, Foreign []string
-}
-
-// Skills reports the cmgo skills next to the settings file, for cmgo doctor.
-func Skills(settingsPath string) (SkillReport, error) {
-	r := SkillReport{Dir: filepath.Join(filepath.Dir(settingsPath), "skills")}
-	paths, err := skillPaths(Options{SettingsPath: settingsPath})
-	if err != nil {
-		return r, err
-	}
-	names := slices.Sorted(maps.Keys(paths))
-	r.Total = len(names)
-	for _, name := range names {
-		body, err := skillFS.ReadFile("skills/" + name + "/SKILL.md")
-		if err != nil {
-			return r, err
-		}
-		got, err := os.ReadFile(paths[name])
-		switch {
-		case errors.Is(err, fs.ErrNotExist):
-			r.Missing = append(r.Missing, name)
-		case err != nil:
-			return r, err
-		case bytes.Equal(got, withMarker(body)):
-		case isOwnSkill(got):
-			r.Outdated = append(r.Outdated, name)
-		default:
-			r.Foreign = append(r.Foreign, name)
-		}
-	}
-	return r, nil
 }
