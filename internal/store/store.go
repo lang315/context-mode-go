@@ -96,13 +96,15 @@ CREATE INDEX session_events_evict ON session_events(session_id, priority, id);`,
   bytes_returned INTEGER NOT NULL DEFAULT 0,
   bytes_kept INTEGER NOT NULL DEFAULT 0,
   started_at TEXT NOT NULL,         -- server start, UTC 'YYYY-MM-DD HH:MM:SS'
-  window TEXT NOT NULL DEFAULT '',   -- started_at of the linked session at write time ('' when none)
+  window TEXT NOT NULL DEFAULT '',   -- session id the call was attributed to at write time ('' when none)
   updated_at TEXT NOT NULL,
   PRIMARY KEY (server_id, tool, window)
 );
-CREATE INDEX tool_stats_cc ON tool_stats(cc_pid, updated_at);
+CREATE INDEX tool_stats_window ON tool_stats(window);
 CREATE INDEX tool_stats_project ON tool_stats(project);
 ALTER TABLE session_meta ADD COLUMN cc_pid INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE session_meta ADD COLUMN linked_at TEXT NOT NULL DEFAULT '';  -- UTC with milliseconds, set by SetSessionCC
+CREATE INDEX session_meta_cc ON session_meta(cc_pid, project, linked_at);
 -- Not in the spec DDL: the statusline sums every redirect's bytes_avoided on
 -- each run, and a scan of 50,000 events alone takes longer than its 10 ms budget.
 CREATE INDEX session_events_redirect ON session_events(bytes_avoided) WHERE category = 'redirect';`,

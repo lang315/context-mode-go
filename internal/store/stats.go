@@ -13,11 +13,11 @@ type ToolStat struct {
 
 // AddToolStat records one finished tool call of a cmgo serve process: calls+1
 // and the call's bytes are added, updated_at becomes now. The row's window is
-// the started_at of the newest session of ccPID in project (” when there is
-// none, or ccPID is 0), so after a /clear the calls go to new rows (stats
-// spec §1.2). The first call of a (serverID, tool, window) inserts the row
-// with startedAt, the server start. One statement: the window is read in the
-// same transaction as the write, and a call costs one write.
+// the id of the session most recently linked to ccPID in project (” when
+// there is none, or ccPID is 0), so after a /clear or /resume the calls go to
+// that session's rows (stats spec §1.2). The first call of a (serverID, tool,
+// window) inserts the row with startedAt, the server start. One statement:
+// the window is read in the same transaction as the write.
 func (s *Store) AddToolStat(serverID string, ccPID int, project, startedAt, tool string, returned, kept int64) error {
 	_, err := s.db.Exec(`INSERT INTO tool_stats(server_id, cc_pid, project, tool, calls, bytes_returned, bytes_kept, started_at, window, updated_at)
 VALUES(?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, CASE WHEN ?2 = 0 THEN '' ELSE COALESCE((`+newestSession+`), '') END, datetime('now'))
@@ -29,18 +29,20 @@ ON CONFLICT(server_id, tool, window) DO UPDATE SET calls = calls + 1,
 	return err
 }
 
-// newestSession selects the started_at of the newest session of Claude Code
-// pid ?2 in project ?3: the window a server write belongs to.
-const newestSession = `SELECT started_at FROM session_meta WHERE cc_pid = ?2 AND project = ?3
-ORDER BY started_at DESC, rowid DESC LIMIT 1`
+// newestSession selects the id of the session most recently linked to Claude
+// Code pid ?2 in project ?3: the window a server write belongs to. rowid
+// breaks a tie of linked_at (milliseconds) in favour of the newer row.
+const newestSession = `SELECT session_id FROM session_meta WHERE cc_pid = ?2 AND project = ?3
+ORDER BY linked_at DESC, rowid DESC LIMIT 1`
 
-// SetSessionCC records the Claude Code pid that owns a session (stats spec
-// §1.2). A session not seen yet gets its session_meta row, as InsertEvents'
-// upsert would create it.
+// SetSessionCC records the Claude Code pid that owns a session and when it was
+// linked (stats spec §1.2). Every SessionStart source calls it, so /clear and
+// /resume re-link in the same process. A session not seen yet gets its
+// session_meta row, as InsertEvents' upsert would create it.
 func (s *Store) SetSessionCC(sessionID, project string, ccPID int) error {
-	_, err := s.db.Exec(`INSERT INTO session_meta(session_id, project, started_at, last_event_at, cc_pid)
-VALUES(?, ?, datetime('now'), datetime('now'), ?)
-ON CONFLICT(session_id) DO UPDATE SET cc_pid = excluded.cc_pid`, sessionID, project, ccPID)
+	_, err := s.db.Exec(`INSERT INTO session_meta(session_id, project, started_at, last_event_at, cc_pid, linked_at)
+VALUES(?1, ?2, datetime('now'), datetime('now'), ?3, strftime('%Y-%m-%d %H:%M:%f', 'now'))
+ON CONFLICT(session_id) DO UPDATE SET cc_pid = excluded.cc_pid, linked_at = excluded.linked_at`, sessionID, project, ccPID)
 	return err
 }
 
@@ -92,18 +94,18 @@ func rawBytes(tools []ToolStat) int64 {
 const lifetimeKept = `(SELECT COALESCE(SUM(bytes_kept), 0) FROM tool_stats) +
   (SELECT COALESCE(SUM(bytes_avoided), 0) FROM session_events WHERE category = 'redirect')`
 
-// Stats gathers the ctx_stats numbers. The caller's session is the newest
-// one its Claude Code process started in this project; its server rows are
-// those of that pid and project whose window is the session's started_at, so
-// a /clear starts from zero (stats spec §1.2). With no linked session the
-// server's own rows, all windows, are shown.
+// Stats gathers the ctx_stats numbers. The caller's session is the one most
+// recently linked to its Claude Code process in this project; its server rows
+// are those whose window is its id, so a /clear starts from zero and a
+// /resume continues the resumed session's count (stats spec §1.2). With no
+// linked session the server's own rows, all windows, are shown.
 func (s *Store) Stats(q StatsQuery) (StatsSnapshot, error) {
 	var st StatsSnapshot
 	// cc_pid 0 means unknown, and every session_meta row older than
 	// migration 3 has it: never link on it.
 	if q.CCPID != 0 {
 		err := s.db.QueryRow(`SELECT session_id, started_at FROM session_meta WHERE cc_pid = ? AND project = ?
-ORDER BY started_at DESC, rowid DESC LIMIT 1`, q.CCPID, q.Project).Scan(&st.SessionID, &st.SessionStart)
+ORDER BY linked_at DESC, rowid DESC LIMIT 1`, q.CCPID, q.Project).Scan(&st.SessionID, &st.SessionStart)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return st, err
 		}
@@ -111,7 +113,7 @@ ORDER BY started_at DESC, rowid DESC LIMIT 1`, q.CCPID, q.Project).Scan(&st.Sess
 	}
 	var err error
 	if st.SessionLinked {
-		st.Tools, err = s.toolStats("cc_pid = ? AND project = ? AND window = ?", q.CCPID, q.Project, st.SessionStart)
+		st.Tools, err = s.toolStats("window = ?", st.SessionID)
 	} else {
 		st.Tools, err = s.toolStats("server_id = ?", q.ServerID)
 	}

@@ -1,8 +1,6 @@
 package store
 
 import (
-	"database/sql"
-	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -48,18 +46,12 @@ func (s *Store) UserVersion() (int, error) {
 }
 
 // SessionLine returns the statusline numbers (stats spec §3): the kept and
-// raw bytes of the server rows linked to sessionID (its cc_pid and project,
-// window = its started_at, as Stats links them), and the all-projects kept
-// total. An unknown session, or one whose cc_pid is 0, has no server rows.
+// raw bytes of the server rows whose window is sessionID, as Stats links
+// them, and the all-projects kept total. An unknown session, or one that was
+// never linked to a Claude Code process, has no server rows.
 func (s *Store) SessionLine(sessionID string) (sessionKept, sessionRaw, lifetime int64, err error) {
-	var cc int
-	var project, started string
-	err = s.db.QueryRow("SELECT cc_pid, project, started_at FROM session_meta WHERE session_id = ?", sessionID).Scan(&cc, &project, &started)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return 0, 0, 0, err
-	}
-	if err == nil && cc != 0 {
-		tools, err := s.toolStats("cc_pid = ? AND project = ? AND window = ?", cc, project, started)
+	if sessionID != "" { // window '' holds every unlinked call: never a session
+		tools, err := s.toolStats("window = ?", sessionID)
 		if err != nil {
 			return 0, 0, 0, err
 		}

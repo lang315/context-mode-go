@@ -85,7 +85,7 @@ func TestMigrateFromV1(t *testing.T) {
 		t.Fatalf("user_version=%d sources=%d, want 3 and 1", v, n)
 	}
 	for _, name := range []string{"session_meta", "session_events", "session_events_session", "session_events_project", "session_events_evict",
-		"tool_stats", "tool_stats_cc", "tool_stats_project", "session_events_redirect"} {
+		"tool_stats", "tool_stats_window", "tool_stats_project", "session_meta_cc", "session_events_redirect"} {
 		if err := s.db.QueryRow("SELECT count(*) FROM sqlite_master WHERE name = ?", name).Scan(&n); err != nil || n != 1 {
 			t.Fatalf("%s: n=%d err=%v", name, n, err)
 		}
