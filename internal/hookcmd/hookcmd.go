@@ -70,8 +70,13 @@ var hookHandlers = map[string]func(*hookCtx) error{
 }
 
 // Run runs one hook fire and always exits 0 (spec §1.2): an error or panic
-// is appended to $CMGO_DIR/hook-errors.log and nothing more is printed.
+// is appended to $CMGO_DIR/hook-errors.log and nothing more is printed. The
+// statusline event is not a hook fire and has its own rules (statusLine).
 func Run(event string, hio IO) int {
+	if event == "statusline" {
+		statusLine(hio)
+		return 0
+	}
 	h, ok := hookHandlers[event]
 	if !ok {
 		return 0
