@@ -65,16 +65,16 @@ var (
 `)
 	// Every TS command, now that cmgo has a tool for each (sub-project 5
 	// spec §4). The trigger lists and the context-mode wording are kept
-	// verbatim. The ctx purge action differs (HOOKS-KNOWN-DIFFS
-	// strings:ctx-purge): it asks for the scope before deleting, as the
-	// /ctx-purge skill does.
+	// verbatim. Two actions differ (HOOKS-KNOWN-DIFFS): ctx purge asks for the
+	// scope before deleting, as the /ctx-purge skill does (strings:ctx-purge),
+	// and ctx doctor shows the report ctx_doctor returns (strings:ctx-doctor).
 	blockCommands = named(`
   <ctx_commands>
     "ctx stats" | "ctx-stats" | "/ctx-stats" | context savings question
     → Call stats MCP tool, display full output verbatim.
 
     "ctx doctor" | "ctx-doctor" | "/ctx-doctor" | diagnose context-mode
-    → Call doctor MCP tool, run returned shell command, display as checklist.
+    → Call doctor MCP tool and show its report as it is, with the fix hints of any [WARN] or [FAIL] line.
 
     "ctx upgrade" | "ctx-upgrade" | "/ctx-upgrade" | update context-mode
     → Call upgrade MCP tool, run returned shell command, display as checklist.
