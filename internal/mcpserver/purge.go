@@ -58,9 +58,11 @@ func registerPurge(s *mcp.Server, d *Deps) {
 		InputSchema: json.RawMessage(purgeSchema),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true), IdempotentHint: true, OpenWorldHint: new(bool)},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		res := purgeTool(d, req.Params.Arguments)
-		d.Stats.Record(d, "ctx_purge", 0, res)
-		return res, nil
+		// Calls still queued would be written after the purge and leave stats
+		// rows of a purged project behind. ctx_purge itself is not recorded
+		// (stats spec §1.3): a purge must not leave a fresh row.
+		d.Stats.Flush(statsFlushWait)
+		return purgeTool(d, req.Params.Arguments), nil
 	})
 }
 

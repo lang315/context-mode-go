@@ -26,6 +26,7 @@ func registerStats(s *mcp.Server, d *Deps, version string) {
 		InputSchema: json.RawMessage(`{"type": "object", "properties": {}}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: new(bool), IdempotentHint: true, OpenWorldHint: new(bool)},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		d.Stats.Flush(statsFlushWait) // the report sees the calls made before it
 		res := statsTool(d, version)
 		d.Stats.Record(d, "ctx_stats", 0, res)
 		return res, nil

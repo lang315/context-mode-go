@@ -35,6 +35,9 @@ type serveIO struct {
 	stderr io.Writer
 }
 
+// statsDrain is how long shutdown waits for queued stats records.
+const statsDrain = time.Second
+
 // newStatsRecorder identifies this server process in tool_stats (stats spec
 // §1.1-§1.2): pid plus start time, so a reused pid is a new server, and the
 // Claude Code ancestor that links it to the session hooks record.
@@ -80,6 +83,7 @@ func serve(ctx context.Context, sio serveIO) int {
 		Fetch:  fetch.New(cfg.FetchStrict),
 		Stats:  newStatsRecorder(os.Getpid(), time.Now(), procinfo.System()),
 	}
+	defer d.Stats.Close(statsDrain) // write what is queued, for at most this long
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	// A signal cancels ctx; kill running commands now instead of waiting for Run to drain.

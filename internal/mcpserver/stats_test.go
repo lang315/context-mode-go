@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lang315/context-mode-go/internal/store"
 )
@@ -18,6 +19,9 @@ func (h *harness) recordStats() func(tool string) store.ToolStat {
 	h.Deps.Stats = &StatsRecorder{ServerID: "srv-test", CCPID: 0, StartedAt: "2026-10-21 08:00:00"}
 	return func(tool string) store.ToolStat {
 		h.t.Helper()
+		if !h.Deps.Stats.Flush(5 * time.Second) { // records are written by a background worker
+			h.t.Fatal("stats queue did not drain")
+		}
 		snap, err := h.Deps.Store.Stats(store.StatsQuery{ServerID: "srv-test", Project: h.Deps.Cfg.ProjectKey})
 		if err != nil {
 			h.t.Fatal(err)
@@ -148,7 +152,7 @@ func TestStatsFetchKept(t *testing.T) {
 	}
 }
 
-// ctx_search and ctx_purge have no raw size: they only return bytes.
+// ctx_search has no raw size: it only returns bytes. ctx_purge is not recorded.
 func TestStatsSearchAndPurgeReturnOnly(t *testing.T) {
 	h := newHarness(t, nil)
 	row := h.recordStats()
@@ -157,8 +161,9 @@ func TestStatsSearchAndPurgeReturnOnly(t *testing.T) {
 	if got, want := row("ctx_search"), (store.ToolStat{Tool: "ctx_search", Calls: 1, BytesReturned: int64(len(found))}); got != want {
 		t.Fatalf("search: %+v, want %+v", got, want)
 	}
-	cancelled, _ := h.call("ctx_purge", `{}`)
-	if got, want := row("ctx_purge"), (store.ToolStat{Tool: "ctx_purge", Calls: 1, BytesReturned: int64(len(cancelled))}); got != want {
-		t.Fatalf("purge: %+v, want %+v", got, want)
+	// ctx_purge is not recorded: a purge must not leave a fresh row behind.
+	h.call("ctx_purge", `{}`)
+	if got, want := row("ctx_purge"), (store.ToolStat{Tool: "ctx_purge"}); got != want {
+		t.Fatalf("purge: %+v, want no row", got)
 	}
 }
