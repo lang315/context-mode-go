@@ -209,14 +209,25 @@ func TestRunSecondRunNeedsForce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Report{Root: root, Sessions: 1, InactiveSessions: 2, NoProjectSessions: 1, DupEvents: 5,
+	want := Report{Root: root, DuplicateSessions: 1, InactiveSessions: 2, NoProjectSessions: 1, DupEvents: 5,
 		ExpiredSources: 1, NoProjectSources: 1, ExistingSources: 2}
 	if got != want {
 		t.Fatalf("forced report = %+v\nwant           %+v", got, want)
 	}
 	st = openStore(t, o.DBPath)
-	if m, _, _ := st.Meta("ts_import"); m == mark || m != o.Now.Format(time.RFC3339)+" 1 0" {
-		t.Fatalf("ts_import after --force = %q (was %q)", m, mark)
+	// The first record stays; each forced run is appended.
+	forced := mark + "; forced " + o.Now.Format(time.RFC3339) + " 0 0"
+	if m, _, _ := st.Meta("ts_import"); m != forced {
+		t.Fatalf("ts_import after --force = %q, want %q", m, forced)
+	}
+	st.Close()
+	o.Now = o.Now.Add(time.Minute)
+	if _, err := Run(o); err != nil {
+		t.Fatal(err)
+	}
+	st = openStore(t, o.DBPath)
+	if m, _, _ := st.Meta("ts_import"); m != forced+"; forced "+o.Now.Format(time.RFC3339)+" 0 0" {
+		t.Fatalf("ts_import after a second --force = %q", m)
 	}
 }
 

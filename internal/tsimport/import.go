@@ -49,6 +49,7 @@ type Report struct {
 	ExistingSources                               int // a cmgo source with the same (project, label) won
 	UnreadableSessionDBs, UnreadableContentDBs    int // TS DBs that could not be read; each is skipped whole
 	SessionEventsSources                          int // TS "session-events" dumps, not imported
+	DuplicateSessions                             int // every event was already in cmgo.db
 }
 
 // DefaultRoot returns the first TS data root that exists, probing
@@ -104,9 +105,11 @@ func Run(o Options) (Report, error) {
 		return r, err
 	}
 	defer st.Close()
-	if mark, ok, err := st.Meta(markKey); err != nil {
+	mark, marked, err := st.Meta(markKey)
+	if err != nil {
 		return r, err
-	} else if ok && !o.Force {
+	}
+	if marked && !o.Force {
 		return r, fmt.Errorf("%w (%s); run with --force to import again", ErrAlreadyImported, mark)
 	}
 
@@ -129,7 +132,11 @@ func Run(o Options) (Report, error) {
 		if err != nil {
 			return r, fmt.Errorf("session %s: %w", s.id, err)
 		}
-		r.Sessions++
+		if ins == 0 {
+			r.DuplicateSessions++
+		} else {
+			r.Sessions++
+		}
 		r.Events += ins
 		r.DupEvents += dupes
 	}
@@ -140,7 +147,12 @@ func Run(o Options) (Report, error) {
 	if o.DryRun {
 		return r, nil
 	}
-	return r, st.SetMeta(markKey, fmt.Sprintf("%s %d %d", o.Now.UTC().Format(time.RFC3339), r.Sessions, r.Sources))
+	// The first import's record stays; each forced run is appended to it.
+	record := fmt.Sprintf("%s %d %d", o.Now.UTC().Format(time.RFC3339), r.Sessions, r.Sources)
+	if marked {
+		record = fmt.Sprintf("%s; forced %s", mark, record)
+	}
+	return r, st.SetMeta(markKey, record)
 }
 
 // openTarget opens cmgo.db, or for a dry run a copy of it (a fresh DB when

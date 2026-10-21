@@ -95,7 +95,7 @@ func TestImportCommandOutputAndGuard(t *testing.T) {
 
 	code, out, _ = runImportCmd(getenv, "--from", root, "--force")
 	want = "cmgo import from " + root + "\n" +
-		"  sessions: 1 imported, 1 skipped (1 no project)\n" +
+		"  sessions: 0 imported, 2 skipped (1 no project, 1 duplicate)\n" +
 		"  events:   0 imported, 2 duplicates\n" +
 		"  sources:  0 imported (0 chunks), 2 skipped (1 expired, 1 exists)\n"
 	if code != 0 || !strings.HasPrefix(out, want) {
