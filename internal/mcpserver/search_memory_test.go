@@ -113,6 +113,44 @@ func TestSearchTimelineMergesSources(t *testing.T) {
 	}
 }
 
+// Spec §3.1: source "session-events" reads the project's session events
+// directly, in both sort modes, newest first, with no empty-KB error.
+func TestSearchSessionEventsSource(t *testing.T) {
+	h := newHarness(t, nil)
+	h.events("s1", "",
+		store.Event{Type: "decision", Category: "decision", Priority: 2, Data: "first cache decision"},
+		store.Event{Type: "decision", Category: "decision", Priority: 2, Data: "old cache decision"},
+		store.Event{Type: "file_read", Category: "file", Priority: 1, Data: "cache.go"},
+	)
+	h.events("s2", "", store.Event{Type: "decision", Category: "decision", Priority: 2, Data: "new cache decision"})
+	h.events("s9", "/other/project", store.Event{Type: "decision", Category: "decision", Priority: 2, Data: "foreign cache decision"})
+
+	// Empty content store, relevance mode: newest 2 of the project's matches.
+	out, isErr := h.call("ctx_search", `{"queries": ["cache decision", "nothing here"], "source": "session-events"}`)
+	hdr := `--- \[prior-session \| ` + stamp + ` \| decision\] ---\n### \[decision\] decision\n\n`
+	re := regexp.MustCompile(`\A## cache decision\n\n` + hdr + `new cache decision\n\n` + hdr + `old cache decision` +
+		`\n\n---\n\n## nothing here\nNo results found\.` + regexp.QuoteMeta(throttle1) + `\z`)
+	if isErr || !re.MatchString(out) {
+		t.Fatalf("relevance: isErr=%v\n%s", isErr, out)
+	}
+
+	// Timeline mode: session events only, no content store or auto-memory.
+	h.index("notes", store.Chunk{Title: "Cache doc", Content: "cache content"})
+	if err := os.WriteFile(filepath.Join(h.Project, "CLAUDE.md"), []byte("cache rules"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, _ = h.call("ctx_search", `{"queries": ["cache"], "sort": "timeline", "source": "session-events", "limit": 1}`)
+	if !regexp.MustCompile(`\A## cache\n\n` + hdr + `new cache decision\n\n> Throttle`).MatchString(out) {
+		t.Fatalf("timeline:\n%s", out)
+	}
+
+	// Only the exact label reads session events.
+	out, _ = h.call("ctx_search", `{"queries": ["cache decision"], "source": "session-event"}`)
+	if strings.Contains(out, "prior-session") {
+		t.Fatalf("near-miss label reached session events:\n%s", out)
+	}
+}
+
 // Auto-memory reads Claude Code's config dir, cfg.ClaudeDir ($CLAUDE_CONFIG_DIR
 // when set), not <home>/.claude (spec §3.3).
 func TestSearchTimelineReadsClaudeDir(t *testing.T) {

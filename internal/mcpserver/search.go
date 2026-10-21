@@ -59,6 +59,10 @@ const searchSchema = `{
   }
 }`
 
+// sessionEventsSource is the source the directive's <session_search> block
+// names. cmgo answers it from the events table, not an indexed dump (spec §3.1).
+const sessionEventsSource = "session-events"
+
 const emptyKBMessage = "Knowledge base is empty — no content has been indexed yet.\n\n" +
 	"ctx_search is a follow-up tool that queries previously indexed content. " +
 	"To gather and index content first, use:\n" +
@@ -128,14 +132,14 @@ func parseSearchArgs(raw json.RawMessage) (searchArgs, error) {
 
 // searchTool is the ctx_search handler (S:2592-2805). Relevance mode reads
 // the content store; timeline mode merges it with session events and
-// auto-memory (searchTimeline).
+// auto-memory. The session-events source reads only session events.
 func searchTool(d *Deps, guard *floodGuard, raw json.RawMessage) *mcp.CallToolResult {
 	sa, err := parseSearchArgs(raw)
 	if err != nil {
 		return ArgError(err)
 	}
 	project := d.Cfg.ProjectKey
-	if sa.sort != "timeline" {
+	if sa.sort != "timeline" && sa.source != sessionEventsSource {
 		n, err := d.Store.ChunkCount(project)
 		if err != nil {
 			return ErrorResult("Search error: %v", err)
@@ -216,12 +220,25 @@ type searchHit struct {
 	at                                          time.Time
 }
 
-// searchHits runs one query. Relevance mode returns the content store's
-// ranked results. Timeline mode (spec §3.2) takes the newest opts.Limit
+// searchHits runs one query. Source session-events returns the project's
+// newest opts.Limit matching session events, newest first, in either mode.
+// Relevance mode returns the content store's ranked results. Timeline mode (spec §3.2) takes the newest opts.Limit
 // matches from the content store, the project's session events (all
 // sessions) and, without a source filter, auto-memory; keeps the newest
 // opts.Limit overall and returns them oldest first. TS kept the oldest.
 func searchHits(d *Deps, q string, sa searchArgs, opts store.SearchOpts) ([]searchHit, error) {
+	if sa.source == sessionEventsSource {
+		evs, err := d.Store.SessionEventsForSearch(d.Cfg.ProjectKey, q, "", opts.Limit)
+		if err != nil {
+			return nil, err
+		}
+		hits := make([]searchHit, len(evs))
+		for i, e := range evs {
+			at, _ := time.Parse("2006-01-02 15:04:05", e.CreatedAt)
+			hits[i] = searchHit{"prior-session", e.Category, "[" + e.Category + "] " + e.Type, e.Data, "", at}
+		}
+		return hits, nil
+	}
 	res, err := d.Store.SearchWithFallback(q, opts)
 	if err != nil {
 		return nil, err
