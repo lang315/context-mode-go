@@ -5,7 +5,10 @@ import (
 	"testing"
 )
 
-const bin = "/opt/cmgo/bin/cmgo"
+const (
+	bin     = "/opt/cmgo/bin/cmgo"
+	hookBin = "/opt/cmgo/bin/cmgo-hook" // the default next to bin
+)
 
 func mustParse(t *testing.T, s string) *object {
 	t.Helper()
@@ -37,7 +40,7 @@ func TestHookEvents(t *testing.T) {
 }
 
 func TestHookCommand(t *testing.T) {
-	if got := hookCommand(bin, "stop"); got != `"/opt/cmgo/bin/cmgo" hook stop` {
+	if got := hookCommand(hookBin, "stop"); got != `"/opt/cmgo/bin/cmgo-hook" stop` {
 		t.Fatalf("got %s", got)
 	}
 }
@@ -47,7 +50,15 @@ func TestIsOwnCommand(t *testing.T) {
 		cmd  string
 		want bool
 	}{
-		{`"/opt/cmgo/bin/cmgo" hook pretooluse`, true},
+		{`"/opt/cmgo/bin/cmgo-hook" pretooluse`, true},
+		{`"/old place/cmgo-hook" stop`, true},
+		{`/usr/local/bin/cmgo-hook sessionstart`, true},
+		{`cmgo-hook posttoolusefailure`, true},
+		{`"/x/cmgo-hook" hook stop`, false},
+		{`"/x/cmgo-hook" stop extra`, false},
+		{`"/x/cmgo-hook" unknown`, false},
+		{`"/x/cmgo" stop`, false},
+		{`"/opt/cmgo/bin/cmgo" hook pretooluse`, true}, // the old form, from before cmgo-hook
 		{`"/old place/cmgo" hook stop`, true},
 		{`/usr/local/bin/cmgo hook sessionstart`, true},
 		{`cmgo hook posttoolusefailure`, true},
@@ -70,7 +81,7 @@ func TestIsOwnCommand(t *testing.T) {
 
 func TestAddHooksEmpty(t *testing.T) {
 	root := newObject()
-	if err := addHooks(root, bin); err != nil {
+	if err := addHooks(root, hookBin); err != nil {
 		t.Fatal(err)
 	}
 	got := string(encodeJSON(root))
@@ -81,7 +92,7 @@ func TestAddHooksEmpty(t *testing.T) {
         "hooks": [
           {
             "type": "command",
-            "command": "\"/opt/cmgo/bin/cmgo\" hook ` + he.Arg + `"
+            "command": "\"/opt/cmgo/bin/cmgo-hook\" ` + he.Arg + `"
           }
         ]
       }
@@ -98,7 +109,7 @@ func TestAddHooksEmpty(t *testing.T) {
 
 func TestAddHooksBadShape(t *testing.T) {
 	for _, s := range []string{`{"hooks":[]}`, `{"hooks":{"Stop":{}}}`} {
-		if err := addHooks(mustParse(t, s), bin); err == nil {
+		if err := addHooks(mustParse(t, s), hookBin); err == nil {
 			t.Errorf("%s: no error", s)
 		}
 	}
@@ -108,14 +119,14 @@ func TestStripHooks(t *testing.T) {
 	root := mustParse(t, `{"hooks":{
 		"PreToolUse":[
 			{"matcher":"Bash","hooks":[{"type":"command","command":"user.sh"},{"type":"command","command":"\"/old/cmgo\" hook pretooluse"}]},
-			{"matcher":"Read","hooks":[{"type":"command","command":"/old/cmgo hook pretooluse"}]}
+			{"matcher":"Read","hooks":[{"type":"command","command":"/old/cmgo hook pretooluse"},{"type":"command","command":"\"/new/cmgo-hook\" pretooluse"}]}
 		],
 		"Notification":[{"matcher":"","hooks":[{"type":"command","command":"cmgo hook stop"}]}],
 		"Stop":[],
 		"Weird":[1,{"hooks":"x"},{"hooks":[2]}]
 	},"other":true}`)
-	if n := stripHooks(root); n != 3 {
-		t.Fatalf("removed %d, want 3", n)
+	if n := stripHooks(root); n != 4 {
+		t.Fatalf("removed %d, want 4", n)
 	}
 	want := mustParse(t, `{"hooks":{
 		"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"user.sh"}]}],

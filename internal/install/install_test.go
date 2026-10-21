@@ -66,10 +66,10 @@ func exists(path string) bool {
 }
 
 // freshHooks is the file Install writes when it starts from {}.
-func freshHooks(t *testing.T, binary string) string {
+func freshHooks(t *testing.T, hookBinary string) string {
 	t.Helper()
 	root := newObject()
-	if err := addHooks(root, binary); err != nil {
+	if err := addHooks(root, hookBinary); err != nil {
 		t.Fatal(err)
 	}
 	return string(encodeJSON(root))
@@ -133,7 +133,7 @@ func TestInstallMissingFile(t *testing.T) {
 	if err := Install(o); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := readFile(t, o.SettingsPath), freshHooks(t, bin); got != want {
+	if got, want := readFile(t, o.SettingsPath), freshHooks(t, hookBin); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 	fi, _ := os.Stat(o.SettingsPath)
@@ -155,7 +155,7 @@ func TestInstallKeepsUserHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, o.SettingsPath)
-	own := func(arg string) []string { return []string{hookCommand(bin, arg)} }
+	own := func(arg string) []string { return []string{hookCommand(hookBin, arg)} }
 	if c := commands(t, got, "PreToolUse"); !slices.EqualFunc(c, [][]string{{"user.sh"}, own("pretooluse")}, slices.Equal) {
 		t.Fatalf("PreToolUse %q", c)
 	}
@@ -179,11 +179,11 @@ func TestInstallKeepsUserHooks(t *testing.T) {
 
 func TestInstallReplacesOldPath(t *testing.T) {
 	o, _ := newOpts(t)
-	writeSettings(t, o.SettingsPath, freshHooks(t, "/old place/cmgo"), 0o644)
+	writeSettings(t, o.SettingsPath, freshHooks(t, "/old place/cmgo-hook"), 0o644)
 	if err := Install(o); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := readFile(t, o.SettingsPath), freshHooks(t, bin); got != want {
+	if got, want := readFile(t, o.SettingsPath), freshHooks(t, hookBin); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
@@ -243,7 +243,7 @@ func TestInstallBlankFile(t *testing.T) {
 	if err := Install(o); err != nil {
 		t.Fatal(err)
 	}
-	if readFile(t, o.SettingsPath) != freshHooks(t, bin) {
+	if readFile(t, o.SettingsPath) != freshHooks(t, hookBin) {
 		t.Fatal("blank file not treated as {}")
 	}
 }
@@ -255,6 +255,26 @@ func TestInstallBadBinary(t *testing.T) {
 		if err := Install(o); err == nil || exists(o.SettingsPath) {
 			t.Fatalf("%s: err %v", b, err)
 		}
+		o.Binary, o.HookBinary = bin, b+"-hook"
+		if err := Install(o); err == nil || exists(o.SettingsPath) {
+			t.Fatalf("hook binary %s: err %v", o.HookBinary, err)
+		}
+	}
+}
+
+func TestInstallHookBinary(t *testing.T) {
+	o, f := newOpts(t)
+	o.HookBinary = "/elsewhere/cmgo-hook"
+	f.claude = true
+	if err := Install(o); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := readFile(t, o.SettingsPath), freshHooks(t, o.HookBinary); got != want {
+		t.Fatalf("got\n%s\nwant\n%s", got, want)
+	}
+	// The MCP server is still the main binary.
+	if len(f.runs) != 1 || f.runs[0] != "claude mcp add --scope user cmgo -- "+bin+" serve" {
+		t.Fatalf("runs %q", f.runs)
 	}
 }
 
@@ -416,7 +436,7 @@ func TestSymlinkedSettings(t *testing.T) {
 	if fi, _ := os.Lstat(o.SettingsPath); fi.Mode()&os.ModeSymlink == 0 {
 		t.Fatal("symlink replaced by a file")
 	}
-	if readFile(t, real) != freshHooks(t, bin) || readFile(t, real+".cmgo-bak") != "{}" {
+	if readFile(t, real) != freshHooks(t, hookBin) || readFile(t, real+".cmgo-bak") != "{}" {
 		t.Fatal("target not updated")
 	}
 }

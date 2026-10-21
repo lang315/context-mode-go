@@ -19,11 +19,13 @@ var HookEvents = []struct{ Event, Arg, Matcher string }{
 	{"Stop", "stop", ""},
 }
 
-// hookCommand quotes the binary so a path with spaces still runs.
-func hookCommand(binary, arg string) string { return `"` + binary + `" hook ` + arg }
+// hookCommand quotes the hook binary so a path with spaces still runs.
+func hookCommand(hookBinary, arg string) string { return `"` + hookBinary + `" ` + arg }
 
 // isOwnCommand reports whether cmd is a cmgo hook command from any install
-// location: first token (quoted or bare) with basename cmgo, then "hook <arg>".
+// location: first token (quoted or bare) with basename cmgo-hook, then
+// "<arg>"; or the form from before cmgo-hook existed, basename cmgo, then
+// "hook <arg>". Both match so a reinstall replaces either.
 func isOwnCommand(cmd string) bool {
 	var exe, rest string
 	if s, ok := strings.CutPrefix(cmd, `"`); ok {
@@ -36,8 +38,18 @@ func isOwnCommand(cmd string) bool {
 		exe, rest, _ = strings.Cut(cmd, " ")
 	}
 	f := strings.Fields(rest)
-	return filepath.Base(exe) == "cmgo" && len(f) == 2 && f[0] == "hook" &&
-		slices.ContainsFunc(HookEvents, func(h struct{ Event, Arg, Matcher string }) bool { return h.Arg == f[1] })
+	var arg string
+	switch filepath.Base(exe) {
+	case "cmgo-hook":
+		if len(f) == 1 {
+			arg = f[0]
+		}
+	case "cmgo":
+		if len(f) == 2 && f[0] == "hook" {
+			arg = f[1]
+		}
+	}
+	return arg != "" && slices.ContainsFunc(HookEvents, func(h struct{ Event, Arg, Matcher string }) bool { return h.Arg == arg })
 }
 
 // stripHooks removes cmgo's inner commands under every event and returns how
@@ -109,7 +121,7 @@ func stripEntry(e any) (removed int, empty bool) {
 
 // addHooks appends one matcher entry per HookEvents row, creating the hooks
 // object and event arrays as needed.
-func addHooks(root *object, binary string) error {
+func addHooks(root *object, hookBinary string) error {
 	hv, ok := root.get("hooks")
 	if !ok {
 		hv = newObject()
@@ -122,7 +134,7 @@ func addHooks(root *object, binary string) error {
 	for _, he := range HookEvents {
 		cmd := newObject()
 		cmd.set("type", "command")
-		cmd.set("command", hookCommand(binary, he.Arg))
+		cmd.set("command", hookCommand(hookBinary, he.Arg))
 		entry := newObject()
 		entry.set("matcher", he.Matcher)
 		entry.set("hooks", []any{cmd})

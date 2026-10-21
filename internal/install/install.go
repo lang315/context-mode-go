@@ -19,6 +19,7 @@ type Options struct {
 	SettingsPath    string // resolved by the caller (CLAUDE_CONFIG_DIR or ~/.claude)
 	ClaudeJSONPath  string // ~/.claude.json
 	Binary          string // absolute path to cmgo
+	HookBinary      string // absolute path to cmgo-hook; "" means cmgo-hook next to Binary
 	DisableTSPlugin bool
 	DryRun          bool
 	Stdout, Stderr  io.Writer
@@ -27,18 +28,23 @@ type Options struct {
 }
 
 // Install replaces cmgo's hook commands in the settings file with the
-// HookEvents entries for o.Binary, keeping every other command, then registers
-// the MCP server.
+// HookEvents entries for o.HookBinary, keeping every other command, then
+// registers o.Binary as the MCP server.
 func Install(o Options) error {
-	if !filepath.IsAbs(o.Binary) || strings.Contains(o.Binary, `"`) {
-		return fmt.Errorf("binary path must be absolute and have no double quote: %q", o.Binary)
+	if o.HookBinary == "" {
+		o.HookBinary = filepath.Join(filepath.Dir(o.Binary), "cmgo-hook")
+	}
+	for _, b := range []string{o.Binary, o.HookBinary} {
+		if !filepath.IsAbs(b) || strings.Contains(b, `"`) {
+			return fmt.Errorf("binary path must be absolute and have no double quote: %q", b)
+		}
 	}
 	s, err := loadSettings(o.SettingsPath)
 	if err != nil {
 		return err
 	}
 	stripHooks(s.root)
-	if err := addHooks(s.root, o.Binary); err != nil {
+	if err := addHooks(s.root, o.HookBinary); err != nil {
 		return fmt.Errorf("%s: %w", o.SettingsPath, err)
 	}
 	checkPlugins(s.root, o)
