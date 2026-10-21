@@ -13,7 +13,9 @@ func TestProjectSlug(t *testing.T) {
 	for in, want := range map[string]string{
 		"/Users/lang/x.y": "-Users-lang-x-y",
 		"/Users/lang/GolandProjects/github.com/lang315/context-mode": "-Users-lang-GolandProjects-github-com-lang315-context-mode",
-		"/tmp/My Project": "-tmp-My Project",
+		"/tmp/My Project":      "-tmp-My-Project",
+		"/Users/lang/x.y_z @+": "-Users-lang-x-y-z---", // every non-alphanumeric becomes "-"
+		"/home/léa/app-1":      "-home-l-a-app-1",      // one "-" per non-ASCII character
 	} {
 		if got := ProjectSlug(in); got != want {
 			t.Errorf("ProjectSlug(%q) = %q, want %q", in, got, want)

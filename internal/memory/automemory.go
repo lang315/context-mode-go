@@ -23,9 +23,15 @@ type MemoryHit struct {
 const autoMemoryMaxBytes = 1_000_000
 
 // ProjectSlug is Claude Code's directory name for a project under
-// <claude dir>/projects: the absolute dir with every "/" and "." replaced by "-".
+// <claude dir>/projects: the absolute dir with every character other than an
+// ASCII letter or digit replaced by "-" (one "-" per character).
 func ProjectSlug(projectDir string) string {
-	return strings.NewReplacer("/", "-", ".", "-").Replace(projectDir)
+	return strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			return r
+		}
+		return '-'
+	}, projectDir)
 }
 
 // SearchAutoMemory ports searchAutoMemory (AM:57-188) for one query over
