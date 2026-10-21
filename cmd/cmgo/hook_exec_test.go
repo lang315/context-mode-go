@@ -124,7 +124,7 @@ const curlInput = `{"tool_name":"Bash","tool_input":{"command":"curl https://x.c
 func TestBinaryHookEvents(t *testing.T) {
 	env := hookEnv(t)
 	sessionStart := `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":` +
-		string(hookio.QuoteString(routing.RoutingBlock(false, false))) + "}}\n"
+		string(hookio.QuoteString(routing.RoutingBlock(true, false))) + "}}\n"
 	cases := []struct {
 		event, stdin string
 		check        func(string) bool

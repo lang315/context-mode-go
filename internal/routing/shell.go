@@ -3,6 +3,7 @@ package routing
 import (
 	"regexp"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -83,15 +84,15 @@ func isWordByte(c byte) bool {
 }
 
 var (
-	singleQuoted = regexp.MustCompile(`'[^']*'`)
-	doubleQuoted = regexp.MustCompile(`"[^"]*"`)
+	singleQuoted = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`'[^']*'`) })
+	doubleQuoted = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`"[^"]*"`) })
 )
 
 // stripQuotedContent ports routing.mjs:237-241: heredocs removed, then quoted
 // strings emptied, so the curl and build-tool tests see only command tokens.
 func stripQuotedContent(cmd string) string {
-	s := singleQuoted.ReplaceAllLiteralString(stripHeredocs(cmd), "''")
-	return doubleQuoted.ReplaceAllLiteralString(s, `""`)
+	s := singleQuoted().ReplaceAllLiteralString(stripHeredocs(cmd), "''")
+	return doubleQuoted().ReplaceAllLiteralString(s, `""`)
 }
 
 // hasShellControl ports SHELL_CONTROL_OPERATORS (routing.mjs:339),
@@ -126,43 +127,45 @@ func noVerbose(cmd string) safePattern {
 }
 
 // safeCommands ports SAFE_COMMAND_PATTERNS (routing.mjs:260-324) in order.
-var safeCommands = []safePattern{
-	safe(`^pwd$`),
-	safe(`^whoami$`),
-	safe(`^hostname(?:\s+-[a-zA-Z]+)?$`),
-	safe(`^uname(?:\s+-[a-zA-Z]+)?$`),
-	safe(`^id(?:\s+\S+)?$`),
-	safe(`^date(?:\s+[^\r\n]+)?$`),
-	safe(`^echo\s`),
-	safe(`^printf\s`),
-	safe(`^which\s+\S+(?:\s+\S+)*$`),
-	safe(`^type\s+\S+(?:\s+\S+)*$`),
-	safe(`^command\s+-v\s+\S+(?:\s+\S+)*$`),
-	safe(`^readlink(?:\s+[^\r\n]+)?$`),
-	safe(`^basename(?:\s+[^\r\n]+)?$`),
-	safe(`^dirname(?:\s+[^\r\n]+)?$`),
-	safe(`^realpath(?:\s+[^\r\n]+)?$`),
-	safe(`^cd(?:\s+[^\r\n]+)?$`),
-	safe(`^mkdir(?:\s+[^\r\n]+)?$`),
-	safe(`^touch\s+[^\r\n]+$`),
-	noVerbose("mv"),
-	noVerbose("cp"),
-	noVerbose("rm"),
-	noVerbose("ln"),
-	safe(`^ls(?:\s+[^\r\n]+)?$`, `^ls\s+-[a-zA-Z]*R`, `^ls\s+--recursive`),
-	safe(`^git\s+status(?:\s+[^\r\n]+)?$`),
-	safe(`^git\s+rev-parse(?:\s+[^\r\n]+)?$`),
-	safe(`^git\s+remote(?:\s+-v|\s+show\s+\S+)?$`),
-	safe(`^git\s+branch(?:\s+[^\r\n]+)?$`),
-	safe(`^git\s+config\s+--get(?:\s+[^\r\n]+)?$`),
-	safe(`^git\s+diff\s+--stat(?:\s+[^\r\n]+)?$`),
-	safe(`^git\s+diff\s+--name-only(?:\s+[^\r\n]+)?$`),
-	safe(`^git\s+stash\s+list$`),
-	safe(`^git\s+tag(?:\s+-l(?:\s+[^\r\n]+)?)?$`),
-	safe(`^git\s+log\s+-\d{1,2}(?:\s+[^\r\n]+)?$`),
-	safe(`(?:^|\s)--version(?:\s|$)`),
-	safe(`^\S+\s+-V(?:\s|$)`),
-}
+var safeCommands = sync.OnceValue(func() []safePattern {
+	return []safePattern{
+		safe(`^pwd$`),
+		safe(`^whoami$`),
+		safe(`^hostname(?:\s+-[a-zA-Z]+)?$`),
+		safe(`^uname(?:\s+-[a-zA-Z]+)?$`),
+		safe(`^id(?:\s+\S+)?$`),
+		safe(`^date(?:\s+[^\r\n]+)?$`),
+		safe(`^echo\s`),
+		safe(`^printf\s`),
+		safe(`^which\s+\S+(?:\s+\S+)*$`),
+		safe(`^type\s+\S+(?:\s+\S+)*$`),
+		safe(`^command\s+-v\s+\S+(?:\s+\S+)*$`),
+		safe(`^readlink(?:\s+[^\r\n]+)?$`),
+		safe(`^basename(?:\s+[^\r\n]+)?$`),
+		safe(`^dirname(?:\s+[^\r\n]+)?$`),
+		safe(`^realpath(?:\s+[^\r\n]+)?$`),
+		safe(`^cd(?:\s+[^\r\n]+)?$`),
+		safe(`^mkdir(?:\s+[^\r\n]+)?$`),
+		safe(`^touch\s+[^\r\n]+$`),
+		noVerbose("mv"),
+		noVerbose("cp"),
+		noVerbose("rm"),
+		noVerbose("ln"),
+		safe(`^ls(?:\s+[^\r\n]+)?$`, `^ls\s+-[a-zA-Z]*R`, `^ls\s+--recursive`),
+		safe(`^git\s+status(?:\s+[^\r\n]+)?$`),
+		safe(`^git\s+rev-parse(?:\s+[^\r\n]+)?$`),
+		safe(`^git\s+remote(?:\s+-v|\s+show\s+\S+)?$`),
+		safe(`^git\s+branch(?:\s+[^\r\n]+)?$`),
+		safe(`^git\s+config\s+--get(?:\s+[^\r\n]+)?$`),
+		safe(`^git\s+diff\s+--stat(?:\s+[^\r\n]+)?$`),
+		safe(`^git\s+diff\s+--name-only(?:\s+[^\r\n]+)?$`),
+		safe(`^git\s+stash\s+list$`),
+		safe(`^git\s+tag(?:\s+-l(?:\s+[^\r\n]+)?)?$`),
+		safe(`^git\s+log\s+-\d{1,2}(?:\s+[^\r\n]+)?$`),
+		safe(`(?:^|\s)--version(?:\s|$)`),
+		safe(`^\S+\s+-V(?:\s|$)`),
+	}
+})
 
 // isStructurallyBounded ports routing.mjs:347-352: a command with no shell
 // control operator that matches a safe pattern gets no Bash guidance.
@@ -174,7 +177,7 @@ func isStructurallyBounded(command string) bool {
 	if hasShellControl(s) {
 		return false
 	}
-	for _, p := range safeCommands {
+	for _, p := range safeCommands() {
 		if p.matches(s) {
 			return true
 		}

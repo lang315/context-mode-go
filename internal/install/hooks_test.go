@@ -31,6 +31,7 @@ func TestHookEvents(t *testing.T) {
 		{"UserPromptSubmit", "userpromptsubmit", ""},
 		{"SessionStart", "sessionstart", ""},
 		{"Stop", "stop", ""},
+		{"PreCompact", "precompact", ""},
 	}
 	if len(HookEvents) != len(want) {
 		t.Fatalf("len %d", len(HookEvents))
@@ -105,7 +106,7 @@ func TestAddHooksEmpty(t *testing.T) {
 		}
 	}
 	hooks, _ := root.get("hooks")
-	if strings.Join(hooks.(*object).keys, ",") != "PreToolUse,PostToolUse,PostToolUseFailure,UserPromptSubmit,SessionStart,Stop" {
+	if strings.Join(hooks.(*object).keys, ",") != "PreToolUse,PostToolUse,PostToolUseFailure,UserPromptSubmit,SessionStart,Stop,PreCompact" {
 		t.Fatalf("order %v", hooks.(*object).keys)
 	}
 }

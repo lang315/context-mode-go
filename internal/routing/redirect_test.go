@@ -131,7 +131,7 @@ func TestVerboseFlag(t *testing.T) {
 		{" -D  -h", true},
 	}
 	for _, c := range cases {
-		if got := verboseFlag.MatchString(c.s); got != c.want {
+		if got := verboseFlag().MatchString(c.s); got != c.want {
 			t.Errorf("verboseFlag(%q) = %v, want %v", c.s, got, c.want)
 		}
 	}

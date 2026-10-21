@@ -2,6 +2,7 @@ package store
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"strings"
 	"time"
@@ -60,6 +61,16 @@ func (s *Store) InsertEvents(sessionID, project, sourceHook string, evs []Event)
 		return 0, err
 	}
 	defer tx.Rollback()
+	inserted, err := insertEvents(tx, sessionID, project, sourceHook, evs)
+	if err != nil {
+		return 0, err
+	}
+	return inserted, tx.Commit()
+}
+
+// insertEvents is InsertEvents inside the caller's transaction, so other
+// writers (CompactSession) apply the same meta upsert, dedup and cap.
+func insertEvents(tx *sql.Tx, sessionID, project, sourceHook string, evs []Event) (int, error) {
 	if _, err := tx.Exec(`INSERT OR IGNORE INTO session_meta(session_id, project, started_at, last_event_at)
 VALUES(?, ?, datetime('now'), datetime('now'))`, sessionID, project); err != nil {
 		return 0, err
@@ -112,7 +123,7 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
 		inserted, sessionID); err != nil {
 		return 0, err
 	}
-	return inserted, tx.Commit()
+	return inserted, nil
 }
 
 // SessionEvents returns a session's rows ordered by id.
@@ -122,15 +133,5 @@ FROM session_events WHERE session_id = ? ORDER BY id`, sessionID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []StoredEvent
-	for rows.Next() {
-		var e StoredEvent
-		if err := rows.Scan(&e.ID, &e.SessionID, &e.Project, &e.Type, &e.Category, &e.Priority,
-			&e.Data, &e.DataHash, &e.SourceHook, &e.BytesAvoided, &e.CreatedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, e)
-	}
-	return out, rows.Err()
+	return scanEvents(rows)
 }

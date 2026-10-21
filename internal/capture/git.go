@@ -3,6 +3,7 @@ package capture
 import (
 	"regexp"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/lang315/context-mode-go/internal/store"
@@ -15,29 +16,34 @@ func gitRe(rest string) *regexp.Regexp {
 // gitOps is GIT_PATTERNS (X:352-371) in priority order, plus the subcommand
 // each entry stands for. TS looked the parsed subcommand up by op label, so
 // `checkout` (label "branch") was never found (spec §3.4).
-var gitOps = []struct {
+var gitOps = sync.OnceValue(func() []struct {
 	sub, op string
 	re      *regexp.Regexp
-}{
-	{"checkout", "branch", gitRe(`checkout\b`)},
-	{"commit", "commit", gitRe(`commit\b`)},
-	{"merge", "merge", gitRe(`merge` + jsWS + `+` + jsNotWS + `+`)},
-	{"rebase", "rebase", gitRe(`rebase\b`)},
-	{"stash", "stash", gitRe(`stash\b`)},
-	{"push", "push", gitRe(`push\b`)},
-	{"pull", "pull", gitRe(`pull\b`)},
-	{"log", "log", gitRe(`log\b`)},
-	{"diff", "diff", gitRe(`diff\b`)},
-	{"status", "status", gitRe(`status\b`)},
-	{"branch", "branch", gitRe(`branch\b`)},
-	{"reset", "reset", gitRe(`reset\b`)},
-	{"add", "add", gitRe(`add\b`)},
-	{"cherry-pick", "cherry-pick", gitRe(`cherry-pick\b`)},
-	{"tag", "tag", gitRe(`tag\b`)},
-	{"fetch", "fetch", gitRe(`fetch\b`)},
-	{"clone", "clone", gitRe(`clone\b`)},
-	{"worktree", "worktree", gitRe(`worktree\b`)},
-}
+} {
+	return []struct {
+		sub, op string
+		re      *regexp.Regexp
+	}{
+		{"checkout", "branch", gitRe(`checkout\b`)},
+		{"commit", "commit", gitRe(`commit\b`)},
+		{"merge", "merge", gitRe(`merge` + jsWS + `+` + jsNotWS + `+`)},
+		{"rebase", "rebase", gitRe(`rebase\b`)},
+		{"stash", "stash", gitRe(`stash\b`)},
+		{"push", "push", gitRe(`push\b`)},
+		{"pull", "pull", gitRe(`pull\b`)},
+		{"log", "log", gitRe(`log\b`)},
+		{"diff", "diff", gitRe(`diff\b`)},
+		{"status", "status", gitRe(`status\b`)},
+		{"branch", "branch", gitRe(`branch\b`)},
+		{"reset", "reset", gitRe(`reset\b`)},
+		{"add", "add", gitRe(`add\b`)},
+		{"cherry-pick", "cherry-pick", gitRe(`cherry-pick\b`)},
+		{"tag", "tag", gitRe(`tag\b`)},
+		{"fetch", "fetch", gitRe(`fetch\b`)},
+		{"clone", "clone", gitRe(`clone\b`)},
+		{"worktree", "worktree", gitRe(`worktree\b`)},
+	}
+})
 
 // gitEvents ports extractGit (X:373-440): the parsed subcommand first, then
 // the first table regex that matches anywhere (so `cd /r && git status`
@@ -49,14 +55,14 @@ func gitEvents(c call) []store.Event {
 	cmd := inputString(c.input, "command", "")
 	dir, sub := parseGit(cmd)
 	op := ""
-	for _, g := range gitOps {
+	for _, g := range gitOps() {
 		if sub != "" && g.sub == sub {
 			op = g.op
 			break
 		}
 	}
 	if op == "" {
-		for _, g := range gitOps {
+		for _, g := range gitOps() {
 			if g.re.MatchString(cmd) {
 				op = g.op
 				break

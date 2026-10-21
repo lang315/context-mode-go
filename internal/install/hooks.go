@@ -9,7 +9,8 @@ import (
 
 const postMatcher = "Bash|Read|Write|Edit|NotebookEdit|Glob|Grep|TodoWrite|TaskCreate|TaskUpdate|EnterPlanMode|ExitPlanMode|Skill|Agent|AskUserQuestion|EnterWorktree"
 
-// HookEvents lists (settings event name, cmgo hook arg, matcher) in spec §3.5 order.
+// HookEvents lists (settings event name, cmgo hook arg, matcher) in hooks
+// spec §3.5 order, then PreCompact (session memory spec §1).
 var HookEvents = []struct{ Event, Arg, Matcher string }{
 	{"PreToolUse", "pretooluse", "Bash|WebFetch|Read|Grep|Agent"},
 	{"PostToolUse", "posttooluse", postMatcher},
@@ -17,6 +18,7 @@ var HookEvents = []struct{ Event, Arg, Matcher string }{
 	{"UserPromptSubmit", "userpromptsubmit", ""},
 	{"SessionStart", "sessionstart", ""},
 	{"Stop", "stop", ""},
+	{"PreCompact", "precompact", ""},
 }
 
 // hookCommand quotes the hook binary for sh -c, which Claude Code runs it

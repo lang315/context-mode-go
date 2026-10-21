@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"unicode/utf16"
 
 	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/store"
 )
 
-var planPath = regexp.MustCompile(`(?:^|[/\\])\.claude[/\\]plans[/\\]`)
+var planPath = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?:^|[/\\])\.claude[/\\]plans[/\\]`) })
 
 // planEvents ports extractPlan (X:714-803) without apply_patch.
 func planEvents(c call) []store.Event {
@@ -30,7 +31,7 @@ func planEvents(c call) []store.Event {
 		return evs
 	case "Write", "Edit":
 		path := inputString(c.input, "file_path", "")
-		if planPath.MatchString(path) {
+		if planPath().MatchString(path) {
 			return []store.Event{ev("plan_file_write", "plan", 2, "plan file: "+path[strings.LastIndexAny(path, `/\`)+1:])}
 		}
 	}

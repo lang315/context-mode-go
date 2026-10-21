@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // Chunk is one indexed section. ContentType is Code if HasCode else Prose.
@@ -16,10 +17,10 @@ type Chunk struct {
 const ChunkMaxBytes = 4096
 
 var (
-	mdRule      = regexp.MustCompile(`^[-_*]{3,}` + jsWS + `*$`)
-	mdHeading   = regexp.MustCompile(`^(#{1,4})` + jsWS + `+(` + jsDot + `+)$`)
-	mdFence     = regexp.MustCompile("^(`{3,})(" + jsDot + "*)?$")
-	mdParagraph = regexp.MustCompile(`\n\n+`)
+	mdRule      = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[-_*]{3,}` + jsWS + `*$`) })
+	mdHeading   = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(#{1,4})` + jsWS + `+(` + jsDot + `+)$`) })
+	mdFence     = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^(`{3,})(" + jsDot + "*)?$") })
+	mdParagraph = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`\n\n+`) })
 )
 
 type mdHead struct {
@@ -55,7 +56,7 @@ func ChunkMarkdown(text string, maxBytes int) []Chunk {
 			return
 		}
 		// Oversized: split at paragraph boundaries.
-		paragraphs := mdParagraph.Split(joined, -1)
+		paragraphs := mdParagraph().Split(joined, -1)
 		var acc []string
 		part := 1
 		flushAcc := func() {
@@ -87,12 +88,12 @@ func ChunkMarkdown(text string, maxBytes int) []Chunk {
 
 	for i := 0; i < len(lines); {
 		line := lines[i]
-		if mdRule.MatchString(line) {
+		if mdRule().MatchString(line) {
 			flush()
 			i++
 			continue
 		}
-		if m := mdHeading.FindStringSubmatch(line); m != nil {
+		if m := mdHeading().FindStringSubmatch(line); m != nil {
 			flush()
 			level := len(m[1])
 			heading := jsTrim(m[2])
@@ -105,7 +106,7 @@ func ChunkMarkdown(text string, maxBytes int) []Chunk {
 			i++
 			continue
 		}
-		if m := mdFence.FindStringSubmatch(line); m != nil {
+		if m := mdFence().FindStringSubmatch(line); m != nil {
 			fence := m[1]
 			code := []string{line}
 			i++

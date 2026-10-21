@@ -96,6 +96,8 @@ func TestSearchTimeline(t *testing.T) {
 	seedCorpus(t, s, "p")
 	// Relevance order for "connection pool" is docA, log:run, docA (golden above).
 	// Make log:run the oldest; both docA chunks share one indexed_at.
+	// Every other source is older, so the newest three matches are these three.
+	s.db.Exec("UPDATE sources SET indexed_at = '2025-12-31 00:00:00' WHERE label NOT IN ('log:run', 'docA')")
 	s.db.Exec("UPDATE sources SET indexed_at = '2026-01-01 00:00:00' WHERE label = 'log:run'")
 	s.db.Exec("UPDATE sources SET indexed_at = '2026-01-03 00:00:00' WHERE label = 'docA'")
 
@@ -103,8 +105,9 @@ func TestSearchTimeline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Both log:run chunks match and share one indexed_at; the later chunk is the newer.
 	checkHits(t, "timeline", res, []hit{
-		{"log:run", "error: connection refused", Prose, -0.031746031746031744},
+		{"log:run", "warn: pool exhausted", Prose, -0.03125},
 		{"docA", "Connection Pool", Prose, -0.03278688524590164}, // tie: relevance order kept
 		{"docA", "Connection Pool > Timeout", Prose, -0.03225806451612903},
 	})
@@ -116,10 +119,41 @@ func TestSearchTimeline(t *testing.T) {
 	if len(res) != 3 || res[0].Source != "log:run" {
 		t.Fatalf("fuzzy timeline = %+v", res)
 	}
-	// Limit applies after sorting the relevance top-Limit.
+	// Limit keeps the newest matches (spec §3.2); of the two docA chunks with
+	// the same indexed_at the later one (higher id) is the newer.
 	res, _ = s.SearchWithFallback("connection pool", SearchOpts{Project: "p", Mode: "timeline", Limit: 1})
-	checkHits(t, "limit 1", res, []hit{{"docA", "Connection Pool", Prose, -0.03278688524590164}})
+	checkHits(t, "limit 1", res, []hit{{"docA", "Connection Pool > Timeout", Prose, -0.03225806451612903}})
 	if res, err := s.SearchWithFallback("zzzz qqqq", SearchOpts{Project: "p", Mode: "timeline"}); err != nil || len(res) != 0 {
 		t.Fatalf("non-matching timeline = %+v, %v", res, err)
+	}
+}
+
+// Timeline takes the newest matches, not the best ranked ones: with three
+// matches and limit 2 the lowest-ranked chunk is kept because it is newest,
+// and the output stays oldest first.
+func TestSearchTimelineKeepsNewestMatches(t *testing.T) {
+	s := openTest(t)
+	for _, c := range []struct {
+		label, content, at string
+	}{
+		{"strong", "gizmo gizmo gizmo gizmo", "2026-01-01 00:00:00"},
+		{"middle", "gizmo gizmo notes", "2026-01-02 00:00:00"},
+		{"weak", "a long unrelated paragraph about many other things and only once the word gizmo", "2026-01-03 00:00:00"},
+	} {
+		if _, err := s.Index("p", c.label, []Chunk{{Title: c.label, Content: c.content}}); err != nil {
+			t.Fatal(err)
+		}
+		s.db.Exec("UPDATE sources SET indexed_at = ? WHERE label = ?", c.at, c.label)
+	}
+	relevance, _ := s.SearchWithFallback("gizmo", SearchOpts{Project: "p", Limit: 3})
+	if len(relevance) != 3 || relevance[2].Source != "weak" {
+		t.Fatalf("setup: weak chunk must rank last, got %+v", relevance)
+	}
+	res, err := s.SearchWithFallback("gizmo", SearchOpts{Project: "p", Mode: "timeline", Limit: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 2 || res[0].Source != "middle" || res[1].Source != "weak" {
+		t.Fatalf("timeline limit 2 = %+v, want middle then weak", res)
 	}
 }

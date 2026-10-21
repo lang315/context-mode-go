@@ -3,6 +3,7 @@ package security
 import (
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // Quote alternations replace the JS backreference form (['"])(.*?)\1, which
@@ -12,41 +13,44 @@ const (
 	q3 = `(?:'(.*?)'|"(.*?)"|` + "`(.*?)`" + `)`
 )
 
-var jsShellEscapes = []*regexp.Regexp{
-	regexp.MustCompile(`exec(?:Sync|File|FileSync)?\(\s*` + q3),
-	regexp.MustCompile(`spawn(?:Sync)?\(\s*` + q3),
-}
-
 // shellEscapePatterns ports SHELL_ESCAPE_PATTERNS (security.ts:795-825).
-var shellEscapePatterns = map[string][]*regexp.Regexp{
-	"python": {
-		regexp.MustCompile(`os\.system\(\s*` + q2 + `\s*\)`),
-		regexp.MustCompile(`subprocess\.(?:run|call|Popen|check_output|check_call)\(\s*` + q2),
-	},
-	"javascript": jsShellEscapes,
-	"typescript": jsShellEscapes,
-	"ruby": {
-		regexp.MustCompile(`system\(\s*` + q2),
-		regexp.MustCompile("`(.*?)`"),
-	},
-	"go": {
-		regexp.MustCompile(`exec\.Command\(\s*` + q3),
-	},
-	"php": {
-		regexp.MustCompile(`shell_exec\(\s*` + q3),
-		regexp.MustCompile(`(?:^|[^.])exec\(\s*` + q3),
-		regexp.MustCompile(`(?:^|[^.])system\(\s*` + q3),
-		regexp.MustCompile(`passthru\(\s*` + q3),
-		regexp.MustCompile(`proc_open\(\s*` + q3),
-	},
-	"rust": {
-		regexp.MustCompile(`Command::new\(\s*` + q3),
-	},
-}
+var shellEscapePatterns = sync.OnceValue(func() map[string][]*regexp.Regexp {
+	jsShellEscapes := []*regexp.Regexp{
+		regexp.MustCompile(`exec(?:Sync|File|FileSync)?\(\s*` + q3),
+		regexp.MustCompile(`spawn(?:Sync)?\(\s*` + q3),
+	}
+	return map[string][]*regexp.Regexp{
+		"python": {
+			regexp.MustCompile(`os\.system\(\s*` + q2 + `\s*\)`),
+			regexp.MustCompile(`subprocess\.(?:run|call|Popen|check_output|check_call)\(\s*` + q2),
+		},
+		"javascript": jsShellEscapes,
+		"typescript": jsShellEscapes,
+		"ruby": {
+			regexp.MustCompile(`system\(\s*` + q2),
+			regexp.MustCompile("`(.*?)`"),
+		},
+		"go": {
+			regexp.MustCompile(`exec\.Command\(\s*` + q3),
+		},
+		"php": {
+			regexp.MustCompile(`shell_exec\(\s*` + q3),
+			regexp.MustCompile(`(?:^|[^.])exec\(\s*` + q3),
+			regexp.MustCompile(`(?:^|[^.])system\(\s*` + q3),
+			regexp.MustCompile(`passthru\(\s*` + q3),
+			regexp.MustCompile(`proc_open\(\s*` + q3),
+		},
+		"rust": {
+			regexp.MustCompile(`Command::new\(\s*` + q3),
+		},
+	}
+})
 
 var (
-	pySubprocessList = regexp.MustCompile(`subprocess\.(?:run|call|Popen|check_output|check_call)\(\s*\[([^\]]+)\]`)
-	quotedString     = regexp.MustCompile(q2)
+	pySubprocessList = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`subprocess\.(?:run|call|Popen|check_output|check_call)\(\s*\[([^\]]+)\]`)
+	})
+	quotedString = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(q2) })
 )
 
 // firstGroup returns the first non-empty capture group (the command body).
@@ -63,7 +67,7 @@ func firstGroup(m []string) string {
 // security.ts:834-849): subprocess.run(["rm", "-rf", "/"]) gives "rm -rf /".
 func extractShellCommands(code, language string) []string {
 	var cmds []string
-	for _, re := range shellEscapePatterns[language] {
+	for _, re := range shellEscapePatterns()[language] {
 		for _, m := range re.FindAllStringSubmatch(code, -1) {
 			if c := firstGroup(m); c != "" {
 				cmds = append(cmds, c)
@@ -71,9 +75,9 @@ func extractShellCommands(code, language string) []string {
 		}
 	}
 	if language == "python" {
-		for _, m := range pySubprocessList.FindAllStringSubmatch(code, -1) {
+		for _, m := range pySubprocessList().FindAllStringSubmatch(code, -1) {
 			var args []string
-			for _, a := range quotedString.FindAllStringSubmatch(m[1], -1) {
+			for _, a := range quotedString().FindAllStringSubmatch(m[1], -1) {
 				args = append(args, a[1]+a[2])
 			}
 			if len(args) > 0 {

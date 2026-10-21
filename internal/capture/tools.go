@@ -3,6 +3,7 @@ package capture
 import (
 	"encoding/json"
 	"regexp"
+	"sync"
 
 	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/store"
@@ -23,17 +24,19 @@ func ev(typ, cat string, prio int, data string) store.Event {
 
 // ruleFile is the rule-file test of X:195-200, lowercased: it runs on
 // asciiLower(path) because the TS regexps use `i` without `u`.
-var ruleFile = []*regexp.Regexp{
-	regexp.MustCompile(`(?:claude|agents(?:\.override)?|gemini|qwen|kiro)\.md$`),
-	regexp.MustCompile(`/copilot-instructions\.md$`),
-	regexp.MustCompile(`/context-mode\.mdc$`),
-	regexp.MustCompile(`\.claude[\\/]`),
-	regexp.MustCompile(`[\\/]memor(?:y|ies)[\\/][^\\/]+\.md$`),
-}
+var ruleFile = sync.OnceValue(func() []*regexp.Regexp {
+	return []*regexp.Regexp{
+		regexp.MustCompile(`(?:claude|agents(?:\.override)?|gemini|qwen|kiro)\.md$`),
+		regexp.MustCompile(`/copilot-instructions\.md$`),
+		regexp.MustCompile(`/context-mode\.mdc$`),
+		regexp.MustCompile(`\.claude[\\/]`),
+		regexp.MustCompile(`[\\/]memor(?:y|ies)[\\/][^\\/]+\.md$`),
+	}
+})
 
 func isRuleFile(path string) bool {
 	lower := asciiLower(path)
-	for _, re := range ruleFile {
+	for _, re := range ruleFile() {
 		if re.MatchString(lower) {
 			return true
 		}
@@ -82,14 +85,16 @@ func ruleContent(c call) string {
 	return c.resp
 }
 
-var cdRe = regexp.MustCompile(`\bcd` + jsWS + `+("([^"]+)"|'([^']+)'|(` + jsNotWS + `+))`)
+var cdRe = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`\bcd` + jsWS + `+("([^"]+)"|'([^']+)'|(` + jsNotWS + `+))`)
+})
 
 // cwdEvents ports extractCwd (X:312-327): the first cd in the command.
 func cwdEvents(c call) []store.Event {
 	if c.tool != "Bash" {
 		return nil
 	}
-	m := cdRe.FindStringSubmatch(inputString(c.input, "command", ""))
+	m := cdRe().FindStringSubmatch(inputString(c.input, "command", ""))
 	if m == nil {
 		return nil
 	}
@@ -104,7 +109,7 @@ func cwdEvents(c call) []store.Event {
 }
 
 // envPatterns is ENV_PATTERNS (X:810-829).
-var envPatterns = func() []*regexp.Regexp {
+var envPatterns = sync.OnceValue(func() []*regexp.Regexp {
 	srcs := []string{
 		`\bsource` + jsWS + `+` + jsNotWS + `*activate\b`,
 		`\bexport` + jsWS + `+\w+=`,
@@ -130,9 +135,9 @@ var envPatterns = func() []*regexp.Regexp {
 		res[i] = regexp.MustCompile(s)
 	}
 	return res
-}()
+})
 
-var exportRe = regexp.MustCompile(`\bexport` + jsWS + `+(\w+)=` + jsNotWS + `*`)
+var exportRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`\bexport` + jsWS + `+(\w+)=` + jsNotWS + `*`) })
 
 // envEvents ports extractEnv (X:831-847), masking export values.
 func envEvents(c call) []store.Event {
@@ -140,9 +145,9 @@ func envEvents(c call) []store.Event {
 		return nil
 	}
 	cmd := inputString(c.input, "command", "")
-	for _, re := range envPatterns {
+	for _, re := range envPatterns() {
 		if re.MatchString(cmd) {
-			return []store.Event{ev("env", "env", 2, exportRe.ReplaceAllString(cmd, "export ${1}=***"))}
+			return []store.Event{ev("env", "env", 2, exportRe().ReplaceAllString(cmd, "export ${1}=***"))}
 		}
 	}
 	return nil

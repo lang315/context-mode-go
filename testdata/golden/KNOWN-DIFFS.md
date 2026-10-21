@@ -45,9 +45,14 @@ No golden case differs because of a §2.2 item, so none is skipped:
 
 - Byte counters / batch `NODE_OPTIONS` preload: batch commands in `tools.json`
   never start `node`, so no `__CM_FS__` line appears on either side.
-- Timeline sort (`t11`): matches, but weakly: `t11` is soft-capped to 1
-  result per query, so it cannot show ordering across sources. Timeline
-  ordering is not covered by the golden set.
+- Timeline sort (`t11`): differs on purpose, session memory spec §3.2. TS
+  keeps the best ranked matches and sorts them oldest first; cmgo ranks up to
+  200 matches, keeps the newest by `indexed_at` (ties: the later chunk) and
+  returns them oldest first. `t11` is soft-capped to 1 result per query and
+  all its chunks share one `indexed_at`, so cmgo returns the last-indexed
+  match (`batch:changelog,oversized`, Incident Report > Raw notes), TS the best
+  ranked (`batch:getting started,troubleshooting,unicode`). The Go output is
+  pinned in `goldenToolKnown`.
 - Fetch transport, one-DB layout, no mmap, busy handling, dropped platforms:
   not observable in these outputs.
 
