@@ -161,13 +161,18 @@ func logHookError(getenv func(string) string, event string, err error) {
 	fmt.Fprintf(f, "%s pid=%d %s: %v\n", time.Now().Format(time.RFC3339), os.Getpid(), event, err)
 }
 
+// openStore opens cmgo.db with the hooks' short busy timeout.
+func (h *hookCtx) openStore() (*store.Store, error) {
+	return store.OpenWith(h.cfg.DBPath, store.Options{BusyTimeout: dbBusyTimeout})
+}
+
 // insertEvents writes evs in one transaction; with none it does not open the
 // store at all (spec §1.1).
 func (h *hookCtx) insertEvents(sourceHook string, evs []store.Event) error {
 	if len(evs) == 0 {
 		return nil
 	}
-	st, err := store.OpenWith(h.cfg.DBPath, store.Options{BusyTimeout: dbBusyTimeout})
+	st, err := h.openStore()
 	if err != nil {
 		return err
 	}
@@ -248,7 +253,7 @@ func stop(h *hookCtx) error {
 // precompact.mjs does, first, so a DB error cannot swallow it.
 func preCompact(h *hookCtx) error {
 	_, werr := io.WriteString(h.out, "{}\n")
-	st, err := store.OpenWith(h.cfg.DBPath, store.Options{BusyTimeout: dbBusyTimeout})
+	st, err := h.openStore()
 	if err != nil {
 		return err
 	}
@@ -280,7 +285,7 @@ func sessionStart(h *hookCtx) error {
 		routing.PruneGuidance(h.runDir, h.now, guidanceMaxAge)
 		evs = append(capture.SessionStartRules(h.cfg.Home, h.cfg.ProjectDir), capture.SessionStartEvent(src, h.cfg.ProjectDir, h.now))
 	}
-	st, err := store.OpenWith(h.cfg.DBPath, store.Options{BusyTimeout: dbBusyTimeout})
+	st, err := h.openStore()
 	if err != nil {
 		return err
 	}
@@ -312,7 +317,7 @@ func (h *hookCtx) printSessionStart(context string) error {
 // comes before the output; a failed read prints block alone. Writes come
 // after the output.
 func (h *hookCtx) sessionResume(src, block string) error {
-	st, err := store.OpenWith(h.cfg.DBPath, store.Options{BusyTimeout: dbBusyTimeout})
+	st, err := h.openStore()
 	if err != nil {
 		return errors.Join(err, h.printSessionStart(block))
 	}

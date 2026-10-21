@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // jsonObj is a parsed JSON object with JavaScript property order:
@@ -28,7 +30,7 @@ type jsonObj struct {
 // the caller then falls back to ChunkPlainText(text, 20), as TS does (also
 // when no chunks come back).
 func ChunkJSON(text string, maxBytes int) ([]Chunk, error) {
-	if jsTrim(text) == "" {
+	if hookio.JSTrim(text) == "" {
 		return nil, errors.New("empty JSON")
 	}
 	dec := json.NewDecoder(strings.NewReader(text))

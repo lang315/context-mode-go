@@ -1,6 +1,8 @@
 package routing
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,8 +18,12 @@ import (
 // a process-wide in-memory set, which a one-shot hook never consults.
 func guidanceOnce(runDir, sid, typ string) bool {
 	dir := filepath.Join(runDir, "guidance-"+hookio.FileID(sid))
-	_ = os.MkdirAll(dir, 0o700) // an error shows up in the open below
-	f, err := os.OpenFile(filepath.Join(dir, typ), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	path := filepath.Join(dir, typ)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if errors.Is(err, fs.ErrNotExist) { // first guidance of the session: the dir is missing
+		_ = os.MkdirAll(dir, 0o700) // an error shows up in the open below
+		f, err = os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	}
 	if err != nil {
 		return false
 	}

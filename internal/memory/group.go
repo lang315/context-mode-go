@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/store"
 )
 
@@ -42,7 +43,7 @@ func group(events []store.StoredEvent) groups {
 		if i := strings.LastIndex(path, " in "); i >= 0 {
 			path = path[i+len(" in "):]
 		}
-		base := jsTrim(path[strings.LastIndexAny(path, `/\`)+1:])
+		base := hookio.JSTrim(path[strings.LastIndexAny(path, `/\`)+1:])
 		if base != "" && !strings.Contains(base, "*") && !seen[base] {
 			seen[base] = true
 			g.files = append(g.files, base)
@@ -116,7 +117,7 @@ func truthy(raw json.RawMessage) bool {
 
 // jsNumber is JS Number(s) for a taskId key, NaN when it is not a number.
 func jsNumber(s string) float64 {
-	s = jsTrim(s)
+	s = hookio.JSTrim(s)
 	if s == "" {
 		return 0
 	}
@@ -150,14 +151,3 @@ func jsString(raw json.RawMessage) string {
 	}
 	return string(raw) // true, numbers
 }
-
-func isJSSpace(r rune) bool {
-	switch r {
-	case '\t', '\n', '\v', '\f', '\r', ' ', 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff:
-		return true
-	}
-	return r >= 0x2000 && r <= 0x200a
-}
-
-// jsTrim is String.prototype.trim.
-func jsTrim(s string) string { return strings.TrimFunc(s, isJSSpace) }

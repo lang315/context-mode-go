@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // ST:160-170.
@@ -26,7 +28,7 @@ var blankLineSplit = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCo
 // linesPerChunk lines with a 2-line overlap. Chunks are always prose.
 // Port of indexPlainText + #chunkPlainText (ST:1019-1040, ST:1911-1976).
 func ChunkPlainText(text string, linesPerChunk int) []Chunk {
-	if jsTrim(text) == "" {
+	if hookio.JSTrim(text) == "" {
 		return nil
 	}
 	if linesPerChunk <= 0 {
@@ -38,7 +40,7 @@ func ChunkPlainText(text string, linesPerChunk int) []Chunk {
 	if len(sections) >= minBlankLineSections && len(sections) <= maxBlankLineSections && allUnder(sections, blankSectionStrategyMaxBytes) {
 		var out []Chunk
 		for i, sec := range sections {
-			trimmed := jsTrim(sec)
+			trimmed := hookio.JSTrim(sec)
 			if trimmed == "" {
 				continue
 			}
@@ -68,7 +70,7 @@ func ChunkPlainText(text string, linesPerChunk int) []Chunk {
 	step := max(linesPerChunk-plainOverlap, 1)
 	for i := 0; i < len(lines); i += step {
 		slice := lines[i:min(i+linesPerChunk, len(lines))]
-		title := u16prefix(jsTrim(slice[0]), chunkTitleMaxChars)
+		title := u16prefix(hookio.JSTrim(slice[0]), chunkTitleMaxChars)
 		if title == "" {
 			title = fmt.Sprintf("Lines %d-%d", i+1, min(i+len(slice), len(lines)))
 		}

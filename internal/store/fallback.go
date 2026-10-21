@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf16"
+
+	"github.com/lang315/context-mode-go/internal/hookio"
 )
 
 // fuzzyCacheSize: ContentStore.FUZZY_CACHE_SIZE (ST:471).
@@ -67,7 +69,7 @@ func (s *Store) relevance(query string, o SearchOpts) ([]SearchResult, error) {
 	}
 
 	var words, corrected []string
-	for _, w := range jsFields(strings.ToLower(jsTrim(query))) {
+	for _, w := range jsFields(strings.ToLower(hookio.JSTrim(query))) {
 		if u16len(w) >= 3 && !stopwords[w] {
 			words = append(words, w)
 		}
@@ -96,7 +98,7 @@ func (s *Store) relevance(query string, o SearchOpts) ([]SearchResult, error) {
 // fuzzyCorrect returns the closest vocabulary word within the edit-distance
 // budget, or "" for none / exact match. LRU-cached (ST:1248-1293).
 func (s *Store) fuzzyCorrect(query string) (string, error) {
-	word := strings.ToLower(jsTrim(query))
+	word := strings.ToLower(hookio.JSTrim(query))
 	n := u16len(word)
 	if n < 3 {
 		return "", nil

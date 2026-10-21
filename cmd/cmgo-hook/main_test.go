@@ -2,6 +2,7 @@ package main
 
 import (
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -32,5 +33,18 @@ func TestNoServerDeps(t *testing.T) {
 				t.Errorf("cmgo-hook links %s", dep)
 			}
 		}
+	}
+}
+
+// `cmgo-hook version` prints the -X main.version value; doctor compares it
+// with cmgo's own version.
+func TestVersionArg(t *testing.T) {
+	bin := filepath.Join(t.TempDir(), "cmgo-hook")
+	if out, err := exec.Command("go", "build", "-ldflags", "-X main.version=v9.9.9", "-o", bin, ".").CombinedOutput(); err != nil {
+		t.Fatalf("go build: %v\n%s", err, out)
+	}
+	out, err := exec.Command(bin, "version").Output()
+	if err != nil || string(out) != "cmgo-hook v9.9.9\n" {
+		t.Fatalf("version: %q, %v", out, err)
 	}
 }

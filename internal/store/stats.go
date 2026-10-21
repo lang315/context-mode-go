@@ -148,13 +148,13 @@ WHERE session_id = ? AND category = 'redirect'`, st.SessionID).Scan(&st.Redirect
 			return st, err
 		}
 	}
-	err = s.db.QueryRow(`SELECT (SELECT count(*) FROM sources WHERE project = ?),
-  (SELECT COALESCE(SUM(length(CAST(content AS BLOB))), 0) FROM chunks WHERE source_id IN (SELECT id FROM sources WHERE project = ?)),
-  (SELECT count(*) FROM session_meta WHERE project = ?),
-  (SELECT count(*) FROM session_events WHERE project = ?),
+	err = s.db.QueryRow(`SELECT (SELECT count(*) FROM sources WHERE project = ?1),
+  (SELECT COALESCE(SUM(length(CAST(content AS BLOB))), 0) FROM chunks WHERE source_id IN (SELECT id FROM sources WHERE project = ?1)),
+  (SELECT count(*) FROM session_meta WHERE project = ?1),
+  (SELECT count(*) FROM session_events WHERE project = ?1),
   `+lifetimeKept+`,
   (SELECT count(*) FROM session_meta),
-  (SELECT COALESCE(MIN(first_at), '') FROM stats_totals)`, q.Project, q.Project, q.Project, q.Project).Scan(
+  (SELECT COALESCE(MIN(first_at), '') FROM stats_totals)`, q.Project).Scan(
 		&st.ProjectSources, &st.ProjectContentBytes, &st.ProjectSessions, &st.ProjectEvents,
 		&st.LifetimeKept, &st.LifetimeSessions, &st.LifetimeSince)
 	return st, err

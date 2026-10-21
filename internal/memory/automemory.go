@@ -99,7 +99,7 @@ func readMemoryFile(path string) (b []byte, mtime time.Time, ok bool) {
 // least 3 UTF-16 units (AM:150).
 func autoMemoryTerms(query string) []string {
 	var terms []string
-	for _, t := range strings.FieldsFunc(strings.ToLower(query), autoMemorySpace) {
+	for _, t := range strings.FieldsFunc(strings.ToLower(query), hookio.IsJSSpace) {
 		if hookio.JSLen(t) >= 3 {
 			terms = append(terms, t)
 		}
@@ -138,7 +138,7 @@ func autoMemorySnippet(content string, terms []string) (string, bool) {
 	if start >= end { // JS slice(start, end) is "" then
 		return "", true
 	}
-	return strings.TrimFunc(string(utf16.Decode(u[start:end])), autoMemorySpace), true
+	return strings.TrimFunc(string(utf16.Decode(u[start:end])), hookio.IsJSSpace), true
 }
 
 // indexU16 is JS s.indexOf(sub, from) over UTF-16 units.
@@ -160,13 +160,4 @@ func lastIndexU16(s, sub []uint16, from int) int {
 		}
 	}
 	return -1
-}
-
-// autoMemorySpace is the JS `\s` / trim() whitespace set.
-func autoMemorySpace(r rune) bool {
-	switch r {
-	case '\t', '\n', '\v', '\f', '\r', ' ', 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff:
-		return true
-	}
-	return r >= 0x2000 && r <= 0x200a
 }

@@ -21,9 +21,10 @@ type Deps struct {
 	Fetch  *fetch.Fetcher
 	Now    func() time.Time // injectable clock; defaults to time.Now
 	Stats  *StatsRecorder   // nil records no tool_stats
+	Binary string           // cmgo's path for ctx_doctor and ctx_upgrade; "" = this executable
 }
 
-// New builds the MCP server with all seven tools registered.
+// New builds the MCP server with all nine tools registered.
 func New(d *Deps, version string) *mcp.Server {
 	if d.Now == nil {
 		d.Now = time.Now
@@ -36,5 +37,7 @@ func New(d *Deps, version string) *mcp.Server {
 	registerFetchAndIndex(s, d)
 	registerPurge(s, d)
 	registerStats(s, d, version)
+	registerDoctor(s, d, version)
+	registerUpgrade(s, d)
 	return s
 }

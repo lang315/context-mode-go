@@ -126,26 +126,6 @@ func TestGoldenPreToolUse(t *testing.T) {
 	}
 }
 
-// missingCommands are the TS <ctx_commands> entries cmgo has no tool for
-// yet (spec §2.5): doctor and upgrade arrive with sub-project 5, which
-// deletes them here. stats came with sub-project 4.
-var missingCommands = []string{"doctor", "upgrade"}
-
-// dropCommands derives cmgo's routing block from the TS text: it cuts the
-// entry of each missing command, its two lines and the blank line after them.
-func dropCommands(t *testing.T, ts string) string {
-	t.Helper()
-	for _, name := range missingCommands {
-		i := strings.Index(ts, "    \"ctx "+name+"\" | ")
-		if i < 0 {
-			t.Fatalf("no ctx %s entry in the TS routing block", name)
-		}
-		j := strings.Index(ts[i:], "\n\n")
-		ts = ts[:i] + ts[i+j+2:]
-	}
-	return ts
-}
-
 // TestGoldenStrings checks the texts in ../../testdata/golden/hooks-strings.json,
 // rendered by gen-hooks.mjs from hooks/routing-block.mjs with the mcp__cmgo__
 // namer, and the redirect texts taken from TS routePreToolUse decisions.
@@ -171,11 +151,7 @@ func TestGoldenStrings(t *testing.T) {
 		t.Fatalf("hooks-strings.json: commit %q, %d routing blocks", g.TSCommit, len(g.RoutingBlocks))
 	}
 	for _, b := range g.RoutingBlocks {
-		want := b.Text
-		if b.IncludeCommands {
-			want = dropCommands(t, want)
-		}
-		if got := RoutingBlock(b.IncludeCommands, b.ToolSearchBootstrap); got != want {
+		if got := RoutingBlock(b.IncludeCommands, b.ToolSearchBootstrap); got != b.Text {
 			t.Errorf("%s: RoutingBlock(%v, %v) differs\ngot:\n%s", b.Name, b.IncludeCommands, b.ToolSearchBootstrap, got)
 		}
 	}

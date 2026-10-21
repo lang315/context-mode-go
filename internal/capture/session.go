@@ -53,7 +53,7 @@ func SessionStartRules(home, projectDir string) []store.Event {
 	var evs []store.Event
 	for _, p := range paths {
 		b, err := os.ReadFile(p)
-		if err != nil || jsTrim(string(b)) == "" {
+		if err != nil || hookio.JSTrim(string(b)) == "" {
 			continue
 		}
 		evs = append(evs, ev("rule", "rule", 1, p), ev("rule_content", "rule", 1, string(b)))

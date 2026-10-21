@@ -56,13 +56,11 @@ func vocabWords(text string) []string {
 // text is not passed in.
 func (s *Store) Index(project, label string, chunks []Chunk) (IndexResult, error) {
 	res := IndexResult{Label: label, TotalChunks: len(chunks)}
-	contents := make([]string, len(chunks))
-	for i, c := range chunks {
+	for _, c := range chunks {
 		if c.HasCode {
 			res.CodeChunks++
 		}
 		res.Sections = append(res.Sections, Section{Title: c.Title, Bytes: len(c.Content)})
-		contents[i] = c.Content
 	}
 
 	tx, err := s.db.Begin()
@@ -79,48 +77,11 @@ func (s *Store) Index(project, label string, chunks []Chunk) (IndexResult, error
 			return res, err
 		}
 	}
-	r, err := tx.Exec("INSERT INTO sources (project, label, chunk_count, code_chunk_count) VALUES (?, ?, ?, ?)",
-		project, label, res.TotalChunks, res.CodeChunks)
+	id, added, err := insertSource(tx, project, label, "", chunks)
 	if err != nil {
 		return res, err
 	}
-	if res.SourceID, err = r.LastInsertId(); err != nil {
-		return res, err
-	}
-	for _, table := range []string{"chunks", "chunks_trigram"} {
-		stmt, err := tx.Prepare("INSERT INTO " + table + " (title, content, source_id, content_type) VALUES (?, ?, ?, ?)")
-		if err != nil {
-			return res, err
-		}
-		for _, c := range chunks {
-			ct := Prose
-			if c.HasCode {
-				ct = Code
-			}
-			if _, err := stmt.Exec(c.Title, c.Content, res.SourceID, string(ct)); err != nil {
-				stmt.Close()
-				return res, err
-			}
-		}
-		stmt.Close()
-	}
-	var added int64
-	if words := vocabWords(strings.Join(contents, "\n")); len(words) > 0 {
-		stmt, err := tx.Prepare("INSERT OR IGNORE INTO vocabulary (word) VALUES (?)")
-		if err != nil {
-			return res, err
-		}
-		for _, w := range words {
-			r, err := stmt.Exec(w)
-			if err != nil {
-				stmt.Close()
-				return res, err
-			}
-			n, _ := r.RowsAffected()
-			added += n
-		}
-		stmt.Close()
-	}
+	res.SourceID = id
 	if err := tx.Commit(); err != nil {
 		return res, err
 	}
@@ -137,6 +98,64 @@ func (s *Store) Index(project, label string, chunks []Chunk) (IndexResult, error
 		s.db.Exec("INSERT INTO chunks_trigram(chunks_trigram) VALUES('optimize')")
 	}
 	return res, nil
+}
+
+// insertSource writes one sources row, its chunks in both FTS tables and
+// their words, inside tx. indexedAt "" means datetime('now'). It returns the
+// source id and the number of new vocabulary words.
+func insertSource(tx *sql.Tx, project, label, indexedAt string, chunks []Chunk) (int64, int64, error) {
+	code := 0
+	contents := make([]string, len(chunks))
+	for i, c := range chunks {
+		if c.HasCode {
+			code++
+		}
+		contents[i] = c.Content
+	}
+	r, err := tx.Exec("INSERT INTO sources (project, label, chunk_count, code_chunk_count, indexed_at) VALUES (?, ?, ?, ?, COALESCE(NULLIF(?, ''), datetime('now')))",
+		project, label, len(chunks), code, indexedAt)
+	if err != nil {
+		return 0, 0, err
+	}
+	id, err := r.LastInsertId()
+	if err != nil {
+		return 0, 0, err
+	}
+	for _, table := range []string{"chunks", "chunks_trigram"} {
+		stmt, err := tx.Prepare("INSERT INTO " + table + " (title, content, source_id, content_type) VALUES (?, ?, ?, ?)")
+		if err != nil {
+			return 0, 0, err
+		}
+		for _, c := range chunks {
+			ct := Prose
+			if c.HasCode {
+				ct = Code
+			}
+			if _, err := stmt.Exec(c.Title, c.Content, id, string(ct)); err != nil {
+				stmt.Close()
+				return 0, 0, err
+			}
+		}
+		stmt.Close()
+	}
+	var added int64
+	if words := vocabWords(strings.Join(contents, "\n")); len(words) > 0 {
+		stmt, err := tx.Prepare("INSERT OR IGNORE INTO vocabulary (word) VALUES (?)")
+		if err != nil {
+			return 0, 0, err
+		}
+		for _, w := range words {
+			r, err := stmt.Exec(w)
+			if err != nil {
+				stmt.Close()
+				return 0, 0, err
+			}
+			n, _ := r.RowsAffected()
+			added += n
+		}
+		stmt.Close()
+	}
+	return id, added, nil
 }
 
 // SourceByLabel returns the (project, label) source, or nil if missing.
