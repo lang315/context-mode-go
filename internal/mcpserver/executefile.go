@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 
 	"github.com/lang315/context-mode-go/internal/executor"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -17,7 +19,9 @@ func registerExecuteFile(s *mcp.Server, d *Deps) {
 		Description: executeFileDesc,
 		Annotations: execAnnotations,
 		InputSchema: json.RawMessage(executeFileSchema),
-	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest) (res *mcp.CallToolResult, _ error) {
+		var raw int64
+		defer func() { d.Stats.Record(d, "ctx_execute_file", raw, res) }()
 		a, err := ParseArgs(req.Params.Arguments)
 		if err != nil {
 			return ArgError(err), nil
@@ -47,12 +51,26 @@ func registerExecuteFile(s *mcp.Server, d *Deps) {
 		if err != nil {
 			return ErrorResult("Runtime error: %v", err), nil
 		}
+		raw = fileSize(d.Cfg.ProjectDir, path) + int64(len(r.Stdout)+len(r.Stderr))
 		echo := buildExecuteEcho(string(e.lang), e.code, path)
 		if r.TimedOut {
 			return TextResult(echo+"Timed out processing "+path+" after "+e.msText()+"ms", true), nil
 		}
 		return finishRun(d, r, e, echo, "file:"+path), nil
 	})
+}
+
+// fileSize is the size of the file ctx_execute_file read, resolved against
+// the project as executor.Run resolves it; 0 when it cannot be read.
+func fileSize(projectDir, path string) int64 {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(projectDir, path)
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	return fi.Size()
 }
 
 // Description and schema below are generated from server.ts S:2056-2112.

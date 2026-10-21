@@ -111,7 +111,9 @@ func registerExecute(s *mcp.Server, d *Deps) {
 		Description: executeDesc,
 		Annotations: execAnnotations,
 		InputSchema: json.RawMessage(executeSchema),
-	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest) (res *mcp.CallToolResult, _ error) {
+		var raw int64
+		defer func() { d.Stats.Record(d, "ctx_execute", raw, res) }()
 		a, err := ParseArgs(req.Params.Arguments)
 		if err != nil {
 			return ArgError(err), nil
@@ -136,6 +138,7 @@ func registerExecute(s *mcp.Server, d *Deps) {
 		if err != nil {
 			return ErrorResult("Runtime error: %v", err), nil
 		}
+		raw = int64(len(r.Stdout) + len(r.Stderr))
 		echo := buildExecuteEcho(string(e.lang), e.code, "")
 		if r.TimedOut {
 			partial := strings.TrimSpace(r.Stdout)

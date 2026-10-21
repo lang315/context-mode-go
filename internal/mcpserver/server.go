@@ -20,6 +20,7 @@ type Deps struct {
 	Policy *security.Policy
 	Fetch  *fetch.Fetcher
 	Now    func() time.Time // injectable clock; defaults to time.Now
+	Stats  *StatsRecorder   // nil records no tool_stats
 }
 
 // New builds the MCP server with all six tools registered.
