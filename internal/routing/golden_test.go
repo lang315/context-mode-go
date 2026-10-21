@@ -26,6 +26,14 @@ type goldenCase struct {
 	Output     *string         `json:"output"`
 }
 
+// The routing block's ctx purge line, in TS and in cmgo (HOOKS-KNOWN-DIFFS
+// strings:ctx-purge): cmgo asks for the scope and warns before it deletes,
+// as the /ctx-purge skill does, instead of calling ctx_purge at once.
+const (
+	tsPurgeLine   = "    → Call purge MCP tool with confirm: true. Warn: irreversible.\n"
+	cmgoPurgeLine = "    → Ask whether to purge one session or the whole project, and warn: irreversible. Only after the user confirms, call purge MCP tool with confirm: true and that sessionId or scope: \"project\".\n"
+)
+
 // knownDiff is a case where cmgo differs from TS on purpose, one row of
 // testdata/golden/HOOKS-KNOWN-DIFFS.md. want is the cmgo output ("" for none).
 type knownDiff struct{ reason, want string }
@@ -151,7 +159,15 @@ func TestGoldenStrings(t *testing.T) {
 		t.Fatalf("hooks-strings.json: commit %q, %d routing blocks", g.TSCommit, len(g.RoutingBlocks))
 	}
 	for _, b := range g.RoutingBlocks {
-		if got := RoutingBlock(b.IncludeCommands, b.ToolSearchBootstrap); got != b.Text {
+		want := b.Text
+		if b.IncludeCommands {
+			// HOOKS-KNOWN-DIFFS strings:ctx-purge: the TS line must be there to replace.
+			if !strings.Contains(want, tsPurgeLine) {
+				t.Fatalf("%s: TS purge line not found; update the known diff", b.Name)
+			}
+			want = strings.Replace(want, tsPurgeLine, cmgoPurgeLine, 1)
+		}
+		if got := RoutingBlock(b.IncludeCommands, b.ToolSearchBootstrap); got != want {
 			t.Errorf("%s: RoutingBlock(%v, %v) differs\ngot:\n%s", b.Name, b.IncludeCommands, b.ToolSearchBootstrap, got)
 		}
 	}

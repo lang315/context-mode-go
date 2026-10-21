@@ -64,7 +64,10 @@ var (
   </session_continuity>
 `)
 	// Every TS command, now that cmgo has a tool for each (sub-project 5
-	// spec §4). The trigger lists and the context-mode wording are kept verbatim.
+	// spec §4). The trigger lists and the context-mode wording are kept
+	// verbatim. The ctx purge action differs (HOOKS-KNOWN-DIFFS
+	// strings:ctx-purge): it asks for the scope before deleting, as the
+	// /ctx-purge skill does.
 	blockCommands = named(`
   <ctx_commands>
     "ctx stats" | "ctx-stats" | "/ctx-stats" | context savings question
@@ -77,7 +80,7 @@ var (
     → Call upgrade MCP tool, run returned shell command, display as checklist.
 
     "ctx purge" | "ctx-purge" | "/ctx-purge" | wipe/reset knowledge base
-    → Call purge MCP tool with confirm: true. Warn: irreversible.
+    → Ask whether to purge one session or the whole project, and warn: irreversible. Only after the user confirms, call purge MCP tool with confirm: true and that sessionId or scope: "project".
 
     After /clear or /compact: knowledge base preserved. Tell user: "context-mode knowledge base preserved. Use ` + "`" + `ctx purge` + "`" + ` to start fresh."
   </ctx_commands>
