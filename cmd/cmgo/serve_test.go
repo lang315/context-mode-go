@@ -15,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/lang315/context-mode-go/internal/procinfo"
 )
 
 // rpcPeer drives serve() over in-process pipes with newline-delimited JSON-RPC.
@@ -319,20 +321,17 @@ func TestServeDeniesFromClaudeConfigDir(t *testing.T) {
 }
 
 func TestNewStatsRecorder(t *testing.T) {
-	procs := map[int]struct {
-		ppid int
-		name string
-	}{
-		500: {400, "cmgo"},
-		400: {300, "node"},
-		300: {1, "Claude"},
+	procs := map[int]procinfo.Info{
+		500: {PPID: 400, Exe: "/x/cmgo", Arg0: "cmgo"},
+		400: {PPID: 300, Exe: "/usr/bin/node", Arg0: "node"},
+		300: {PPID: 1, Exe: "/h/.local/share/claude/versions/2.1.304", Arg0: "claude"},
 	}
-	look := func(pid int) (int, string, error) {
+	look := func(pid int) (procinfo.Info, error) {
 		p, ok := procs[pid]
 		if !ok {
-			return 0, "", fmt.Errorf("no pid %d", pid)
+			return procinfo.Info{}, fmt.Errorf("no pid %d", pid)
 		}
-		return p.ppid, p.name, nil
+		return p, nil
 	}
 	start := time.Date(2026, 10, 21, 9, 30, 5, 123456789, time.FixedZone("x", 7200))
 	r := newStatsRecorder(500, start, look)

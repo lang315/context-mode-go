@@ -4,23 +4,53 @@ package procinfo
 
 import "strings"
 
-// Lookup returns a process's parent pid and executable name.
-type Lookup func(pid int) (ppid int, name string, err error)
+// Info is what the walk needs to know about one process.
+type Info struct {
+	PPID       int
+	Exe        string // executable path; "" when unreadable
+	Arg0, Arg1 string // argv[0] and argv[1]; "" when absent or unreadable
+}
+
+// Lookup returns a process's parent pid and the paths it was started with.
+// It fails only when the process cannot be found; unreadable paths are "".
+type Lookup func(pid int) (Info, error)
 
 // maxHops bounds the walk; it also ends parent cycles.
 const maxHops = 8
 
 // ClaudePID walks from pid's parent up to 8 hops and returns the first
-// ancestor whose name contains "claude" (case-insensitive), else 0.
-// pid's own name is not checked.
+// ancestor that looks like Claude Code, else 0. pid itself is not checked.
+//
+// The kernel's process name is no help: the native installer runs
+// ~/.local/bin/claude, a symlink to .../claude/versions/<version>, and darwin
+// then names the process "<version>". The executable path, argv[0] and argv[1]
+// do say "claude" (argv[1] covers a node install running
+// .../@anthropic-ai/claude-code/cli.js).
 func ClaudePID(pid int, look Lookup) int {
-	next, _, err := look(pid)
+	self, err := look(pid)
+	next := self.PPID
 	for hop := 0; hop < maxHops && err == nil && next > 0; hop++ {
 		cur := next
-		var name string
-		if next, name, err = look(cur); err == nil && strings.Contains(strings.ToLower(name), "claude") {
-			return cur
+		var info Info
+		if info, err = look(cur); err == nil {
+			if isClaude(info) {
+				return cur
+			}
+			next = info.PPID
 		}
 	}
 	return 0
+}
+
+// isClaude reports whether any of the paths has an element containing
+// "claude", case-insensitive.
+func isClaude(i Info) bool {
+	for _, p := range [...]string{i.Exe, i.Arg0, i.Arg1} {
+		for _, el := range strings.Split(p, "/") {
+			if strings.Contains(strings.ToLower(el), "claude") {
+				return true
+			}
+		}
+	}
+	return false
 }
