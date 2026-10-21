@@ -502,3 +502,34 @@ func TestHookNullAgentFieldsAreNotSubagent(t *testing.T) {
 		}
 	}
 }
+
+// A relative cat resolves against the cwd in the hook input, not the hook
+// process's own cwd; the hint writes no event.
+func TestHookPreToolUseBashReadGuidance(t *testing.T) {
+	env := hookEnv(t)
+	project := env["CLAUDE_PROJECT_DIR"]
+	if err := os.WriteFile(filepath.Join(project, "big.txt"), bytes.Repeat([]byte("x"), 20000), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	remove, err := routing.WriteSentinel(filepath.Join(env["CMGO_DIR"], "run"), os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer remove()
+
+	in := `{"tool_name":"Bash","tool_input":{"command":"cat big.txt"},"cwd":` + string(hookio.QuoteString(project)) + `,"session_id":"s1"}`
+	out := callHook(t, env, "pretooluse", in)
+	if !strings.Contains(out, `"additionalContext":"<context_guidance>`) || !strings.Contains(out, "about 20 KB (big.txt)") {
+		t.Fatalf("with cwd: got %q", out)
+	}
+	noDB(t, env)
+
+	// With no cwd in the input the hook process's cwd is the base: no such file there.
+	out = callHook(t, env, "pretooluse", `{"tool_name":"Bash","tool_input":{"command":"cat big.txt"},"session_id":"s2"}`)
+	if strings.Contains(out, "about 20 KB") {
+		t.Fatalf("without cwd: got %q", out)
+	}
+	if s := hookErrors(env); s != "" {
+		t.Fatalf("errors logged: %s", s)
+	}
+}

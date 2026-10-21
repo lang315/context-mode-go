@@ -145,6 +145,12 @@ def main(binary, runs):
         with open(os.path.join(run_dir, f"mcp-ready-{os.getpid()}"), "w") as f:
             f.write(str(os.getpid()))
 
+        # Bash read guidance: a 100 KB file, and eight 4 KB files for the 8-stat compound.
+        with open(os.path.join(project, "big.txt"), "wb") as f:
+            f.write(b"x" * 102400)
+        for n in range(1, 9):
+            with open(os.path.join(project, f"f{n}.txt"), "wb") as f:
+                f.write(b"y" * 4096)
         cases = [
             ("pretooluse passthrough", "pretooluse",
              lambda i: {"tool_name": "Bash", "tool_input": {"command": "git status"}, "session_id": "bench"},
@@ -152,6 +158,13 @@ def main(binary, runs):
             ("pretooluse curl redirect", "pretooluse",
              lambda i: {"tool_name": "Bash", "tool_input": {"command": "curl https://example.com"}, "session_id": "bench"},
              lambda out: b'"permissionDecision":"deny"' in out),
+            ("pretooluse bash large cat", "pretooluse",
+             lambda i: {"tool_name": "Bash", "tool_input": {"command": "cat big.txt"}, "cwd": project, "session_id": "bench-cat"},
+             lambda out: b"<context_guidance>" in out and b"about 100 KB (big.txt)" in out),
+            ("pretooluse bash compound (8 stats)", "pretooluse",
+             lambda i: {"tool_name": "Bash", "session_id": "bench-compound", "cwd": project,
+                        "tool_input": {"command": f"cd {project} && cat " + " ".join(f"f{n}.txt" for n in range(1, 9))}},
+             lambda out: b"<context_guidance>" in out and b"about 32 KB (f1.txt)" in out),
             ("posttooluse Read capture", "posttooluse", lambda i: read_payload(i, "bench"), lambda out: out == b""),
             ("userpromptsubmit", "userpromptsubmit",
              lambda i: {"prompt": f"please look at item {i} of the list and explain it in detail to me", "session_id": "bench"},
