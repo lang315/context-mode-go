@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/routing"
@@ -172,5 +173,59 @@ func TestBinaryHookMalformedStdin(t *testing.T) {
 	}
 	if _, code := runHookBinary(t, env, ""); code != 2 {
 		t.Fatalf("no event: exit %d", code)
+	}
+}
+
+// Spec §6.3: cmgo serve and cmgo-hook are separate processes that must
+// resolve the same sentinel dir from the same CMGO_DIR.
+func TestBinaryServeSentinelGatesRedirect(t *testing.T) {
+	env := hookEnv(t)
+	serve := exec.Command(builtBinary(t, "cmgo"), "serve")
+	serve.Env = execEnv(env)
+	stdin, err := serve.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var serveErr bytes.Buffer
+	serve.Stderr = &serveErr
+	if err := serve.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- serve.Wait() }()
+	defer func() {
+		serve.Process.Kill()
+		<-done
+	}()
+
+	sentinel := filepath.Join(env["CMGO_DIR"], "run", fmt.Sprintf("mcp-ready-%d", serve.Process.Pid))
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+		if _, err := os.Stat(sentinel); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("no sentinel after 10s (serve stderr %q)", serveErr.String())
+		}
+	}
+	out, code := runHookBinary(t, env, curlInput, "pretooluse")
+	if code != 0 || !strings.Contains(out, `"permissionDecision":"deny","permissionDecisionReason":"context-mode: curl/wget redirected.`) {
+		t.Fatalf("with serve: exit %d, stdout %q", code, out)
+	}
+
+	stdin.Close()
+	select {
+	case err := <-done:
+		done <- err // for the deferred cleanup
+		if err != nil {
+			t.Fatalf("serve: %v (stderr %q)", err, serveErr.String())
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("serve did not exit after stdin closed")
+	}
+	if _, err := os.Stat(sentinel); err == nil {
+		t.Fatal("sentinel left after serve exited")
+	}
+	if out, code := runHookBinary(t, env, curlInput, "pretooluse"); code != 0 || out != "" {
+		t.Fatalf("without serve: exit %d, stdout %q", code, out)
 	}
 }

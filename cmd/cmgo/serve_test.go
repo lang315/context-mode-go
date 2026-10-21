@@ -132,6 +132,37 @@ func TestServeListsFiveToolsAndExitsOnEOF(t *testing.T) {
 	}
 }
 
+// Spec §2.5: the MCP-ready sentinel lives exactly as long as serve.
+func TestServeWritesSentinel(t *testing.T) {
+	env := testEnv(t)
+	p := startServe(t, env)
+	p.initialize() // the store is open, so the sentinel is written
+	sentinel := filepath.Join(env["CMGO_DIR"], "run", fmt.Sprintf("mcp-ready-%d", os.Getpid()))
+	if b, err := os.ReadFile(sentinel); err != nil || string(b) != fmt.Sprint(os.Getpid()) {
+		t.Fatalf("sentinel %q: %v", b, err)
+	}
+	p.in.Close()
+	if code := <-p.done; code != 0 {
+		t.Fatalf("exit %d: %s", code, p.errb.String())
+	}
+	if _, err := os.Stat(sentinel); err == nil {
+		t.Fatal("sentinel left after serve returned")
+	}
+}
+
+// A sentinel that cannot be written costs the redirects, not the server.
+func TestServeSentinelErrorIsAWarning(t *testing.T) {
+	env := testEnv(t)
+	os.MkdirAll(env["CMGO_DIR"], 0o755)
+	os.WriteFile(filepath.Join(env["CMGO_DIR"], "run"), []byte("x"), 0o644) // run/ cannot be a dir
+	p := startServe(t, env)
+	p.initialize()
+	p.in.Close()
+	if code := <-p.done; code != 0 || !strings.Contains(p.errb.String(), "cmgo: mcp-ready sentinel skipped:") {
+		t.Fatalf("exit %d, stderr %q", code, p.errb.String())
+	}
+}
+
 func TestServeFailsOnUnusableDataDir(t *testing.T) {
 	env := testEnv(t)
 	blocker := filepath.Join(t.TempDir(), "file")

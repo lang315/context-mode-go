@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/lang315/context-mode-go/internal/executor"
 	"github.com/lang315/context-mode-go/internal/fetch"
 	"github.com/lang315/context-mode-go/internal/mcpserver"
+	"github.com/lang315/context-mode-go/internal/routing"
 	"github.com/lang315/context-mode-go/internal/security"
 	"github.com/lang315/context-mode-go/internal/store"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -45,6 +48,12 @@ func serve(ctx context.Context, sio serveIO) int {
 		return 1
 	}
 	defer st.Close()
+	// Hooks redirect curl and WebFetch only while a server is live (spec §2.5).
+	if remove, err := routing.WriteSentinel(filepath.Join(cfg.DataDir, "run"), os.Getpid()); err != nil {
+		fmt.Fprintf(sio.stderr, "cmgo: mcp-ready sentinel skipped: %v\n", err)
+	} else {
+		defer remove()
+	}
 	if _, err := st.CleanupIfDue(time.Now(), sourceRetention, cleanupEvery); err != nil {
 		fmt.Fprintf(sio.stderr, "cmgo: cleanup skipped: %v\n", err) // never fatal
 	}
