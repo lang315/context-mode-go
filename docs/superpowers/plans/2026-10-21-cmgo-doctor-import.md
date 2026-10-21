@@ -5594,3 +5594,31 @@ doctor exit 0
 - **The fail-first steps:** the replay did not run any task's Step 2. The drafting agents took each "Expected: FAIL" line from a real run while replaying their own tasks.
 - **External commands:** no real `go install`, `git pull` or `claude` was run. The upgrade runner is injected in every test.
 - **Real data:** import was never run against the real `~/.claude/context-mode` data. Only TS-schema fixtures were used.
+
+## Appendix C: Execution notes (2026-10-21)
+
+The plan was executed on branch `sp5-doctor-import`, with reviews at three checkpoints (Tasks 4, 11 and 17) and a whole-branch review. Every file of Tasks 1-17 matched this plan byte for byte, and the finished tree equalled the draft.
+
+**Errata in this plan:** none. One note for implementers: some code blocks are fenced with four backticks because they contain a line of three. An extractor must end a block only at the fence it opened with.
+
+**Fixed after the whole-branch review.** The reviewer ran the importer on copies of 12 real TS session DBs and 8 content DBs: 40 sessions and 9008 events in 1.1 s, with the originals unchanged. The spec was updated first (§2, §3.2-3.3), then each fix landed in its own commit, test first:
+
+| Finding | Fix |
+|---|---|
+| Medium: one unreadable TS DB aborted the whole import after part of it was written | Unreadable or corrupt DBs are skipped and counted (`unreadable`); the run completes and sets the mark |
+| A copy made while TS was writing could be torn | A malformed copy is copied again once, then skipped; the summary suggests closing TS sessions and re-running with `--force` |
+| Dedup dropped real repeats inside one source DB | Only rows already present from another source DB or an earlier run are skipped |
+| The TS `session-events` dump was imported as a source | Not imported (`session-events`) |
+| The report counted all-duplicate sessions as imported; `--force` overwrote the first import record | Such sessions count as `duplicate`; forced runs append to the mark |
+| Upgrade ignored GOBIN/GOPATH set with `go env -w` | The bin dir comes from `go env GOBIN GOPATH` |
+| A module upgrade could wait on a git credential prompt | `GIT_TERMINAL_PROMPT=0` |
+| Doctor read a different `.claude.json` than install wrote when `CLAUDE_CONFIG_DIR` was set to the default | Doctor and install share `config.ClaudeJSONPath` |
+
+**Final state:**
+- **Tests:** all pass, 0 fail, and `go test -race ./...` is clean.
+- **Bench:** at a load average of about 3, every hook case passes. The 4-worker concurrent case has p95 8.8 ms and the statusline p95 6.3 ms. Idle writes are 0 bytes in 60 s.
+- **Doctor:** on a temp HOME it exits 0 and prints WARN for the missing install.
+
+**Open follow-ups:**
+- **Load sensitivity:** on a loaded machine (load average about 6), the 4-worker and `sessionstart compact` hook cases can go just over 10 ms.
+- **Untested import shapes:** importing the full TS data dir, around 210 MB, and two imports at once.
