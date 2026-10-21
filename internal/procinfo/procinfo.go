@@ -15,8 +15,9 @@ type Info struct {
 	Start      time.Time // when the process started; zero when unknown
 }
 
-// Lookup returns a process's parent pid and the paths it was started with.
-// It fails only when the process cannot be found; unreadable paths are "".
+// Lookup returns a process's parent pid, the paths it was started with and
+// its start time. It fails only when the process cannot be found; unreadable
+// paths are "" and an unknown start time is zero.
 type Lookup func(pid int) (Info, error)
 
 // maxHops bounds the walk; it also ends parent cycles.

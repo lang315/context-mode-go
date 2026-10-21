@@ -10,8 +10,8 @@ func promptEvent(data string) []Event {
 }
 
 // A session linked late adopts the rows its Claude Code process's servers
-// wrote before the link, with an empty window. Rows of another process or project stay
-// where they are.
+// wrote before the link, with an empty window. Rows of another process or
+// project stay where they are.
 func TestInsertEventsAndLinkAdoptsUnlinkedRows(t *testing.T) {
 	s := openTest(t)
 	for _, r := range []struct {

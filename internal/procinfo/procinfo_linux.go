@@ -12,8 +12,8 @@ const userHZ = 100
 
 // System returns the Linux process table lookup: /proc/<pid>/stat for the
 // parent and the start time (with btime from /proc/stat), /proc/<pid>/exe and
-// /proc/<pid>/cmdline for the paths. The paths and start time are best
-// effort: another user's process refuses the paths.
+// /proc/<pid>/cmdline for the paths. Both are best effort: another user's
+// process refuses the paths, and the start time needs btime and field 22.
 func System() Lookup {
 	btime := sync.OnceValues(func() (int64, error) {
 		b, err := os.ReadFile("/proc/stat")

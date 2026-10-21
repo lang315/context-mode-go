@@ -91,9 +91,10 @@ func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs [
 	return inserted, tx.Commit()
 }
 
-// linkLate records cc as the session's Claude Code pid. The rows that
-// process's servers wrote for the project before the link, with an empty
-// window, then move to the session. Only servers started at or after ccStart are this
+// linkLate records cc as the session's Claude Code pid, and sets linked_at
+// even when cc is 0, so the walk does not run again. The rows that process's
+// servers wrote for the project before the link, with an empty window, then
+// move to the session. Only servers started at or after ccStart are this
 // process's, so the rows of an earlier process that had the same pid stay
 // put; a zero ccStart (unknown) takes every row. No row of the session's
 // window can exist yet: a server writes that window only once the session is

@@ -16,8 +16,7 @@ func System() Lookup {
 		if err != nil {
 			return Info{}, err
 		}
-		st := kp.Proc.P_starttime
-		info := Info{PPID: int(kp.Eproc.Ppid), Start: time.Unix(st.Sec, int64(st.Usec)*1000)}
+		info := Info{PPID: int(kp.Eproc.Ppid), Start: time.Unix(kp.Proc.P_starttime.Unix())}
 		if b, err := unix.SysctlRaw("kern.procargs2", pid); err == nil {
 			info.Exe, info.Arg0, info.Arg1 = parseProcArgs(b)
 		}
