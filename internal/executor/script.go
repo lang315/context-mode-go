@@ -151,18 +151,33 @@ if(__cm_req.cache)require.cache=__cm_req.cache;}
 async function __cm_main(){
 `
 
-// counterLine matches a wrapJS counter line with the newlines around it, as
-// the server.ts:1830-1842 replace does.
-var counterLine = regexp.MustCompile(`\n?__CM_(?:FS|NET)__:(\d+)\n?`)
+// counterLine matches a wrapJS counter line. It starts with a literal so a
+// large stderr is scanned fast; takeCounters adds the newline before it.
+var counterLine = regexp.MustCompile(`__CM_(?:FS|NET)__:(\d+)\n?`)
 
-// takeCounters removes the counter lines from stderr and returns their sum.
+// takeCounters removes the counter lines from stderr, each with the newline
+// before it as the server.ts:1830-1842 replace of \n?__CM_…\n? does, and
+// returns their sum.
 func takeCounters(stderr string) (string, int64) {
-	var n int64
-	for _, m := range counterLine.FindAllStringSubmatch(stderr, -1) {
-		v, _ := strconv.ParseInt(m[1], 10, 64)
-		n += v
+	ms := counterLine.FindAllStringSubmatchIndex(stderr, -1)
+	if ms == nil {
+		return stderr, 0
 	}
-	return counterLine.ReplaceAllString(stderr, ""), n
+	var out strings.Builder
+	var n int64
+	last := 0
+	for _, m := range ms {
+		v, _ := strconv.ParseInt(stderr[m[2]:m[3]], 10, 64)
+		n += v
+		start := m[0]
+		if start > last && stderr[start-1] == '\n' {
+			start--
+		}
+		out.WriteString(stderr[last:start])
+		last = m[1]
+	}
+	out.WriteString(stderr[last:])
+	return out.String(), n
 }
 
 // prepareCode applies every source transform before the script is written:

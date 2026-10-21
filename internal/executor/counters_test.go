@@ -51,6 +51,24 @@ console.log("ok");`
 	}
 }
 
+// takeCounters gives what the server.ts replace of \n?__CM_…:\d+\n? gives.
+func TestTakeCounters(t *testing.T) {
+	for _, c := range []struct {
+		in, out string
+		n       int64
+	}{
+		{"plain\n", "plain\n", 0},
+		{"__CM_FS__:5\n", "", 5},
+		{"err\n__CM_FS__:5\n__CM_NET__:7\n", "err", 12},
+		{"err__CM_NET__:7", "err", 7},
+		{"a\n__CM_FS__:5\nb\n", "ab\n", 5},
+	} {
+		if out, n := takeCounters(c.in); out != c.out || n != c.n {
+			t.Errorf("takeCounters(%q) = %q, %d; want %q, %d", c.in, out, n, c.out, c.n)
+		}
+	}
+}
+
 // Only the instrumented ctx_execute JS/TS wrapper reports counts: the same
 // line from another language, or from ctx_execute_file, is plain stderr.
 func TestRunCountsOnlyInstrumentedRuns(t *testing.T) {

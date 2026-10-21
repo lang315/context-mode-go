@@ -83,7 +83,7 @@ func (e *Executor) Run(ctx context.Context, r Request) (Result, error) {
 
 	res := e.spawn(ctx, argv, cwd, env, r.Timeout, r.Background)
 	keep = res.Backgrounded
-	if file == "" && (r.Language == JavaScript || r.Language == TypeScript) { // only wrapJS reports counts
+	if strings.HasPrefix(code, jsCounters) { // only a wrapJS run reports counts
 		res.Stderr, res.SandboxBytes = takeCounters(res.Stderr)
 	}
 	return res, nil
