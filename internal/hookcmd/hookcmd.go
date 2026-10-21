@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/lang315/context-mode-go/internal/capture"
 	"github.com/lang315/context-mode-go/internal/config"
 	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/routing"
@@ -22,6 +23,9 @@ import (
 // stdinTimeout bounds the stdin read (spec §1.2). It is a fallback: Claude
 // Code closes stdin. A var so the test need not wait 2 s.
 var stdinTimeout = 2 * time.Second
+
+// guidanceMaxAge is how long a guidance marker dir is kept (spec §4).
+const guidanceMaxAge = 7 * 24 * time.Hour
 
 // IO is what a hook fire talks over; tests inject env, cwd, stdin and clock.
 type IO struct {
@@ -45,7 +49,8 @@ type hookCtx struct {
 
 // hookHandlers maps a hook event name to its handler.
 var hookHandlers = map[string]func(*hookCtx) error{
-	"pretooluse": preToolUse,
+	"pretooluse":   preToolUse,
+	"sessionstart": sessionStart,
 }
 
 // Run runs one hook fire and always exits 0 (spec §1.2): an error or panic
@@ -173,4 +178,25 @@ func preToolUse(h *hookCtx) error {
 		}
 	}
 	return h.insertEvents("PreToolUse", routing.Events(tool, dec))
+}
+
+// sessionStart prints the routing block for every source (spec §4). Only
+// startup also prunes old guidance markers and records the rule and
+// session_start events; resume and compact context is sub-project 3.
+func sessionStart(h *hookCtx) error {
+	out := `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":` +
+		string(hookio.QuoteString(routing.RoutingBlock(false, false))) + "}}\n"
+	if _, err := io.WriteString(h.out, out); err != nil {
+		return err
+	}
+	src, _ := h.in.String("source")
+	if raw, ok := h.in.Get("source"); !ok || string(raw) == "null" {
+		src = "startup" // TS: input.source ?? "startup"
+	}
+	if src != "startup" {
+		return nil
+	}
+	routing.PruneGuidance(h.runDir, h.now, guidanceMaxAge)
+	evs := append(capture.SessionStartRules(h.cfg.Home, h.cfg.ProjectDir), capture.SessionStartEvent(src, h.cfg.ProjectDir, h.now))
+	return h.insertEvents("SessionStart", evs)
 }

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/routing"
 	"github.com/lang315/context-mode-go/internal/store"
 )
@@ -218,4 +219,58 @@ func TestHookStdinTimeout(t *testing.T) {
 	if code != 0 || out.Len() != 0 || !strings.Contains(hookErrors(env), "pretooluse: stdin") {
 		t.Fatalf("exit %d, out %q, log %q", code, out.String(), hookErrors(env))
 	}
+}
+
+func sessionStartOut() string {
+	return `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":` +
+		string(hookio.QuoteString(routing.RoutingBlock(false, false))) + "}}\n"
+}
+
+func TestHookSessionStartStartup(t *testing.T) {
+	env := hookEnv(t)
+	project := env["CLAUDE_PROJECT_DIR"]
+	homeRules := filepath.Join(env["HOME"], ".claude", "CLAUDE.md")
+	os.MkdirAll(filepath.Dir(homeRules), 0o755)
+	os.WriteFile(homeRules, []byte("home rules"), 0o644)
+	os.WriteFile(filepath.Join(project, "CLAUDE.md"), []byte("project rules"), 0o644)
+	runDir := filepath.Join(env["CMGO_DIR"], "run")
+	for _, d := range []string{"guidance-old", "guidance-new"} {
+		os.MkdirAll(filepath.Join(runDir, d), 0o700)
+	}
+	old := hookNow.Add(-8 * 24 * time.Hour)
+	os.Chtimes(filepath.Join(runDir, "guidance-old"), old, old)
+
+	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"startup"}`); out != sessionStartOut() {
+		t.Fatalf("got %q", out)
+	}
+	assertRows(t, eventRows(t, env, "s1"),
+		"rule|rule|1|"+homeRules+"|SessionStart|0",
+		"rule_content|rule|1|home rules|SessionStart|0",
+		"rule|rule|1|"+filepath.Join(project, "CLAUDE.md")+"|SessionStart|0",
+		"rule_content|rule|1|project rules|SessionStart|0",
+		fmt.Sprintf(`session_start|session_start|1|{"source":"startup","project_dir":%q,"started_at":%d}|SessionStart|0`, project, hookNow.Unix()))
+	if _, err := os.Stat(filepath.Join(runDir, "guidance-old")); err == nil {
+		t.Fatal("old guidance dir not pruned")
+	}
+	if _, err := os.Stat(filepath.Join(runDir, "guidance-new")); err != nil {
+		t.Fatal("fresh guidance dir removed")
+	}
+	// A missing or null source is startup, as TS input.source ?? "startup".
+	callHook(t, env, "sessionstart", `{"session_id":"s2"}`)
+	callHook(t, env, "sessionstart", `{"session_id":"s3","source":null}`)
+	for _, sid := range []string{"s2", "s3"} {
+		if rows := eventRows(t, env, sid); len(rows) != 5 {
+			t.Fatalf("%s rows: %q", sid, rows)
+		}
+	}
+}
+
+func TestHookSessionStartOtherSources(t *testing.T) {
+	env := hookEnv(t)
+	for _, src := range []string{"resume", "compact", "clear"} {
+		if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"`+src+`"}`); out != sessionStartOut() {
+			t.Fatalf("%s: got %q", src, out)
+		}
+	}
+	noDB(t, env)
 }
