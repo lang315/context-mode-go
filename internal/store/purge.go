@@ -26,8 +26,8 @@ func (s *Store) PurgeSession(sessionID, project string) (rows int64, err error) 
 }
 
 // PurgeProject deletes every source of project with its porter and trigram
-// chunks, and the events and meta rows of the project's sessions. The shared
-// vocabulary is kept. Returns the sources and sessions (meta rows) deleted.
+// chunks, the events and meta rows of the project's sessions, and the
+// project's tool_stats rows (stats spec §4). The shared vocabulary is kept. Returns the sources and sessions (meta rows) deleted.
 // This replaces the TS project scope, which unlinked the per-project DB files
 // (purge.ts:277-338); cmgo's DB is shared, so only this project's rows go.
 func (s *Store) PurgeProject(project string) (sources, sessions int64, err error) {
@@ -51,6 +51,9 @@ func (s *Store) PurgeProject(project string) (sources, sessions int64, err error
 		return 0, 0, err
 	}
 	if sessions, err = execCount(tx, "DELETE FROM session_meta WHERE project = ?", project); err != nil {
+		return 0, 0, err
+	}
+	if _, err := tx.Exec("DELETE FROM tool_stats WHERE project = ?", project); err != nil {
 		return 0, 0, err
 	}
 	return sources, sessions, tx.Commit()

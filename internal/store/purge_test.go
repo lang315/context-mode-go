@@ -48,6 +48,11 @@ func TestPurgeProjectLeavesOtherProjects(t *testing.T) {
 		}
 		insertTestEvents(t, s, p+"-s1", p, Event{Type: "a", Category: "file", Priority: 1, Data: "x"})
 		insertTestEvents(t, s, p+"-s2", p, Event{Type: "a", Category: "file", Priority: 1, Data: "y"})
+		for _, tool := range []string{"ctx_execute", "ctx_search"} {
+			if err := s.AddToolStat("srv"+p, 7, p, "2026-10-21 08:00:00", tool, 1, 2); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	vocab := tableCount(t, s, "SELECT count(*) FROM vocabulary")
 
@@ -77,6 +82,12 @@ func TestPurgeProjectLeavesOtherProjects(t *testing.T) {
 	}
 	if n := tableCount(t, s, "SELECT count(*) FROM session_meta WHERE project = '/q'"); n != 2 {
 		t.Fatalf("/q meta = %d", n)
+	}
+	if n := tableCount(t, s, "SELECT count(*) FROM tool_stats WHERE project = '/p'"); n != 0 {
+		t.Fatalf("/p tool_stats = %d", n)
+	}
+	if n := tableCount(t, s, "SELECT count(*) FROM tool_stats WHERE project = '/q'"); n != 2 {
+		t.Fatalf("/q tool_stats = %d", n)
 	}
 	if n := tableCount(t, s, "SELECT count(*) FROM vocabulary"); n != vocab {
 		t.Fatalf("vocabulary %d -> %d", vocab, n)
