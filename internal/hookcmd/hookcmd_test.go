@@ -337,3 +337,26 @@ func TestHookPreToolUseDenyFromClaudeConfigDir(t *testing.T) {
 		t.Fatalf("got %q", out)
 	}
 }
+
+// TS stop.mjs prints {} after its try/catch, so a failed DB write must not
+// swallow the output. The error is still logged where it can be.
+func TestHookStopPrintsWhenDBWriteFails(t *testing.T) {
+	env := hookEnv(t)
+	blocker := filepath.Join(t.TempDir(), "file")
+	os.WriteFile(blocker, []byte("x"), 0o644)
+	env["CMGO_DIR"] = filepath.Join(blocker, "data") // parent is a regular file
+	if out := callHook(t, env, "stop", `{"session_id":"s1","stop_hook_active":false}`); out != "{}\n" {
+		t.Fatalf("got %q", out)
+	}
+
+	// With a usable data dir but a locked DB the line is logged.
+	env = hookEnv(t)
+	callHook(t, env, "stop", `{"session_id":"s1"}`)
+	holdDBLock(t, filepath.Join(env["CMGO_DIR"], "cmgo.db"))
+	if out := callHook(t, env, "stop", `{"session_id":"s1"}`); out != "{}\n" {
+		t.Fatalf("locked: got %q", out)
+	}
+	if log, _ := os.ReadFile(filepath.Join(env["CMGO_DIR"], "hook-errors.log")); !strings.Contains(string(log), "stop:") {
+		t.Fatalf("no logged error: %q", log)
+	}
+}

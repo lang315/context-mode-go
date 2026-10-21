@@ -217,11 +217,13 @@ func stop(h *hookCtx) error {
 	if s, ok := h.in.String("last_assistant_message"); ok {
 		msg = &s
 	}
+	// TS stop.mjs prints after its try/catch: a failed write must not swallow
+	// the output, so print first and still return the write error to be logged.
+	_, werr := io.WriteString(h.out, "{}\n")
 	if err := h.insertEvents("Stop", []store.Event{capture.Stop(active, msg)}); err != nil {
 		return err
 	}
-	_, err := io.WriteString(h.out, "{}\n")
-	return err
+	return werr
 }
 
 // sessionStart prints the routing block for every source (spec §4). Only
