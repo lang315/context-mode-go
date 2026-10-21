@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -53,19 +54,39 @@ func SearchAutoMemory(query string, limit int, projectDir, claudeDir string) []M
 		if len(hits) >= limit {
 			break
 		}
-		info, err := os.Stat(c.path)
-		if err != nil || info.Size() > autoMemoryMaxBytes {
-			continue
-		}
-		b, err := os.ReadFile(c.path)
-		if err != nil {
+		b, mtime, ok := readMemoryFile(c.path)
+		if !ok {
 			continue
 		}
 		if snippet, ok := autoMemorySnippet(string(b), terms); ok {
-			hits = append(hits, MemoryHit{Title: "[auto-memory] " + c.label, Content: snippet, Source: c.label, Timestamp: info.ModTime()})
+			hits = append(hits, MemoryHit{Title: "[auto-memory] " + c.label, Content: snippet, Source: c.label, Timestamp: mtime})
 		}
 	}
 	return hits
+}
+
+// readMemoryFile reads a regular file of at most autoMemoryMaxBytes. The path
+// may be a symlink; what it points at must be a regular file, because opening
+// a FIFO blocks and a device such as /dev/zero never ends. The read is capped
+// too, in case the file grows after the stat.
+func readMemoryFile(path string) (b []byte, mtime time.Time, ok bool) {
+	info, err := os.Stat(path) // follows symlinks
+	if err != nil || !info.Mode().IsRegular() || info.Size() > autoMemoryMaxBytes {
+		return nil, time.Time{}, false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, time.Time{}, false
+	}
+	defer f.Close()
+	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() { // swapped since the stat
+		return nil, time.Time{}, false
+	}
+	b, err = io.ReadAll(io.LimitReader(f, autoMemoryMaxBytes+1))
+	if err != nil || len(b) > autoMemoryMaxBytes {
+		return nil, time.Time{}, false
+	}
+	return b, info.ModTime(), true
 }
 
 // autoMemoryTerms is query.toLowerCase().split(/\s+/) keeping terms of at

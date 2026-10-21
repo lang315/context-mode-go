@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -148,5 +149,46 @@ func TestAutoMemorySnippet(t *testing.T) {
 		if !ok || got != c.want {
 			t.Errorf("%s: ok=%v\ngot  %q\nwant %q", c.name, ok, got, c.want)
 		}
+	}
+}
+
+// searchPromptly runs SearchAutoMemory and fails when it takes over a second:
+// a FIFO or an endless file as a memory file must not stall ctx_search.
+func searchPromptly(t *testing.T, project, claudeDir string) []MemoryHit {
+	t.Helper()
+	done := make(chan []MemoryHit, 1)
+	go func() { done <- SearchAutoMemory("widget", 10, project, claudeDir) }()
+	select {
+	case hits := <-done:
+		return hits
+	case <-time.After(time.Second):
+		t.Fatal("SearchAutoMemory still running after 1s")
+		return nil
+	}
+}
+
+func TestSearchAutoMemorySkipsFIFO(t *testing.T) {
+	project, claudeDir, memDir := memoryFixture(t)
+	for _, p := range []string{filepath.Join(project, "CLAUDE.md"), filepath.Join(memDir, "a.md")} {
+		os.Remove(p)
+		if err := syscall.Mkfifo(p, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := hitLabels(searchPromptly(t, project, claudeDir)); got != "user/CLAUDE.md,memory/b.md" {
+		t.Fatalf("labels = %s", got)
+	}
+}
+
+func TestSearchAutoMemorySkipsEndlessFile(t *testing.T) {
+	project, claudeDir, memDir := memoryFixture(t)
+	for _, p := range []string{filepath.Join(project, "CLAUDE.md"), filepath.Join(memDir, "a.md")} {
+		os.Remove(p)
+		if err := os.Symlink("/dev/zero", p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := hitLabels(searchPromptly(t, project, claudeDir)); got != "user/CLAUDE.md,memory/b.md" {
+		t.Fatalf("labels = %s", got)
 	}
 }
