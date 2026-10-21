@@ -29,8 +29,8 @@ type Options struct {
 
 // Install replaces cmgo's hook commands in the settings file with the
 // HookEvents entries for o.HookBinary, keeping every other command, points
-// statusLine at it unless another statusline is set, then registers o.Binary
-// as the MCP server.
+// statusLine at it unless another statusline is set, writes cmgo's skills,
+// then registers o.Binary as the MCP server.
 func Install(o Options) error {
 	if o.HookBinary == "" {
 		o.HookBinary = filepath.Join(filepath.Dir(o.Binary), "cmgo-hook")
@@ -56,11 +56,14 @@ func Install(o Options) error {
 	if err := s.save(o); err != nil {
 		return err
 	}
+	if err := installSkills(o); err != nil {
+		return err
+	}
 	return registerMCP(o, true)
 }
 
-// Uninstall removes cmgo's hook commands, its statusLine and the MCP server.
-// It leaves enabledPlugins and another statusline alone.
+// Uninstall removes cmgo's hook commands, its statusLine, its unedited skills
+// and the MCP server. It leaves enabledPlugins and another statusline alone.
 func Uninstall(o Options) error {
 	s, err := loadSettings(o.SettingsPath)
 	if err != nil {
@@ -70,6 +73,9 @@ func Uninstall(o Options) error {
 	if stripHooks(s.root)+stripStatusLine(s.root) == 0 && !o.DryRun {
 		fmt.Fprintf(o.Stdout, "cmgo: no cmgo hooks in %s\n", s.path)
 	} else if err := s.save(o); err != nil {
+		return err
+	}
+	if err := uninstallSkills(o); err != nil {
 		return err
 	}
 	return registerMCP(o, false)
