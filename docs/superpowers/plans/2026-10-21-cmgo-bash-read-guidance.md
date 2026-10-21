@@ -37,7 +37,7 @@
 - Modify `internal/routing/text.go`: two guidance templates.
 - Modify `internal/hookcmd/hookcmd.go`: fill `Cwd`, `Home`; test in `hookcmd_test.go`.
 - Modify `testdata/golden/HOOKS-KNOWN-DIFFS.md`, `CLAUDE.md`, `bench/hook-latency.py`.
-- Create `internal/routing/replay_test.go`: replay helper over a fixture (Task 4).
+- Create `internal/routing/replay_test.go`: replay helper over a fixture (Task 4). Create `internal/routing/replay_audit_test.go` (`//go:build audit`): the replay of the real audit, which reads the real home.
 
 ---
 
@@ -140,7 +140,7 @@ Also `TestEstimateReadLargest`: `cat a.txt sub/c.txt` returns largest `sub/c.txt
 
 ### Task 4: replay helper, known-diffs row, docs
 
-**Files:** Create `internal/routing/replay_test.go`; modify `testdata/golden/HOOKS-KNOWN-DIFFS.md`, `CLAUDE.md`.
+**Files:** Create `internal/routing/replay_test.go`, `internal/routing/replay_audit_test.go`; modify `testdata/golden/HOOKS-KNOWN-DIFFS.md`, `CLAUDE.md`.
 
 - [ ] **Step 1: Write the failing tests.**
   - `TestReplayFixture`: a fixture list of `{cwd, command, recorded int}` over temp files; the helper `replay(rows, thresholds)` returns per-threshold counts of flagged calls, recorded bytes flagged, over-estimates (flagged with recorded under 5 KiB) and skipped (no operand file exists). Assert exact numbers on a 6-row fixture (two flagged at 16 KiB, one skipped, one limiter-bounded, one `sed`, one heredoc).
@@ -148,7 +148,7 @@ Also `TestEstimateReadLargest`: `cat a.txt sub/c.txt` returns largest `sub/c.txt
 - [ ] **Step 2: Run** → FAIL (`replay undefined`; row missing).
 - [ ] **Step 3: Implement** `replay` in the test file (it reuses `estimateRead`); add the row and the new ID-form paragraph to `HOOKS-KNOWN-DIFFS.md`; add `CMGO_BASH_READ_MIN_BYTES` to the config list in `CLAUDE.md`.
 - [ ] **Step 4: Run** `go test ./internal/routing -count=1` → PASS.
-- [ ] **Step 5: Run the replay on the real audit data** (one-off, not committed): feed the audit commands through the same helper (`go run` from a temp test, scratchpad only) and record the table in the PR body: per threshold flagged, share, over-estimates, skipped. If over-estimates at 16 KiB exceed 10, change `readGuardBytesPerLine` or the default before Task 5.
+- [ ] **Step 5: Run the replay on the real audit data.** `TestReplayAudit` lives in `replay_audit_test.go` behind the `audit` build tag, because it stats real files under the real home and tests must not: `CMGO_AUDIT_JSON=<audit>/transcripts-raw.json go test -tags audit -run TestReplayAudit -v ./internal/routing`. Check that it compiles with `go vet -tags audit ./internal/routing`. Record the table in the PR body: per threshold flagged, share, over-estimates, skipped. If over-estimates at 16 KiB exceed 10, change `readGuardBytesPerLine` or the default before Task 5.
 - [ ] **Step 6: Commit** `docs: record the Bash read guidance difference and config switch`.
 
 ### Task 5: bench, evidence, PR

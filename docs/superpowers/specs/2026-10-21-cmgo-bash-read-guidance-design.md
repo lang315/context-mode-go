@@ -174,7 +174,7 @@ Prototype run (Python, throwaway, same rules, 2026-10-21): 1,367 `cat` / `nl` ca
 | 20 KiB | 78 | 1.4 MB | 3.8% | 0 |
 | 30 KiB | 12 | 0.2 MB | 0.5% | 0 |
 
-The real classifier (`TestReplayAudit`, run with `CMGO_AUDIT_JSON` set to the audit's `transcripts-raw.json`, 2026-10-21) agrees: 747 reader calls replayed, 591 skipped (44%), and at 16 KiB 137 flagged = 6.1% of the large-Bash bytes with 0 over-estimates (8 KiB: 438, 15.4%; 12 KiB: 264, 10.7%; 20 KiB: 85, 4.1%; 30 KiB: 13, 0.6%).
+The real classifier (`TestReplayAudit`, behind the `audit` build tag because it reads the real home: `CMGO_AUDIT_JSON=<audit>/transcripts-raw.json go test -tags audit -run TestReplayAudit -v ./internal/routing`, 2026-10-21) agrees: 747 reader calls replayed, 591 skipped (44%), and at 16 KiB 137 flagged = 6.1% of the large-Bash bytes with 0 over-estimates (8 KiB: 438, 15.4%; 12 KiB: 264, 10.7%; 20 KiB: 85, 4.1%; 30 KiB: 13, 0.6%).
 
 The stat estimate has no false over-estimate at any threshold, so the choice of threshold is about intent (§4), not accuracy. This confirms the 16 KiB default and the 64 bytes per line (the over-estimate limit of 10 at 16 KiB was not reached).
 
