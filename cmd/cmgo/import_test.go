@@ -163,3 +163,20 @@ func TestImportCommandHintsOnUnreadableDBs(t *testing.T) {
 		t.Fatalf("last line = %q\n%s", last, out)
 	}
 }
+
+func TestImportCommandCountsSessionEventsSource(t *testing.T) {
+	root := tsRoot(t)
+	db, err := driver.Open((&url.URL{Scheme: "file", Path: filepath.Join(root, "content", "0123456789abcdef.db")}).String(), fts5.Register)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec("INSERT INTO sources(label, indexed_at) VALUES('session-events', ?)", time.Now().UTC().Format("2006-01-02 15:04:05")); err != nil {
+		t.Fatal(err)
+	}
+	getenv, _ := importEnv(t, nil)
+	_, out, _ := runImportCmd(getenv, "--from", root, "--dry-run")
+	if want := "  sources:  1 imported (2 chunks), 2 skipped (1 expired, 1 session-events)\n"; !strings.Contains(out, want) {
+		t.Fatalf("output lacks %q:\n%s", want, out)
+	}
+}

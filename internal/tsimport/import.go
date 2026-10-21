@@ -48,6 +48,7 @@ type Report struct {
 	ExpiredSources, NoProjectSources              int
 	ExistingSources                               int // a cmgo source with the same (project, label) won
 	UnreadableSessionDBs, UnreadableContentDBs    int // TS DBs that could not be read; each is skipped whole
+	SessionEventsSources                          int // TS "session-events" dumps, not imported
 }
 
 // DefaultRoot returns the first TS data root that exists, probing
@@ -227,6 +228,9 @@ func importContent(st *store.Store, o Options, tmp string, projects map[string]s
 		project := projects[strings.TrimSuffix(filepath.Base(f), ".db")]
 		for _, s := range sources {
 			switch {
+			case s.label == "session-events":
+				r.SessionEventsSources++
+				continue
 			case s.indexedAt < cutoff:
 				r.ExpiredSources++
 				continue

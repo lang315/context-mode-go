@@ -55,7 +55,7 @@ func runImport(args []string, stdout, stderr io.Writer, getenv func(string) stri
 		skipped(reason{r.InactiveSessions, "inactive"}, reason{r.NoProjectSessions, "no project"}, reason{r.UnreadableSessionDBs, "unreadable"}))
 	fmt.Fprintf(stdout, "  events:   %d imported, %d duplicates\n", r.Events, r.DupEvents)
 	fmt.Fprintf(stdout, "  sources:  %d imported (%d chunks), %s\n", r.Sources, r.Chunks,
-		skipped(reason{r.ExpiredSources, "expired"}, reason{r.NoProjectSources, "no project"}, reason{r.ExistingSources, "exists"}, reason{r.UnreadableContentDBs, "unreadable"}))
+		skipped(reason{r.ExpiredSources, "expired"}, reason{r.NoProjectSources, "no project"}, reason{r.ExistingSources, "exists"}, reason{r.UnreadableContentDBs, "unreadable"}, reason{r.SessionEventsSources, "session-events"}))
 	fmt.Fprintf(stdout, "done in %d ms\n", time.Since(start).Milliseconds())
 	if r.UnreadableSessionDBs+r.UnreadableContentDBs > 0 {
 		fmt.Fprintln(stdout, "some TS databases could not be read; close the Claude Code sessions that still run the TS plugin and run the import again with --force")

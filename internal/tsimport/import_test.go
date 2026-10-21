@@ -397,3 +397,24 @@ func TestRunKeepsRepeatsWithinOneDB(t *testing.T) {
 		t.Fatalf("report = %+v, %v; want 2 events, 0 duplicates", got, err)
 	}
 }
+
+// TS's events dump source is not imported: cmgo answers it from the events table.
+func TestRunSkipsSessionEventsSource(t *testing.T) {
+	root := buildRoot(t)
+	cdb := tsDB(t, filepath.Join(root, "content", "aaaaaaaaaaaaaaaa.db"), contentDDL)
+	addSource(t, cdb, "session-events", ago(day), [3]string{"Events", "decision: use quokkaline", "prose"})
+	o := options(t, root)
+	got, err := Run(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := wantReport
+	want.Root, want.SessionEventsSources = root, 1
+	if got != want {
+		t.Fatalf("report = %+v\nwant     %+v", got, want)
+	}
+	st := openStore(t, o.DBPath)
+	if src, _ := st.SourceByLabel(config.NormalizeProject("/Proj/A"), "session-events"); src != nil {
+		t.Fatal("session-events source imported")
+	}
+}
