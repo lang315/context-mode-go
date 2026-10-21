@@ -317,3 +317,52 @@ func TestServeDeniesFromClaudeConfigDir(t *testing.T) {
 	p.in.Close()
 	<-p.done
 }
+
+func TestNewStatsRecorder(t *testing.T) {
+	procs := map[int]struct {
+		ppid int
+		name string
+	}{
+		500: {400, "cmgo"},
+		400: {300, "node"},
+		300: {1, "Claude"},
+	}
+	look := func(pid int) (int, string, error) {
+		p, ok := procs[pid]
+		if !ok {
+			return 0, "", fmt.Errorf("no pid %d", pid)
+		}
+		return p.ppid, p.name, nil
+	}
+	start := time.Date(2026, 10, 21, 9, 30, 5, 123456789, time.FixedZone("x", 7200))
+	r := newStatsRecorder(500, start, look)
+	want := fmt.Sprintf("500-%d", start.UnixNano())
+	if r.ServerID != want || r.CCPID != 300 || r.StartedAt != "2026-10-21 07:30:05" {
+		t.Fatalf("recorder = %+v, want server %s", r, want)
+	}
+	if r := newStatsRecorder(400, start, look); r.CCPID != 300 {
+		t.Fatalf("from node: cc_pid %d", r.CCPID)
+	}
+	if r := newStatsRecorder(300, start, look); r.CCPID != 0 { // no claude ancestor above it
+		t.Fatalf("from claude itself: cc_pid %d", r.CCPID)
+	}
+}
+
+// serve records every tool call; ctx_stats reads the rows back.
+func TestServeRecordsToolStats(t *testing.T) {
+	env := testEnv(t)
+	p := startServe(t, env)
+	p.initialize()
+	call := func(id int, name string, args map[string]any) string {
+		p.send(map[string]any{"jsonrpc": "2.0", "id": id, "method": "tools/call", "params": map[string]any{"name": name, "arguments": args}})
+		res := p.recv(id)["result"].(map[string]any)
+		return res["content"].([]any)[0].(map[string]any)["text"].(string)
+	}
+	call(2, "ctx_execute", map[string]any{"language": "shell", "code": "echo hi"})
+	call(3, "ctx_execute", map[string]any{"language": "shell", "code": "echo again"})
+	if text := call(4, "ctx_stats", map[string]any{}); !strings.Contains(text, "\n  ctx_execute               2 calls") || !strings.HasSuffix(text, "\n\ncmgo "+version) {
+		t.Fatalf("ctx_stats:\n%s", text)
+	}
+	p.in.Close()
+	<-p.done
+}
