@@ -134,6 +134,9 @@ func (e *Executor) spawn(ctx context.Context, argv []string, cwd string, env []s
 	timedOut := false
 	select {
 	case <-done:
+		if !background {
+			syscall.Kill(-pgid, syscall.SIGKILL) // leftover grandchildren; ESRCH when none, ignored
+		}
 	case <-expired:
 		timedOut = true
 		if background {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -220,5 +221,19 @@ func TestRunRustCompileError(t *testing.T) {
 	res := run(t, e, Request{Language: Rust, Code: "fn main() { nope }"})
 	if res.ExitCode != 1 || !strings.HasPrefix(res.Stderr, "Compilation failed:\n") || res.Stdout != "" {
 		t.Fatalf("got %+v", res)
+	}
+}
+
+// A foreground run must not leave grandchildren behind once the shell exits.
+func TestRunForegroundKillsLeftoverGrandchildren(t *testing.T) {
+	marker := "sleep " + strconv.Itoa(6000+os.Getpid()%3000) // built at runtime: not in any other command line
+	res := run(t, newTestExec(t), Request{Language: Shell, Code: "echo hi; " + marker + " &"})
+	if res.Stdout != "hi\n" || res.ExitCode != 0 || res.Backgrounded {
+		t.Fatalf("got %+v", res)
+	}
+	time.Sleep(200 * time.Millisecond)
+	if alive("-f", marker) {
+		exec.Command("pkill", "-f", marker).Run()
+		t.Fatalf("%q still running after Run returned", marker)
 	}
 }
