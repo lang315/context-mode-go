@@ -68,6 +68,7 @@ func TestExecuteFileArgErrors(t *testing.T) {
 	for _, args := range []string{
 		`{"language":"shell","code":"echo hi"}`,
 		`{"path":"data.txt","language":"cobol","code":"x"}`,
+		`{"path":"","language":"shell","code":"echo hi"}`,
 	} {
 		if text, isErr := h.call("ctx_execute_file", args); !isErr || !strings.HasPrefix(text, "Invalid arguments: ") {
 			t.Errorf("%s: got %v %q", args, isErr, text)

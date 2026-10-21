@@ -25,6 +25,8 @@ func registerExecuteFile(s *mcp.Server, d *Deps) {
 		path, ok, err := a.String("path")
 		if err == nil && !ok {
 			err = errors.New("path: required")
+		} else if err == nil && path == "" {
+			err = errors.New("path: must not be empty")
 		}
 		if err != nil {
 			return ArgError(err), nil
