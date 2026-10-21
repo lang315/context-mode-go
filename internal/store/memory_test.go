@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -72,5 +73,70 @@ func TestSessionEventsForSearch(t *testing.T) {
 	if e := evs[0]; e.SessionID != "s2" || e.Project != "/p" || e.Type != "decision" || e.Category != "decision" ||
 		e.Priority != 2 || e.SourceHook != "PostToolUse" || !sqliteTimeRe.MatchString(e.CreatedAt) {
 		t.Fatalf("row = %+v", e)
+	}
+}
+
+func compactCount(t *testing.T, s *Store, sid string) int {
+	t.Helper()
+	var n int
+	if err := s.db.QueryRow("SELECT compact_count FROM session_meta WHERE session_id = ?", sid).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestCompactSession(t *testing.T) {
+	s := openTest(t)
+	// No events: nothing is written, not even a session_meta row (TS precompact skips, no idle writes).
+	if n, files, err := s.CompactSession("empty", "/p"); err != nil || n != 0 || files != 0 {
+		t.Fatalf("empty = %d %d %v", n, files, err)
+	}
+	var metas int
+	if err := s.db.QueryRow("SELECT count(*) FROM session_meta").Scan(&metas); err != nil || metas != 0 {
+		t.Fatalf("meta rows = %d %v", metas, err)
+	}
+
+	insertTestEvents(t, s, "s1", "/p",
+		Event{Type: "file_read", Category: "file", Priority: 1, Data: "a.go"},
+		Event{Type: "file_write", Category: "file", Priority: 1, Data: "b.go"},
+		Event{Type: "git", Category: "git", Priority: 2, Data: "status"},
+	)
+	n, files, err := s.CompactSession("s1", "/p")
+	if err != nil || n != 3 || files != 2 {
+		t.Fatalf("CompactSession = %d %d %v", n, files, err)
+	}
+	evs, _ := s.SessionEvents("s1")
+	last := evs[len(evs)-1]
+	if len(evs) != 4 || last.Type != "compaction_summary" || last.Category != "compaction" || last.Priority != 1 ||
+		last.Data != "Session compacted. 3 events, 2 files touched." || last.SourceHook != "PreCompact" || last.Project != "/p" {
+		t.Fatalf("rows = %+v", evs)
+	}
+	if _, _, _, count := metaRow(t, s, "s1"); count != 4 || compactCount(t, s, "s1") != 1 {
+		t.Fatalf("meta event_count %d compact_count %d", count, compactCount(t, s, "s1"))
+	}
+
+	// The second compaction counts the first summary.
+	if n, files, err := s.CompactSession("s1", "/p"); err != nil || n != 4 || files != 2 {
+		t.Fatalf("second = %d %d %v", n, files, err)
+	}
+	evs, _ = s.SessionEvents("s1")
+	if evs[len(evs)-1].Data != "Session compacted. 4 events, 2 files touched." || compactCount(t, s, "s1") != 2 {
+		t.Fatalf("second rows = %+v", evs)
+	}
+}
+
+func TestCompactSessionKeepsEventCap(t *testing.T) {
+	s := openTest(t)
+	evs := make([]Event, MaxEventsPerSession)
+	for i := range evs {
+		evs[i] = Event{Type: "note", Category: "file", Priority: 4, Data: fmt.Sprint("e", i)}
+	}
+	insertTestEvents(t, s, "s1", "/p", evs...)
+	if n, files, err := s.CompactSession("s1", "/p"); err != nil || n != MaxEventsPerSession || files != MaxEventsPerSession {
+		t.Fatalf("CompactSession = %d %d %v", n, files, err)
+	}
+	got, _ := s.SessionEvents("s1")
+	if len(got) != MaxEventsPerSession || got[0].Data != "e1" || got[len(got)-1].Type != "compaction_summary" {
+		t.Fatalf("%d rows, first %q last %q", len(got), got[0].Data, got[len(got)-1].Type)
 	}
 }

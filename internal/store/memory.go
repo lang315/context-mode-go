@@ -1,6 +1,9 @@
 package store
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+)
 
 // SessionEventsForSearch returns the rows of project whose data or category
 // contains every whitespace-separated term of query (SQLite LIKE: ASCII
@@ -44,3 +47,31 @@ func scanEvents(rows *sql.Rows) ([]StoredEvent, error) {
 	return out, rows.Err()
 }
 
+// CompactSession records a compaction (spec §2.1) in one transaction: it
+// counts the session's events (n) and its file-category events (files),
+// inserts the compaction_summary event with InsertEvents' dedup and cap,
+// and increments compact_count. A session with no events is left untouched,
+// as TS precompact.mjs:47 skips it.
+func (s *Store) CompactSession(sessionID, project string) (n, files int, err error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback()
+	if err := tx.QueryRow("SELECT count(*), count(CASE WHEN category = 'file' THEN 1 END) FROM session_events WHERE session_id = ?",
+		sessionID).Scan(&n, &files); err != nil {
+		return 0, 0, err
+	}
+	if n == 0 {
+		return 0, 0, nil
+	}
+	ev := Event{Type: "compaction_summary", Category: "compaction", Priority: 1,
+		Data: fmt.Sprintf("Session compacted. %d events, %d files touched.", n, files)}
+	if _, err := insertEvents(tx, sessionID, project, "PreCompact", []Event{ev}); err != nil {
+		return 0, 0, err
+	}
+	if _, err := tx.Exec("UPDATE session_meta SET compact_count = compact_count + 1 WHERE session_id = ?", sessionID); err != nil {
+		return 0, 0, err
+	}
+	return n, files, tx.Commit()
+}
