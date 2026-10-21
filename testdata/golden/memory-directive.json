@@ -1,0 +1,1236 @@
+{
+  "tsCommit": "a5e6dd31",
+  "cases": [
+    {
+      "name": "full/compact",
+      "source": "compact",
+      "events": [
+        {
+          "id": 1,
+          "type": "session_start",
+          "category": "session_start",
+          "data": "{\"source\":\"startup\"}",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "rule",
+          "category": "rule",
+          "data": "/home/u/proj/CLAUDE.md",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 3,
+          "type": "rule_content",
+          "category": "rule",
+          "data": "# Rules\n## Sub\nUse tabs & <b>.",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 4,
+          "type": "user_prompt",
+          "category": "user-prompt",
+          "data": "Fix the login bug in auth.ts",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 5,
+          "type": "file_read",
+          "category": "file",
+          "data": "/home/u/proj/src/auth.ts",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 6,
+          "type": "file_edit",
+          "category": "file",
+          "data": "/home/u/proj/src/auth.ts",
+          "created_at": "2026-01-01 00:00:04"
+        },
+        {
+          "id": 7,
+          "type": "file_glob",
+          "category": "file",
+          "data": "**/*.ts in /home/u/proj/src",
+          "created_at": "2026-01-01 00:00:04"
+        },
+        {
+          "id": 8,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"Write tests\"}",
+          "created_at": "2026-01-01 00:00:05"
+        },
+        {
+          "id": 9,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"Ship fix\"}",
+          "created_at": "2026-01-01 00:00:05"
+        },
+        {
+          "id": 10,
+          "type": "task_update",
+          "category": "task",
+          "data": "{\"taskId\":\"1\",\"status\":\"completed\"}",
+          "created_at": "2026-01-01 00:00:06"
+        },
+        {
+          "id": 11,
+          "type": "decision",
+          "category": "decision",
+          "data": "use bcrypt not md5",
+          "created_at": "2026-01-01 00:00:07"
+        },
+        {
+          "id": 12,
+          "type": "error_tool",
+          "category": "error",
+          "data": "TypeError: x is undefined",
+          "created_at": "2026-01-01 00:00:08"
+        },
+        {
+          "id": 13,
+          "type": "git",
+          "category": "git",
+          "data": "commit",
+          "created_at": "2026-01-01 00:00:09"
+        },
+        {
+          "id": 14,
+          "type": "git",
+          "category": "git",
+          "data": "commit",
+          "created_at": "2026-01-01 00:00:09"
+        },
+        {
+          "id": 15,
+          "type": "cwd",
+          "category": "cwd",
+          "data": "/home/u/proj",
+          "created_at": "2026-01-01 00:00:10"
+        },
+        {
+          "id": 16,
+          "type": "env",
+          "category": "env",
+          "data": "nvm use 20",
+          "created_at": "2026-01-01 00:00:10"
+        },
+        {
+          "id": 17,
+          "type": "mcp",
+          "category": "mcp",
+          "data": "ctx_search: auth",
+          "created_at": "2026-01-01 00:00:11"
+        },
+        {
+          "id": 18,
+          "type": "mcp",
+          "category": "mcp",
+          "data": "ctx_search: login",
+          "created_at": "2026-01-01 00:00:11"
+        },
+        {
+          "id": 19,
+          "type": "subagent_completed",
+          "category": "subagent",
+          "data": "[completed] research → done",
+          "created_at": "2026-01-01 00:00:12"
+        },
+        {
+          "id": 20,
+          "type": "skill",
+          "category": "skill",
+          "data": "tdd",
+          "created_at": "2026-01-01 00:00:13"
+        },
+        {
+          "id": 21,
+          "type": "skill",
+          "category": "skill",
+          "data": "tdd",
+          "created_at": "2026-01-01 00:00:13"
+        },
+        {
+          "id": 22,
+          "type": "role",
+          "category": "role",
+          "data": "act as senior Go reviewer",
+          "created_at": "2026-01-01 00:00:14"
+        },
+        {
+          "id": 23,
+          "type": "intent",
+          "category": "intent",
+          "data": "implement",
+          "created_at": "2026-01-01 00:00:15"
+        },
+        {
+          "id": 24,
+          "type": "goal",
+          "category": "goal",
+          "data": "login works with SSO",
+          "created_at": "2026-01-01 00:00:15"
+        },
+        {
+          "id": 25,
+          "type": "data",
+          "category": "data",
+          "data": "short capture",
+          "created_at": "2026-01-01 00:00:16"
+        },
+        {
+          "id": 26,
+          "type": "plan_enter",
+          "category": "plan",
+          "data": "entered plan mode",
+          "created_at": "2026-01-01 00:00:17"
+        },
+        {
+          "id": 27,
+          "type": "plan_approved",
+          "category": "plan",
+          "data": "plan approved",
+          "created_at": "2026-01-01 00:00:18"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Pending Tasks\n- Ship fix\n\n## Key Decisions\n- use bcrypt not md5\n\n## Files Modified\nauth.ts, src\n\n## Unresolved Errors\n- TypeError: x is undefined\n\n## Git\ncommit\n\n## Project Rules\nproj/CLAUDE.md\n\n## MCP Tools Used\nctx_search(2)\n\n## Subagent Tasks\n- [completed] research → done\n\n## Skills Used\ntdd\n\n## Environment\ncwd: /home/u/proj\nnvm use 20\n\n## Data References\n- short capture\n\n## Session Intent\nimplement\n\n## User Role\nact as senior Go reviewer\n\n## Plan Mode\n- Status: APPROVED AND EXECUTED\n- The plan was approved and executed. Do NOT re-enter plan mode or re-propose the same plan.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Last Request\nFix the login bug in auth.ts\n\n## Pending Tasks\n- Ship fix\n\n## Key Decisions\n- use bcrypt not md5\n\n## Files Modified\nauth.ts, src\n\n## Unresolved Errors\n- TypeError: x is undefined\n\n## Git\ncommit\n\n## Project Rules\nproj/CLAUDE.md\n\n## Subagent Tasks\n- [completed] research → done\n\n## Skills Used\ntdd\n\n## Environment\ncwd: /home/u/proj\nnvm use 20\n\n## Session Intent\nimplement\n\n## User Role\nact as senior Go reviewer\n\n## Plan Mode\n- Status: APPROVED AND EXECUTED\n- The plan was approved and executed. Do NOT re-enter plan mode or re-propose the same plan.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n<continue_from>Continue working on the last request. Do NOT ask the user to repeat themselves.</continue_from>\n</session_knowledge>"
+    },
+    {
+      "name": "full/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "session_start",
+          "category": "session_start",
+          "data": "{\"source\":\"startup\"}",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "rule",
+          "category": "rule",
+          "data": "/home/u/proj/CLAUDE.md",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 3,
+          "type": "rule_content",
+          "category": "rule",
+          "data": "# Rules\n## Sub\nUse tabs & <b>.",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 4,
+          "type": "user_prompt",
+          "category": "user-prompt",
+          "data": "Fix the login bug in auth.ts",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 5,
+          "type": "file_read",
+          "category": "file",
+          "data": "/home/u/proj/src/auth.ts",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 6,
+          "type": "file_edit",
+          "category": "file",
+          "data": "/home/u/proj/src/auth.ts",
+          "created_at": "2026-01-01 00:00:04"
+        },
+        {
+          "id": 7,
+          "type": "file_glob",
+          "category": "file",
+          "data": "**/*.ts in /home/u/proj/src",
+          "created_at": "2026-01-01 00:00:04"
+        },
+        {
+          "id": 8,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"Write tests\"}",
+          "created_at": "2026-01-01 00:00:05"
+        },
+        {
+          "id": 9,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"Ship fix\"}",
+          "created_at": "2026-01-01 00:00:05"
+        },
+        {
+          "id": 10,
+          "type": "task_update",
+          "category": "task",
+          "data": "{\"taskId\":\"1\",\"status\":\"completed\"}",
+          "created_at": "2026-01-01 00:00:06"
+        },
+        {
+          "id": 11,
+          "type": "decision",
+          "category": "decision",
+          "data": "use bcrypt not md5",
+          "created_at": "2026-01-01 00:00:07"
+        },
+        {
+          "id": 12,
+          "type": "error_tool",
+          "category": "error",
+          "data": "TypeError: x is undefined",
+          "created_at": "2026-01-01 00:00:08"
+        },
+        {
+          "id": 13,
+          "type": "git",
+          "category": "git",
+          "data": "commit",
+          "created_at": "2026-01-01 00:00:09"
+        },
+        {
+          "id": 14,
+          "type": "git",
+          "category": "git",
+          "data": "commit",
+          "created_at": "2026-01-01 00:00:09"
+        },
+        {
+          "id": 15,
+          "type": "cwd",
+          "category": "cwd",
+          "data": "/home/u/proj",
+          "created_at": "2026-01-01 00:00:10"
+        },
+        {
+          "id": 16,
+          "type": "env",
+          "category": "env",
+          "data": "nvm use 20",
+          "created_at": "2026-01-01 00:00:10"
+        },
+        {
+          "id": 17,
+          "type": "mcp",
+          "category": "mcp",
+          "data": "ctx_search: auth",
+          "created_at": "2026-01-01 00:00:11"
+        },
+        {
+          "id": 18,
+          "type": "mcp",
+          "category": "mcp",
+          "data": "ctx_search: login",
+          "created_at": "2026-01-01 00:00:11"
+        },
+        {
+          "id": 19,
+          "type": "subagent_completed",
+          "category": "subagent",
+          "data": "[completed] research → done",
+          "created_at": "2026-01-01 00:00:12"
+        },
+        {
+          "id": 20,
+          "type": "skill",
+          "category": "skill",
+          "data": "tdd",
+          "created_at": "2026-01-01 00:00:13"
+        },
+        {
+          "id": 21,
+          "type": "skill",
+          "category": "skill",
+          "data": "tdd",
+          "created_at": "2026-01-01 00:00:13"
+        },
+        {
+          "id": 22,
+          "type": "role",
+          "category": "role",
+          "data": "act as senior Go reviewer",
+          "created_at": "2026-01-01 00:00:14"
+        },
+        {
+          "id": 23,
+          "type": "intent",
+          "category": "intent",
+          "data": "implement",
+          "created_at": "2026-01-01 00:00:15"
+        },
+        {
+          "id": 24,
+          "type": "goal",
+          "category": "goal",
+          "data": "login works with SSO",
+          "created_at": "2026-01-01 00:00:15"
+        },
+        {
+          "id": 25,
+          "type": "data",
+          "category": "data",
+          "data": "short capture",
+          "created_at": "2026-01-01 00:00:16"
+        },
+        {
+          "id": 26,
+          "type": "plan_enter",
+          "category": "plan",
+          "data": "entered plan mode",
+          "created_at": "2026-01-01 00:00:17"
+        },
+        {
+          "id": 27,
+          "type": "plan_approved",
+          "category": "plan",
+          "data": "plan approved",
+          "created_at": "2026-01-01 00:00:18"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Pending Tasks\n- Ship fix\n\n## Key Decisions\n- use bcrypt not md5\n\n## Files Modified\nauth.ts, src\n\n## Unresolved Errors\n- TypeError: x is undefined\n\n## Git\ncommit\n\n## Project Rules\nproj/CLAUDE.md\n\n## MCP Tools Used\nctx_search(2)\n\n## Subagent Tasks\n- [completed] research → done\n\n## Skills Used\ntdd\n\n## Environment\ncwd: /home/u/proj\nnvm use 20\n\n## Data References\n- short capture\n\n## Session Intent\nimplement\n\n## User Role\nact as senior Go reviewer\n\n## Plan Mode\n- Status: APPROVED AND EXECUTED\n- The plan was approved and executed. Do NOT re-enter plan mode or re-propose the same plan.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Last Request\nFix the login bug in auth.ts\n\n## Pending Tasks\n- Ship fix\n\n## Key Decisions\n- use bcrypt not md5\n\n## Files Modified\nauth.ts, src\n\n## Unresolved Errors\n- TypeError: x is undefined\n\n## Git\ncommit\n\n## Project Rules\nproj/CLAUDE.md\n\n## Subagent Tasks\n- [completed] research → done\n\n## Skills Used\ntdd\n\n## Environment\ncwd: /home/u/proj\nnvm use 20\n\n## Session Intent\nimplement\n\n## User Role\nact as senior Go reviewer\n\n## Plan Mode\n- Status: APPROVED AND EXECUTED\n- The plan was approved and executed. Do NOT re-enter plan mode or re-propose the same plan.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "only-session-start/compact",
+      "source": "compact",
+      "events": [
+        {
+          "id": 1,
+          "type": "session_start",
+          "category": "session_start",
+          "data": "{\"source\":\"startup\"}",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"compact\">\n<session_guide>\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"compact\">\n<session_guide>\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "leg/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "subagent_completed",
+          "category": "subagent",
+          "data": "[completed] build widget → done",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "session_start",
+          "category": "session_start",
+          "data": "{}",
+          "created_at": "2026-01-01 00:00:05"
+        },
+        {
+          "id": 3,
+          "type": "subagent_launched",
+          "category": "subagent",
+          "data": "[launched] analyze logs",
+          "created_at": "2026-01-01 00:00:08"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Subagent Tasks\n- [completed] build widget → done\n- [launched] analyze logs\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Subagent Tasks\n- [launched] analyze logs\n\n## Subagent Tasks (earlier session — not current)\n- [completed] build widget → done\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "leg-tie/compact",
+      "source": "compact",
+      "events": [
+        {
+          "id": 1,
+          "type": "session_start",
+          "category": "session_start",
+          "data": "{}",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "subagent_completed",
+          "category": "subagent",
+          "data": "[completed] first leg",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 3,
+          "type": "subagent_completed",
+          "category": "subagent",
+          "data": "[completed] same second",
+          "created_at": "2026-01-01 00:00:06"
+        },
+        {
+          "id": 4,
+          "type": "session_start",
+          "category": "session_start",
+          "data": "{}",
+          "created_at": "2026-01-01 00:00:06"
+        },
+        {
+          "id": 5,
+          "type": "subagent_launched",
+          "category": "subagent",
+          "data": "[launched] current leg",
+          "created_at": "2026-01-01 00:00:07"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Subagent Tasks\n- [completed] first leg\n- [completed] same second\n- [launched] current leg\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Subagent Tasks\n- [launched] current leg\n\n## Subagent Tasks (earlier session — not current)\n- [completed] first leg\n- [completed] same second\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "trunc/compact",
+      "source": "compact",
+      "events": [
+        {
+          "id": 1,
+          "type": "user_prompt",
+          "category": "user-prompt",
+          "data": "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "decision",
+          "category": "decision",
+          "data": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 3,
+          "type": "error_tool",
+          "category": "error",
+          "data": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 4,
+          "type": "subagent_launched",
+          "category": "subagent",
+          "data": "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+          "created_at": "2026-01-01 00:00:04"
+        },
+        {
+          "id": 5,
+          "type": "data",
+          "category": "data",
+          "data": "d0",
+          "created_at": "2026-01-01 00:00:05"
+        },
+        {
+          "id": 6,
+          "type": "data",
+          "category": "data",
+          "data": "d1",
+          "created_at": "2026-01-01 00:00:06"
+        },
+        {
+          "id": 7,
+          "type": "data",
+          "category": "data",
+          "data": "d2",
+          "created_at": "2026-01-01 00:00:07"
+        },
+        {
+          "id": 8,
+          "type": "data",
+          "category": "data",
+          "data": "d3",
+          "created_at": "2026-01-01 00:00:08"
+        },
+        {
+          "id": 9,
+          "type": "data",
+          "category": "data",
+          "data": "d4",
+          "created_at": "2026-01-01 00:00:09"
+        },
+        {
+          "id": 10,
+          "type": "data",
+          "category": "data",
+          "data": "d5",
+          "created_at": "2026-01-01 00:00:10"
+        },
+        {
+          "id": 11,
+          "type": "data",
+          "category": "data",
+          "data": "d6",
+          "created_at": "2026-01-01 00:00:11"
+        },
+        {
+          "id": 12,
+          "type": "data",
+          "category": "data",
+          "data": "d7",
+          "created_at": "2026-01-01 00:00:12"
+        },
+        {
+          "id": 13,
+          "type": "data",
+          "category": "data",
+          "data": "d8",
+          "created_at": "2026-01-01 00:00:13"
+        },
+        {
+          "id": 14,
+          "type": "data",
+          "category": "data",
+          "data": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "created_at": "2026-01-01 00:00:14"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Key Decisions\n- DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD...\n\n## Unresolved Errors\n- EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE...\n\n## Subagent Tasks\n- SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS...\n\n## Data References\n- d2\n- d3\n- d4\n- d5\n- d6\n- d7\n- d8\n- XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX… (200 bytes — query mcp__cmgo__ctx_search(source: \"session-events\"))\n- … 2 older captures kept in the sandbox — query mcp__cmgo__ctx_search(source: \"session-events\").\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Last Request\nPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP...\n\n## Key Decisions\n- DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD...\n\n## Unresolved Errors\n- EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE...\n\n## Subagent Tasks\n- SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS...\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n<continue_from>Continue working on the last request. Do NOT ask the user to repeat themselves.</continue_from>\n</session_knowledge>"
+    },
+    {
+      "name": "trunc-exact/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "user_prompt",
+          "category": "user-prompt",
+          "data": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "decision",
+          "category": "decision",
+          "data": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 3,
+          "type": "error_tool",
+          "category": "error",
+          "data": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 4,
+          "type": "subagent_launched",
+          "category": "subagent",
+          "data": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:04"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Key Decisions\n- dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n\n## Unresolved Errors\n- eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n\n## Subagent Tasks\n- ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Last Request\npppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\n\n## Key Decisions\n- dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n\n## Unresolved Errors\n- eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n\n## Subagent Tasks\n- ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "trunc-astral/compact",
+      "source": "compact",
+      "events": [
+        {
+          "id": 1,
+          "type": "user_prompt",
+          "category": "user-prompt",
+          "data": "y😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "decision",
+          "category": "decision",
+          "data": "a😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 3,
+          "type": "error_tool",
+          "category": "error",
+          "data": "b😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 4,
+          "type": "subagent_launched",
+          "category": "subagent",
+          "data": "x😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+          "created_at": "2026-01-01 00:00:04"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Key Decisions\n- a😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀...\n\n## Unresolved Errors\n- b😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀...\n\n## Subagent Tasks\n- x😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀...\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Last Request\ny😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀...\n\n## Key Decisions\n- a😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀...\n\n## Unresolved Errors\n- b😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀...\n\n## Subagent Tasks\n- x😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀...\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n<continue_from>Continue working on the last request. Do NOT ask the user to repeat themselves.</continue_from>\n</session_knowledge>"
+    },
+    {
+      "name": "plan-rejected/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "plan_enter",
+          "category": "plan",
+          "data": "p:plan_enter",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "plan_rejected",
+          "category": "plan",
+          "data": "p:plan_rejected",
+          "created_at": "2026-01-01 00:00:01"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: REJECTED BY USER\n- The user rejected the previous plan. Ask what they want changed before re-planning.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: REJECTED BY USER\n- The user rejected the previous plan. Ask what they want changed before re-planning.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "plan-active-filewrite/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "plan_enter",
+          "category": "plan",
+          "data": "p:plan_enter",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "plan_file_write",
+          "category": "plan",
+          "data": "p:plan_file_write",
+          "created_at": "2026-01-01 00:00:01"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: ACTIVE (in planning phase)\n- Plan file has been written. Awaiting user approval via ExitPlanMode.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: ACTIVE (in planning phase)\n- Plan file has been written. Awaiting user approval via ExitPlanMode.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "plan-active/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "plan_enter",
+          "category": "plan",
+          "data": "p:plan_enter",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: ACTIVE (in planning phase)\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: ACTIVE (in planning phase)\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "plan-completed/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "plan_enter",
+          "category": "plan",
+          "data": "p:plan_enter",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "plan_exit",
+          "category": "plan",
+          "data": "p:plan_exit",
+          "created_at": "2026-01-01 00:00:01"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: COMPLETED\n- The plan has been executed. Do NOT re-enter plan mode or re-propose the same plan.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: COMPLETED\n- The plan has been executed. Do NOT re-enter plan mode or re-propose the same plan.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "plan-approved-after-rejected/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "plan_enter",
+          "category": "plan",
+          "data": "p:plan_enter",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "plan_rejected",
+          "category": "plan",
+          "data": "p:plan_rejected",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 3,
+          "type": "plan_enter",
+          "category": "plan",
+          "data": "p:plan_enter",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 4,
+          "type": "plan_approved",
+          "category": "plan",
+          "data": "p:plan_approved",
+          "created_at": "2026-01-01 00:00:03"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: APPROVED AND EXECUTED\n- The plan was approved and executed. Do NOT re-enter plan mode or re-propose the same plan.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Plan Mode\n- Status: APPROVED AND EXECUTED\n- The plan was approved and executed. Do NOT re-enter plan mode or re-propose the same plan.\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "tasks/compact",
+      "source": "compact",
+      "events": [
+        {
+          "id": 1,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"A\"}",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"B\"}",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 3,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"C\"}",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 4,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"D\"}",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 5,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":42}",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 6,
+          "type": "task_update",
+          "category": "task",
+          "data": "{\"taskId\":\"3\",\"status\":\"completed\"}",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 7,
+          "type": "task_update",
+          "category": "task",
+          "data": "{\"taskId\":\"1\",\"status\":\"in_progress\"}",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 8,
+          "type": "task_update",
+          "category": "task",
+          "data": "{\"taskId\":\"10\",\"status\":\"deleted\"}",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 9,
+          "type": "task_update",
+          "category": "task",
+          "data": "{\"taskId\":\"2\"}",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 10,
+          "type": "task",
+          "category": "task",
+          "data": "{\"todos\":[{\"content\":\"a\",\"status\":\"pending\"}]}",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 11,
+          "type": "task_create",
+          "category": "task",
+          "data": "fix flaky test",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 12,
+          "type": "task_create",
+          "category": "task",
+          "data": "null",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 13,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"\"}",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 14,
+          "type": "cwd",
+          "category": "cwd",
+          "data": "/a",
+          "created_at": "2026-01-01 00:00:04"
+        },
+        {
+          "id": 15,
+          "type": "cwd",
+          "category": "cwd",
+          "data": "/b",
+          "created_at": "2026-01-01 00:00:05"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Pending Tasks\n- A\n- D\n- 42\n\n## Environment\ncwd: /b\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Pending Tasks\n- A\n- D\n- 42\n\n## Environment\ncwd: /b\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "tasks-all-done/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "task_create",
+          "category": "task",
+          "data": "{\"subject\":\"Only task\"}",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "task_update",
+          "category": "task",
+          "data": "{\"taskId\":\"1\",\"status\":\"completed\"}",
+          "created_at": "2026-01-01 00:00:02"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "files-rules-env/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "file_search",
+          "category": "file",
+          "data": "TODO in /home/u/proj/src",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "file_write",
+          "category": "file",
+          "data": "C:\\win\\path\\f.txt",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 3,
+          "type": "file_edit",
+          "category": "file",
+          "data": "/a/b/ ",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 4,
+          "type": "file_search",
+          "category": "file",
+          "data": "x in y in /z/w.go",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 5,
+          "type": "file_glob",
+          "category": "file",
+          "data": "**/*.ts",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 6,
+          "type": "file_edit",
+          "category": "file",
+          "data": "foo/",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 7,
+          "type": "file_read",
+          "category": "file",
+          "data": "/z/w.go",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 8,
+          "type": "file_read",
+          "category": "file",
+          "data": "/k/ spaced.md ",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 9,
+          "type": "rule",
+          "category": "rule",
+          "data": "/home/u/proj/CLAUDE.md",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 10,
+          "type": "rule",
+          "category": "rule",
+          "data": "C:\\Users\\u\\.claude\\CLAUDE.md",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 11,
+          "type": "rule",
+          "category": "rule",
+          "data": "/other/proj/CLAUDE.md",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 12,
+          "type": "rule",
+          "category": "rule",
+          "data": "CLAUDE.md",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 13,
+          "type": "git",
+          "category": "git",
+          "data": "branch",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 14,
+          "type": "git",
+          "category": "git",
+          "data": "commit",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 15,
+          "type": "git",
+          "category": "git",
+          "data": "branch",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 16,
+          "type": "env",
+          "category": "env",
+          "data": "export NODE_ENV=test",
+          "created_at": "2026-01-01 00:00:04"
+        },
+        {
+          "id": 17,
+          "type": "env",
+          "category": "env",
+          "data": "venv: .venv",
+          "created_at": "2026-01-01 00:00:04"
+        },
+        {
+          "id": 18,
+          "type": "skill",
+          "category": "skill",
+          "data": "b",
+          "created_at": "2026-01-01 00:00:05"
+        },
+        {
+          "id": 19,
+          "type": "skill",
+          "category": "skill",
+          "data": "a",
+          "created_at": "2026-01-01 00:00:05"
+        },
+        {
+          "id": 20,
+          "type": "skill",
+          "category": "skill",
+          "data": "b",
+          "created_at": "2026-01-01 00:00:05"
+        },
+        {
+          "id": 21,
+          "type": "intent",
+          "category": "intent",
+          "data": "investigate",
+          "created_at": "2026-01-01 00:00:06"
+        },
+        {
+          "id": 22,
+          "type": "intent",
+          "category": "intent",
+          "data": "review",
+          "created_at": "2026-01-01 00:00:07"
+        },
+        {
+          "id": 23,
+          "type": "role",
+          "category": "role",
+          "data": "first role",
+          "created_at": "2026-01-01 00:00:06"
+        },
+        {
+          "id": 24,
+          "type": "role",
+          "category": "role",
+          "data": "second role",
+          "created_at": "2026-01-01 00:00:07"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Files Modified\nsrc, f.txt, w.go, spaced.md\n\n## Git\nbranch, commit\n\n## Project Rules\nproj/CLAUDE.md, .claude/CLAUDE.md, CLAUDE.md\n\n## Skills Used\nb, a\n\n## Environment\nexport NODE_ENV=test\nvenv: .venv\n\n## Session Intent\nreview\n\n## User Role\nsecond role\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Files Modified\nsrc, f.txt, w.go, spaced.md\n\n## Git\nbranch, commit\n\n## Project Rules\nproj/CLAUDE.md, .claude/CLAUDE.md, CLAUDE.md\n\n## Skills Used\nb, a\n\n## Environment\nexport NODE_ENV=test\nvenv: .venv\n\n## Session Intent\nreview\n\n## User Role\nsecond role\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "prompts/compact",
+      "source": "compact",
+      "events": [
+        {
+          "id": 1,
+          "type": "user_prompt",
+          "category": "user-prompt",
+          "data": "first prompt",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "decision",
+          "category": "decision",
+          "data": "keep the API",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 3,
+          "type": "user_prompt",
+          "category": "user-prompt",
+          "data": "second prompt",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 4,
+          "type": "goal",
+          "category": "goal",
+          "data": "ship it",
+          "created_at": "2026-01-01 00:00:04"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Key Decisions\n- keep the API\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"compact\">\n<session_guide>\n## Last Request\nsecond prompt\n\n## Key Decisions\n- keep the API\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n<continue_from>Continue working on the last request. Do NOT ask the user to repeat themselves.</continue_from>\n</session_knowledge>"
+    },
+    {
+      "name": "prompts/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "user_prompt",
+          "category": "user-prompt",
+          "data": "first prompt",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "decision",
+          "category": "decision",
+          "data": "keep the API",
+          "created_at": "2026-01-01 00:00:02"
+        },
+        {
+          "id": 3,
+          "type": "user_prompt",
+          "category": "user-prompt",
+          "data": "second prompt",
+          "created_at": "2026-01-01 00:00:03"
+        },
+        {
+          "id": 4,
+          "type": "goal",
+          "category": "goal",
+          "data": "ship it",
+          "created_at": "2026-01-01 00:00:04"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Key Decisions\n- keep the API\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Last Request\nsecond prompt\n\n## Key Decisions\n- keep the API\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "mcp-data-only/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "mcp",
+          "category": "mcp",
+          "data": "ctx_search: a",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "mcp",
+          "category": "mcp",
+          "data": "ctx_execute: b",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 3,
+          "type": "mcp",
+          "category": "mcp",
+          "data": "ctx_search: c",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 4,
+          "type": "data",
+          "category": "data",
+          "data": "captured output",
+          "created_at": "2026-01-01 00:00:02"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## MCP Tools Used\nctx_search(2), ctx_execute(1)\n\n## Data References\n- captured output\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    },
+    {
+      "name": "rules-headings/resume",
+      "source": "resume",
+      "events": [
+        {
+          "id": 1,
+          "type": "rule",
+          "category": "rule",
+          "data": "/p/CLAUDE.md",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 2,
+          "type": "rule_content",
+          "category": "rule",
+          "data": "# H1\n## H2\n### H3\n#### H4\n#nospace\n  # indented\r\n## crlf\r# cr ## ls",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 3,
+          "type": "rule_content",
+          "category": "rule",
+          "data": "plain body",
+          "created_at": "2026-01-01 00:00:01"
+        },
+        {
+          "id": 4,
+          "type": "rule",
+          "category": "rule",
+          "data": "/p/.claude/rules/x.md",
+          "created_at": "2026-01-01 00:00:02"
+        }
+      ],
+      "ts": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Project Rules\np/CLAUDE.md, rules/x.md\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>",
+      "expected": "\n<session_knowledge source=\"continue\">\n<session_guide>\n## Project Rules\np/CLAUDE.md, rules/x.md\n\n</session_guide>\n<session_search>\nDetailed session data is indexed in context-mode FTS5 (source: \"session-events\").\nUse mcp__cmgo__ctx_search(queries: [...], source: \"session-events\") when you need specifics.\nDo NOT call ctx_index() — data is already indexed.\n</session_search>\n</session_knowledge>"
+    }
+  ]
+}

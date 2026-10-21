@@ -1,0 +1,1114 @@
+{
+  "tsCommit": "a5e6dd31",
+  "cases": [
+    {
+      "name": "full",
+      "events": [
+        {
+          "id": 1,
+          "type": "session_start",
+          "category": "session_start",
+          "data": "{\"source\":\"startup\"}",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "rule",
+          "category": "rule",
+          "data": "/home/u/proj/CLAUDE.md",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 3,
+          "type": "rule",
+          "category": "rule",
+          "data": "# Rules\n## Sub\nUse tabs & <b>.",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 4,
+          "type": "user-prompt",
+          "category": "user-prompt",
+          "data": "Fix the login bug in auth.ts",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 5,
+          "type": "file",
+          "category": "file",
+          "data": "/home/u/proj/src/auth.ts",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 6,
+          "type": "file",
+          "category": "file",
+          "data": "/home/u/proj/src/auth.ts",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 7,
+          "type": "file",
+          "category": "file",
+          "data": "**/*.ts in /home/u/proj/src",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 8,
+          "type": "task",
+          "category": "task",
+          "data": "{\"subject\":\"Write tests\"}",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 9,
+          "type": "task",
+          "category": "task",
+          "data": "{\"subject\":\"Ship fix\"}",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 10,
+          "type": "task",
+          "category": "task",
+          "data": "{\"taskId\":\"1\",\"status\":\"completed\"}",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 11,
+          "type": "decision",
+          "category": "decision",
+          "data": "use bcrypt not md5",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 12,
+          "type": "error",
+          "category": "error",
+          "data": "TypeError: x is undefined",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 13,
+          "type": "git",
+          "category": "git",
+          "data": "commit",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 14,
+          "type": "git",
+          "category": "git",
+          "data": "commit",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 15,
+          "type": "cwd",
+          "category": "cwd",
+          "data": "/home/u/proj",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 16,
+          "type": "env",
+          "category": "env",
+          "data": "nvm use 20",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 17,
+          "type": "mcp",
+          "category": "mcp",
+          "data": "ctx_search: auth",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 18,
+          "type": "mcp",
+          "category": "mcp",
+          "data": "ctx_search: login",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 19,
+          "type": "subagent",
+          "category": "subagent",
+          "data": "[completed] research → done",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 20,
+          "type": "skill",
+          "category": "skill",
+          "data": "tdd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 21,
+          "type": "skill",
+          "category": "skill",
+          "data": "tdd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 22,
+          "type": "role",
+          "category": "role",
+          "data": "act as senior Go reviewer",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 23,
+          "type": "intent",
+          "category": "intent",
+          "data": "implement",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 24,
+          "type": "goal",
+          "category": "goal",
+          "data": "login works with SSO",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 25,
+          "type": "data",
+          "category": "data",
+          "data": "short capture",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 26,
+          "type": "plan",
+          "category": "plan",
+          "data": "entered plan mode",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 27,
+          "type": "plan",
+          "category": "plan",
+          "data": "plan approved",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "expected": "<session_state source=\"compaction\">\n\n<behavioral_directive>\nact as senior Go reviewer\n</behavioral_directive>\n\n<rules>\nFollow these decisions:\n- use bcrypt not md5\n</rules>\n\n<active_skills>\nRe-invoke if relevant: tdd\nTo reload: call the Skill tool with the skill name.\n</active_skills>\n\n<session_mode>implement</session_mode>\n\n</session_state>"
+    },
+    {
+      "name": "empty",
+      "events": [],
+      "expected": ""
+    },
+    {
+      "name": "no-parts",
+      "events": [
+        {
+          "id": 1,
+          "type": "file",
+          "category": "file",
+          "data": "/a.ts",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "goal",
+          "category": "goal",
+          "data": "g",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "expected": ""
+    },
+    {
+      "name": "role-only",
+      "events": [
+        {
+          "id": 1,
+          "type": "role",
+          "category": "role",
+          "data": "reviewer",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "expected": "<session_state source=\"compaction\">\n\n<behavioral_directive>\nreviewer\n</behavioral_directive>\n\n</session_state>"
+    },
+    {
+      "name": "decisions-7",
+      "events": [
+        {
+          "id": 1,
+          "type": "decision",
+          "category": "decision",
+          "data": "decision 0",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "decision",
+          "category": "decision",
+          "data": "decision 1",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 3,
+          "type": "decision",
+          "category": "decision",
+          "data": "decision 2",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 4,
+          "type": "decision",
+          "category": "decision",
+          "data": "decision 3",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 5,
+          "type": "decision",
+          "category": "decision",
+          "data": "decision 4",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 6,
+          "type": "decision",
+          "category": "decision",
+          "data": "decision 5",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 7,
+          "type": "decision",
+          "category": "decision",
+          "data": "decision 6",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "expected": "<session_state source=\"compaction\">\n\n<rules>\nFollow these decisions:\n- decision 2\n- decision 3\n- decision 4\n- decision 5\n- decision 6\n</rules>\n\n</session_state>"
+    },
+    {
+      "name": "heavy",
+      "events": [
+        {
+          "id": 1,
+          "type": "role",
+          "category": "role",
+          "data": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "decision",
+          "category": "decision",
+          "data": "0:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 3,
+          "type": "decision",
+          "category": "decision",
+          "data": "1:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 4,
+          "type": "decision",
+          "category": "decision",
+          "data": "2:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 5,
+          "type": "decision",
+          "category": "decision",
+          "data": "3:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 6,
+          "type": "decision",
+          "category": "decision",
+          "data": "4:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 7,
+          "type": "decision",
+          "category": "decision",
+          "data": "5:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 8,
+          "type": "decision",
+          "category": "decision",
+          "data": "6:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 9,
+          "type": "decision",
+          "category": "decision",
+          "data": "7:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 10,
+          "type": "decision",
+          "category": "decision",
+          "data": "8:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 11,
+          "type": "decision",
+          "category": "decision",
+          "data": "9:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 12,
+          "type": "decision",
+          "category": "decision",
+          "data": "10:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 13,
+          "type": "decision",
+          "category": "decision",
+          "data": "11:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 14,
+          "type": "decision",
+          "category": "decision",
+          "data": "12:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 15,
+          "type": "decision",
+          "category": "decision",
+          "data": "13:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 16,
+          "type": "decision",
+          "category": "decision",
+          "data": "14:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 17,
+          "type": "decision",
+          "category": "decision",
+          "data": "15:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 18,
+          "type": "decision",
+          "category": "decision",
+          "data": "16:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 19,
+          "type": "decision",
+          "category": "decision",
+          "data": "17:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 20,
+          "type": "decision",
+          "category": "decision",
+          "data": "18:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 21,
+          "type": "decision",
+          "category": "decision",
+          "data": "19:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 22,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-0",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 23,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-1",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 24,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-2",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 25,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-3",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 26,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-4",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 27,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-5",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 28,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-6",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 29,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-7",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 30,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-8",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 31,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-9",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 32,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-10",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 33,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-11",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 34,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-12",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 35,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-13",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 36,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-14",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 37,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-15",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 38,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-16",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 39,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-17",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 40,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-18",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 41,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-19",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 42,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-20",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 43,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-21",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 44,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-22",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 45,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-23",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 46,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-24",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 47,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-25",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 48,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-26",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 49,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-27",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 50,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-28",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 51,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-29",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 52,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-30",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 53,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-31",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 54,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-32",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 55,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-33",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 56,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-34",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 57,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-35",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 58,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-36",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 59,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-37",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 60,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-38",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 61,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-39",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 62,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-40",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 63,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-41",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 64,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-42",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 65,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-43",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 66,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-44",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 67,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-45",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 68,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-46",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 69,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-47",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 70,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-48",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 71,
+          "type": "skill",
+          "category": "skill",
+          "data": "skill-49",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 72,
+          "type": "intent",
+          "category": "intent",
+          "data": "implement",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "expected": "<session_state source=\"compaction\">\n\n<behavioral_directive>\nRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR\n</behavioral_directive>\n\n<rules>\nFollow these decisions:\n- 15:ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n- 16:ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n- 17:ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n- 18:ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n- 19:ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n</rules>\n\n<active_skills>\nRe-invoke if relevant: skill-40, skill-41, skill-42, skill-43, skill-44, skill-45, skill-46, skill-47, skill-48, skill-49\nTo reload: call the Skill tool with the skill name.\n</active_skills>\n\n<session_mode>implement</session_mode>\n\n</session_state>"
+    },
+    {
+      "name": "intent-dropped",
+      "events": [
+        {
+          "id": 1,
+          "type": "role",
+          "category": "role",
+          "data": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "decision",
+          "category": "decision",
+          "data": "0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 3,
+          "type": "decision",
+          "category": "decision",
+          "data": "1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 4,
+          "type": "decision",
+          "category": "decision",
+          "data": "2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 5,
+          "type": "decision",
+          "category": "decision",
+          "data": "3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 6,
+          "type": "decision",
+          "category": "decision",
+          "data": "4xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 7,
+          "type": "skill",
+          "category": "skill",
+          "data": "0ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 8,
+          "type": "skill",
+          "category": "skill",
+          "data": "1ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 9,
+          "type": "skill",
+          "category": "skill",
+          "data": "2ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 10,
+          "type": "skill",
+          "category": "skill",
+          "data": "3ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 11,
+          "type": "skill",
+          "category": "skill",
+          "data": "4ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 12,
+          "type": "skill",
+          "category": "skill",
+          "data": "5ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 13,
+          "type": "skill",
+          "category": "skill",
+          "data": "6ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 14,
+          "type": "skill",
+          "category": "skill",
+          "data": "7ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 15,
+          "type": "skill",
+          "category": "skill",
+          "data": "8ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 16,
+          "type": "skill",
+          "category": "skill",
+          "data": "9ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 17,
+          "type": "intent",
+          "category": "intent",
+          "data": "review",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "expected": "<session_state source=\"compaction\">\n\n<behavioral_directive>\nrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\n</behavioral_directive>\n\n<rules>\nFollow these decisions:\n- 0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n- 1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n- 2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n- 3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n- 4xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n</rules>\n\n<active_skills>\nRe-invoke if relevant: 0ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, 1ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, 2ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, 3ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, 4ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, 5ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, 6ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, 7ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, 8ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss, 9ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\nTo reload: call the Skill tool with the skill name.\n</active_skills>\n\n</session_state>"
+    },
+    {
+      "name": "astral",
+      "events": [
+        {
+          "id": 1,
+          "type": "role",
+          "category": "role",
+          "data": "rr😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "decision",
+          "category": "decision",
+          "data": "dd😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 3,
+          "type": "skill",
+          "category": "skill",
+          "data": "😀",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 4,
+          "type": "skill",
+          "category": "skill",
+          "data": "😀",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 5,
+          "type": "intent",
+          "category": "intent",
+          "data": "mode 😀",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "expected": "<session_state source=\"compaction\">\n\n<behavioral_directive>\nrr😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\n</behavioral_directive>\n\n<rules>\nFollow these decisions:\n- dd😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\n</rules>\n\n<active_skills>\nRe-invoke if relevant: 😀\nTo reload: call the Skill tool with the skill name.\n</active_skills>\n\n<session_mode>mode 😀</session_mode>\n\n</session_state>"
+    },
+    {
+      "name": "skills-dup",
+      "events": [
+        {
+          "id": 1,
+          "type": "skill",
+          "category": "skill",
+          "data": "a",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "skill",
+          "category": "skill",
+          "data": "b",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 3,
+          "type": "skill",
+          "category": "skill",
+          "data": "c",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 4,
+          "type": "skill",
+          "category": "skill",
+          "data": "d",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 5,
+          "type": "skill",
+          "category": "skill",
+          "data": "e",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 6,
+          "type": "skill",
+          "category": "skill",
+          "data": "f",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 7,
+          "type": "skill",
+          "category": "skill",
+          "data": "g",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 8,
+          "type": "skill",
+          "category": "skill",
+          "data": "h",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 9,
+          "type": "skill",
+          "category": "skill",
+          "data": "i",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 10,
+          "type": "skill",
+          "category": "skill",
+          "data": "j",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 11,
+          "type": "skill",
+          "category": "skill",
+          "data": "k",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 12,
+          "type": "skill",
+          "category": "skill",
+          "data": "l",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 13,
+          "type": "skill",
+          "category": "skill",
+          "data": "a",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 14,
+          "type": "skill",
+          "category": "skill",
+          "data": "b",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 15,
+          "type": "skill",
+          "category": "skill",
+          "data": "c",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "expected": "<session_state source=\"compaction\">\n\n<active_skills>\nRe-invoke if relevant: c, d, e, f, g, h, i, j, k, l\nTo reload: call the Skill tool with the skill name.\n</active_skills>\n\n</session_state>"
+    },
+    {
+      "name": "last-role-intent",
+      "events": [
+        {
+          "id": 1,
+          "type": "role",
+          "category": "role",
+          "data": "one",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 2,
+          "type": "intent",
+          "category": "intent",
+          "data": "i1",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 3,
+          "type": "role",
+          "category": "role",
+          "data": "two",
+          "created_at": "2026-01-01 00:00:00"
+        },
+        {
+          "id": 4,
+          "type": "intent",
+          "category": "intent",
+          "data": "i2",
+          "created_at": "2026-01-01 00:00:00"
+        }
+      ],
+      "expected": "<session_state source=\"compaction\">\n\n<behavioral_directive>\ntwo\n</behavioral_directive>\n\n<session_mode>i2</session_mode>\n\n</session_state>"
+    }
+  ]
+}
