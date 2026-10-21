@@ -20,7 +20,7 @@ func TestPurgeSession(t *testing.T) {
 	}
 
 	// 2 events + 1 meta row.
-	if rows, err := s.PurgeSession("s1"); err != nil || rows != 3 {
+	if rows, err := s.PurgeSession("s1", "/p"); err != nil || rows != 3 {
 		t.Fatalf("PurgeSession = %d, %v", rows, err)
 	}
 	if n := tableCount(t, s, "SELECT count(*) FROM session_events WHERE session_id = 's1'") +
@@ -33,7 +33,7 @@ func TestPurgeSession(t *testing.T) {
 	if n, _ := s.ChunkCount("/p"); n != 1 {
 		t.Fatalf("chunks = %d", n)
 	}
-	if rows, err := s.PurgeSession("s1"); err != nil || rows != 0 {
+	if rows, err := s.PurgeSession("s1", "/p"); err != nil || rows != 0 {
 		t.Fatalf("second PurgeSession = %d, %v", rows, err)
 	}
 }
@@ -83,5 +83,26 @@ func TestPurgeProjectLeavesOtherProjects(t *testing.T) {
 	}
 	if sources, sessions, err := s.PurgeProject("/p"); err != nil || sources != 0 || sessions != 0 {
 		t.Fatalf("second PurgeProject = %d %d %v", sources, sessions, err)
+	}
+}
+
+// One DB serves every project, so a session id from another project must not
+// be purged by a call made in this one (project /x/ab vs /x/a).
+func TestPurgeSessionIgnoresOtherProjects(t *testing.T) {
+	s := openTest(t)
+	insertTestEvents(t, s, "shared", "/x/ab", Event{Type: "a", Category: "file", Priority: 1, Data: "x"})
+	insertTestEvents(t, s, "mine", "/x/a", Event{Type: "a", Category: "file", Priority: 1, Data: "y"})
+
+	if rows, err := s.PurgeSession("shared", "/x/a"); err != nil || rows != 0 {
+		t.Fatalf("purge from /x/a of a /x/ab session = %d, %v, want 0", rows, err)
+	}
+	if evs, _ := s.SessionEvents("shared"); len(evs) != 1 {
+		t.Fatalf("/x/ab events = %d, want 1", len(evs))
+	}
+	if n := tableCount(t, s, "SELECT count(*) FROM session_meta WHERE session_id = 'shared'"); n != 1 {
+		t.Fatalf("/x/ab meta rows = %d, want 1", n)
+	}
+	if rows, err := s.PurgeSession("mine", "/x/a"); err != nil || rows != 2 {
+		t.Fatalf("own session = %d, %v, want 2", rows, err)
 	}
 }

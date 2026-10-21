@@ -97,7 +97,7 @@ func purgeTool(d *Deps, raw json.RawMessage) *mcp.CallToolResult {
 		if sessionID == "" { // purge.ts:189 throws
 			return TextResult("purgeSession: scope:'session' requires sessionId. Pass scope:'project' for the legacy whole-project wipe.", true)
 		}
-		rows, err := d.Store.PurgeSession(sessionID)
+		rows, err := d.Store.PurgeSession(sessionID, d.Cfg.ProjectKey)
 		if err != nil {
 			return ErrorResult("Purge error: %v", err)
 		}

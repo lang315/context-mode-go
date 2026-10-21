@@ -4,18 +4,19 @@ import "database/sql"
 
 // PurgeSession deletes one session's session_events and session_meta rows
 // and returns how many rows went. Port of the session scope of purgeSession
-// (src/session/purge.ts:196-275); chunks carry no session id here.
-func (s *Store) PurgeSession(sessionID string) (rows int64, err error) {
+// (src/session/purge.ts:196-275); chunks carry no session id here. TS had one
+// DB per project; here the DB is shared, so only project's rows can go.
+func (s *Store) PurgeSession(sessionID, project string) (rows int64, err error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback()
 	for _, q := range []string{
-		"DELETE FROM session_events WHERE session_id = ?",
-		"DELETE FROM session_meta WHERE session_id = ?",
+		"DELETE FROM session_events WHERE session_id = ? AND project = ?",
+		"DELETE FROM session_meta WHERE session_id = ? AND project = ?",
 	} {
-		n, err := execCount(tx, q, sessionID)
+		n, err := execCount(tx, q, sessionID, project)
 		if err != nil {
 			return 0, err
 		}
