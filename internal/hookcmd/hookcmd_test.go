@@ -360,3 +360,30 @@ func TestHookStopPrintsWhenDBWriteFails(t *testing.T) {
 		t.Fatalf("no logged error: %q", log)
 	}
 }
+
+// TS decides "subagent" with `agent_id != null`, so a null field is a main
+// session call; anything else, an empty string included, is a subagent.
+func TestHookNullAgentFieldsAreNotSubagent(t *testing.T) {
+	env := hookEnv(t)
+	remove, err := routing.WriteSentinel(filepath.Join(env["CMGO_DIR"], "run"), os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer remove()
+	for _, c := range []struct {
+		fields   string
+		redirect bool
+	}{
+		{`"agent_id":null`, true},
+		{`"agent_type":null`, true},
+		{`"agent_id":null,"agent_type":null`, true},
+		{`"agent_id":null,"agent_type":"general-purpose"`, false},
+		{`"agent_id":""`, false},
+		{`"agent_id":"a1"`, false},
+	} {
+		out := callHook(t, env, "pretooluse", `{"tool_name":"Bash","tool_input":{"command":"curl https://x.com"},"session_id":"s1",`+c.fields+`}`)
+		if got := strings.Contains(out, "curl/wget redirected"); got != c.redirect {
+			t.Errorf("%s: redirected=%v, want %v (out %q)", c.fields, got, c.redirect, out)
+		}
+	}
+}

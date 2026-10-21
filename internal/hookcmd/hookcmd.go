@@ -164,6 +164,12 @@ func (h *hookCtx) insertEvents(sourceHook string, evs []store.Event) error {
 	return err
 }
 
+// notNull is JS `input[key] != null`: present and not JSON null.
+func notNull(in *hookio.Object, key string) bool {
+	raw, ok := in.Get(key)
+	return ok && string(bytes.TrimSpace(raw)) != "null"
+}
+
 // preToolUse routes the call (spec §2) and writes the decision before it
 // opens the store, so the DB never delays Claude Code.
 func preToolUse(h *hookCtx) error {
@@ -172,7 +178,7 @@ func preToolUse(h *hookCtx) error {
 	if !ok {
 		input = &hookio.Object{}
 	}
-	subagent := h.in.Has("agent_id") || h.in.Has("agent_type")
+	subagent := notNull(h.in, "agent_id") || notNull(h.in, "agent_type")
 	dec := routing.Route(tool, input, subagent, routing.Deps{
 		ProjectDir: h.cfg.ProjectDir,
 		SessionID:  h.sid,
