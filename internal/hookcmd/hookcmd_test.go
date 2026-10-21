@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lang315/context-mode-go/internal/hookio"
+	"github.com/lang315/context-mode-go/internal/memory"
 	"github.com/lang315/context-mode-go/internal/routing"
 	"github.com/lang315/context-mode-go/internal/store"
 )
@@ -221,9 +222,10 @@ func TestHookStdinTimeout(t *testing.T) {
 	}
 }
 
-func sessionStartOut() string {
+// sessionStartOut is the SessionStart output: the routing block, then extra.
+func sessionStartOut(extra string) string {
 	return `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":` +
-		string(hookio.QuoteString(routing.RoutingBlock(false, false))) + "}}\n"
+		string(hookio.QuoteString(routing.RoutingBlock(true, false)+extra)) + "}}\n"
 }
 
 func TestHookSessionStartStartup(t *testing.T) {
@@ -240,7 +242,7 @@ func TestHookSessionStartStartup(t *testing.T) {
 	old := hookNow.Add(-8 * 24 * time.Hour)
 	os.Chtimes(filepath.Join(runDir, "guidance-old"), old, old)
 
-	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"startup"}`); out != sessionStartOut() {
+	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"startup"}`); out != sessionStartOut("") {
 		t.Fatalf("got %q", out)
 	}
 	assertRows(t, eventRows(t, env, "s1"),
@@ -267,12 +269,94 @@ func TestHookSessionStartStartup(t *testing.T) {
 
 func TestHookSessionStartOtherSources(t *testing.T) {
 	env := hookEnv(t)
-	for _, src := range []string{"resume", "compact", "clear"} {
-		if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"`+src+`"}`); out != sessionStartOut() {
-			t.Fatalf("%s: got %q", src, out)
-		}
+	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"clear"}`); out != sessionStartOut("") {
+		t.Fatalf("clear: got %q", out)
 	}
 	noDB(t, env)
+	// With no events, resume and compact add no context and record only session_start.
+	for _, src := range []string{"resume", "compact"} {
+		if out := callHook(t, env, "sessionstart", `{"session_id":"s-`+src+`","source":"`+src+`"}`); out != sessionStartOut("") {
+			t.Fatalf("%s: got %q", src, out)
+		}
+		assertRows(t, eventRows(t, env, "s-"+src), sessionStartRow(env, src))
+	}
+}
+
+func sessionStartRow(env map[string]string, src string) string {
+	return fmt.Sprintf(`session_start|session_start|1|{"source":%q,"project_dir":%q,"started_at":%d}|SessionStart|0`,
+		src, env["CLAUDE_PROJECT_DIR"], hookNow.Unix())
+}
+
+// seedSession records three events for s1 and returns them as stored.
+func seedSession(t *testing.T, env map[string]string) []store.StoredEvent {
+	t.Helper()
+	callHook(t, env, "posttooluse", `{"tool_name":"Read","tool_input":{"file_path":"/p/a.go"},"tool_response":"x","session_id":"s1"}`)
+	callHook(t, env, "userpromptsubmit", `{"prompt":"fix the login bug","session_id":"s1"}`)
+	st, err := store.Open(filepath.Join(env["CMGO_DIR"], "cmgo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	evs, err := st.SessionEvents("s1")
+	if err != nil || len(evs) != 3 {
+		t.Fatalf("seed: %d events, %v", len(evs), err)
+	}
+	return evs
+}
+
+// Spec §2.2: compact adds the directive and auto-injection and records
+// resume_completed and session_start.
+func TestHookSessionStartCompact(t *testing.T) {
+	env := hookEnv(t)
+	evs := seedSession(t, env)
+	ai := memory.AutoInjection(evs)
+	if ai == "" {
+		t.Fatal("seed events give no auto-injection")
+	}
+	want := sessionStartOut(memory.Directive("compact", evs) + "\n\n" + ai)
+	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"compact"}`); out != want {
+		t.Fatalf("got %q\nwant %q", out, want)
+	}
+	rows := eventRows(t, env, "s1")
+	assertRows(t, rows[3:],
+		"resume_completed|session-resume|1|Session resumed from compact. Prior events loaded.|SessionStart|0",
+		sessionStartRow(env, "compact"))
+	if s := hookErrors(env); s != "" {
+		t.Fatalf("errors logged: %s", s)
+	}
+}
+
+func TestHookSessionStartResume(t *testing.T) {
+	env := hookEnv(t)
+	evs := seedSession(t, env)
+	want := sessionStartOut(memory.Directive("resume", evs))
+	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"resume"}`); out != want {
+		t.Fatalf("got %q\nwant %q", out, want)
+	}
+	assertRows(t, eventRows(t, env, "s1")[3:], sessionStartRow(env, "resume"))
+}
+
+// The directive needs the events, so the DB is read before printing; a
+// failed read prints the routing block alone. Writes come after the output,
+// so a locked DB still gets the directive out and logs the write error.
+func TestHookSessionStartCompactFailOpen(t *testing.T) {
+	env := hookEnv(t)
+	blocker := filepath.Join(t.TempDir(), "file")
+	os.WriteFile(blocker, []byte("x"), 0o644)
+	env["CMGO_DIR"] = filepath.Join(blocker, "data") // parent is a regular file
+	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"compact"}`); out != sessionStartOut("") {
+		t.Fatalf("no DB: got %q", out)
+	}
+
+	env = hookEnv(t)
+	evs := seedSession(t, env)
+	holdDBLock(t, filepath.Join(env["CMGO_DIR"], "cmgo.db"))
+	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"resume"}`); out != sessionStartOut(memory.Directive("resume", evs)) {
+		t.Fatalf("locked: got %q", out)
+	}
+	if !strings.Contains(hookErrors(env), "sessionstart:") {
+		t.Fatalf("no logged error: %q", hookErrors(env))
+	}
 }
 
 func TestHookPostToolUse(t *testing.T) {

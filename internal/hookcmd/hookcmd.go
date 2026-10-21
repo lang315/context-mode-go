@@ -15,6 +15,7 @@ import (
 	"github.com/lang315/context-mode-go/internal/capture"
 	"github.com/lang315/context-mode-go/internal/config"
 	"github.com/lang315/context-mode-go/internal/hookio"
+	"github.com/lang315/context-mode-go/internal/memory"
 	"github.com/lang315/context-mode-go/internal/routing"
 	"github.com/lang315/context-mode-go/internal/security"
 	"github.com/lang315/context-mode-go/internal/store"
@@ -248,23 +249,64 @@ func preCompact(h *hookCtx) error {
 	return werr
 }
 
-// sessionStart prints the routing block for every source (spec §4). Only
-// startup also prunes old guidance markers and records the rule and
-// session_start events; resume and compact context is sub-project 3.
+// sessionStart prints the routing block for every source (spec §4). Startup
+// also prunes old guidance markers and records the rule and session_start
+// events; compact and resume add the session's memory (spec §2.2).
 func sessionStart(h *hookCtx) error {
-	out := `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":` +
-		string(hookio.QuoteString(routing.RoutingBlock(false, false))) + "}}\n"
-	if _, err := io.WriteString(h.out, out); err != nil {
-		return err
-	}
+	block := routing.RoutingBlock(true, false)
 	src, _ := h.in.String("source")
 	if raw, ok := h.in.Get("source"); !ok || string(raw) == "null" {
 		src = "startup" // TS: input.source ?? "startup"
 	}
-	if src != "startup" {
-		return nil
+	switch src {
+	case "compact", "resume":
+		return h.sessionResume(src, block)
+	case "startup":
+		if err := h.printSessionStart(block); err != nil {
+			return err
+		}
+		routing.PruneGuidance(h.runDir, h.now, guidanceMaxAge)
+		evs := append(capture.SessionStartRules(h.cfg.Home, h.cfg.ProjectDir), capture.SessionStartEvent(src, h.cfg.ProjectDir, h.now))
+		return h.insertEvents("SessionStart", evs)
 	}
-	routing.PruneGuidance(h.runDir, h.now, guidanceMaxAge)
-	evs := append(capture.SessionStartRules(h.cfg.Home, h.cfg.ProjectDir), capture.SessionStartEvent(src, h.cfg.ProjectDir, h.now))
-	return h.insertEvents("SessionStart", evs)
+	return h.printSessionStart(block)
+}
+
+func (h *hookCtx) printSessionStart(context string) error {
+	_, err := io.WriteString(h.out, `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":`+
+		string(hookio.QuoteString(context))+"}}\n")
+	return err
+}
+
+// sessionResume appends the directive (and, on compact, the auto-injection)
+// built from the session's events to block, then records the resume events,
+// as TS sessionstart.mjs:191-280 does. TS also indexed an events markdown;
+// cmgo does not (spec §2.3). The directive needs the events, so the read
+// comes before the output; a failed read prints block alone. Writes come
+// after the output.
+func (h *hookCtx) sessionResume(src, block string) error {
+	st, err := store.OpenWith(h.cfg.DBPath, store.Options{BusyTimeout: dbBusyTimeout})
+	if err != nil {
+		return errors.Join(err, h.printSessionStart(block))
+	}
+	defer st.Close()
+	evs, err := st.SessionEvents(h.sid)
+	if err != nil {
+		return errors.Join(err, h.printSessionStart(block))
+	}
+	context := block + memory.Directive(src, evs) // "" with no events
+	var add []store.Event
+	if len(evs) > 0 && src == "compact" {
+		if ai := memory.AutoInjection(evs); ai != "" {
+			context += "\n\n" + ai
+		}
+		add = append(add, store.Event{Type: "resume_completed", Category: "session-resume", Priority: 1,
+			Data: "Session resumed from compact. Prior events loaded."})
+	}
+	if err := h.printSessionStart(context); err != nil {
+		return err
+	}
+	add = append(add, capture.SessionStartEvent(src, h.cfg.ProjectDir, h.now))
+	_, err = st.InsertEvents(h.sid, h.cfg.ProjectKey, "SessionStart", add)
+	return err
 }
