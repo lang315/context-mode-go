@@ -19,13 +19,17 @@ const Module = "github.com/lang315/context-mode-go"
 // added to the process environment.
 type Runner func(dir string, env []string, name string, args ...string) error
 
-// Options are Upgrade's inputs; tests inject Getenv, LookPath and Run.
+// Output runs name with args and returns its standard output.
+type Output func(name string, args ...string) (string, error)
+
+// Options are Upgrade's inputs; tests inject Getenv, LookPath, Run and Output.
 type Options struct {
 	Source   string // --source; "" falls back to $CMGO_SOURCE, then the module
 	DryRun   bool
 	Getenv   func(string) string
 	LookPath func(string) (string, error)
 	Run      Runner
+	Output   Output // reads `go env GOBIN GOPATH`
 	Stdout   io.Writer
 }
 
@@ -112,16 +116,20 @@ func (o Options) command(label, dir string, env []string, name string, args ...s
 	}}
 }
 
-// goBin is where go install puts binaries: $GOBIN, else the first $GOPATH
-// entry's bin, else ~/go/bin.
-// shortcut: a GOBIN set only with `go env -w` is not seen; run `go env GOBIN`
-// if that is ever needed.
+// goBin is where go install puts binaries, as `go env GOBIN GOPATH` reports
+// it (so values set with `go env -w` count): GOBIN, else the first GOPATH
+// entry's bin, else ~/go/bin when go cannot say.
 func (o Options) goBin() string {
-	if b := o.Getenv("GOBIN"); b != "" {
-		return b
-	}
-	if gp := filepath.SplitList(o.Getenv("GOPATH")); len(gp) > 0 && gp[0] != "" {
-		return filepath.Join(gp[0], "bin")
+	if out, err := o.Output("go", "env", "GOBIN", "GOPATH"); err == nil {
+		lines := strings.Split(out, "\n")
+		if b := strings.TrimSpace(lines[0]); b != "" {
+			return b
+		}
+		if len(lines) > 1 {
+			if gp := filepath.SplitList(strings.TrimSpace(lines[1])); len(gp) > 0 && gp[0] != "" {
+				return filepath.Join(gp[0], "bin")
+			}
+		}
 	}
 	return filepath.Join(o.Getenv("HOME"), "go", "bin")
 }

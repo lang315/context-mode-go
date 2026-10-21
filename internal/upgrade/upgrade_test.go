@@ -26,7 +26,9 @@ func (r *rec) run(dir string, env []string, name string, args ...string) error {
 	return nil
 }
 
-// opts returns Options with env vars from vars, go and git on PATH, and a recorder.
+// opts returns Options with env vars from vars, go and git on PATH, and a
+// recorder. `go env GOBIN GOPATH` answers from vars["GOBIN"] and vars["GOPATH"],
+// as the real go would for variables set in the environment.
 func opts(vars map[string]string) (Options, *rec, *bytes.Buffer) {
 	r := &rec{}
 	var out bytes.Buffer
@@ -34,7 +36,10 @@ func opts(vars map[string]string) (Options, *rec, *bytes.Buffer) {
 		Getenv:   func(k string) string { return vars[k] },
 		LookPath: func(n string) (string, error) { return "/usr/bin/" + n, nil },
 		Run:      r.run,
-		Stdout:   &out,
+		Output: func(name string, args ...string) (string, error) {
+			return vars["GOBIN"] + "\n" + vars["GOPATH"] + "\n", nil
+		},
+		Stdout: &out,
 	}, r, &out
 }
 
@@ -175,5 +180,37 @@ func TestUpgradeBadSourceAndMissingTools(t *testing.T) {
 	}
 	if !strings.HasSuffix(out.String(), "@latest — go not found on PATH; install Go from https://go.dev/dl\n") {
 		t.Errorf("no go output %q", out)
+	}
+}
+
+// The bin dir comes from `go env GOBIN GOPATH`, which sees values set with
+// `go env -w`, not from $GOBIN and $GOPATH (spec §2).
+func TestUpgradeBinDirFromGoEnv(t *testing.T) {
+	cases := []struct {
+		name, goenv string
+		err         error
+		want        string
+	}{
+		{"GOBIN wins", "/set/by/go/env/w\n/gp\n", nil, "/set/by/go/env/w"},
+		{"first GOPATH entry", "\n/gp1:/gp2\n", nil, "/gp1/bin"},
+		{"go env fails: ~/go/bin", "", errors.New("exec: go: not found"), "/home/u/go/bin"},
+		{"both empty: ~/go/bin", "\n\n", nil, "/home/u/go/bin"},
+	}
+	for _, c := range cases {
+		o, r, _ := opts(map[string]string{"HOME": "/home/u", "GOBIN": "/env-gobin", "GOPATH": "/env-gopath"}) // the env must not be read
+		var asked []string
+		o.Output = func(name string, args ...string) (string, error) {
+			asked = append([]string{name}, args...)
+			return c.goenv, c.err
+		}
+		if err := Upgrade(o); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if got := strings.Join(asked, " "); got != "go env GOBIN GOPATH" {
+			t.Errorf("%s: asked %q", c.name, got)
+		}
+		if last := r.runs[len(r.runs)-1]; !strings.HasSuffix(last, " "+c.want+"/cmgo install") {
+			t.Errorf("%s: last run %q, want %s/cmgo install", c.name, last, c.want)
+		}
 	}
 }

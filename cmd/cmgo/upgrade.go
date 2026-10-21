@@ -30,7 +30,11 @@ func upgradeCmd(args []string, stdout, stderr io.Writer) int {
 		Getenv:   os.Getenv,
 		LookPath: exec.LookPath,
 		Run:      runCommand(stderr),
-		Stdout:   stdout,
+		Output: func(name string, args ...string) (string, error) {
+			out, err := exec.Command(name, args...).Output()
+			return string(out), err
+		},
+		Stdout: stdout,
 	})
 	if err != nil {
 		return 1
