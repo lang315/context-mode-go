@@ -1,10 +1,13 @@
 #!/usr/bin/env python3 -I
-"""Criterion 1: `cmgo-hook <event>` wall time p95 <= 10 ms per case (spec §6.4).
+"""Criterion 1: `cmgo-hook <event>` wall time p95 <= 10 ms per case (spec §6.4,
+session memory spec §0 criterion 4).
 
 Run: go build -o bin/ ./cmd/cmgo-hook && python3 -I bench/hook-latency.py bin/cmgo-hook [runs]
 
 Every case runs `runs` times against a temp CMGO_DIR, HOME and project dir
-(never the real ones), after one warm-up call that creates the DB. The time
+(never the real ones), after one warm-up call that creates the DB. The
+precompact and sessionstart compact cases run against a session pre-filled
+to 1000 events (the per-session cap) through the hook itself. The time
 is subprocess.run wall clock, so it includes the fork/exec cost. Then
 posttooluse runs from 4 threads at once, `runs` fires each, into the same DB.
 For context it also times /usr/bin/true and cmgo-hook with no arguments
@@ -14,6 +17,7 @@ import json
 import math
 import os
 import shutil
+import sqlite3
 import statistics
 import subprocess
 import sys
@@ -21,7 +25,7 @@ import tempfile
 import threading
 import time
 
-LIMIT_MS, WORKERS = 10.0, 4
+LIMIT_MS, WORKERS, MEM_EVENTS, MEM_SID = 10.0, 4, 1000, "bench-mem"
 
 
 def timed(argv, env, data=b""):
@@ -58,6 +62,23 @@ def read_payload(i, sid):
             "session_id": sid}
 
 
+def fill_session(binary, env, db):
+    """Records MEM_EVENTS events for MEM_SID: Read captures with a prompt every
+    fourth fire, more than the cap, so the cap's eviction leaves exactly 1000."""
+    for i in range(MEM_EVENTS + MEM_EVENTS // 10):
+        if i % 4 == 0:
+            fire(binary, env, "userpromptsubmit", {"prompt": f"step {i}: fix the parser and add tests", "session_id": MEM_SID})
+        else:
+            fire(binary, env, "posttooluse", read_payload(i, MEM_SID))
+    con = sqlite3.connect(db)
+    try:
+        n = con.execute("SELECT count(*) FROM session_events WHERE session_id = ?", (MEM_SID,)).fetchone()[0]
+    finally:
+        con.close()
+    if n != MEM_EVENTS:
+        raise SystemExit(f"fill: {n} events, want {MEM_EVENTS}")
+
+
 def main(binary, runs):
     binary = os.path.abspath(binary)
     root = tempfile.mkdtemp(prefix="cmgo-hook-bench-")
@@ -71,6 +92,7 @@ def main(binary, runs):
         for name, argv in (("/usr/bin/true", ["/usr/bin/true"]), ("cmgo-hook, no args", [binary])):
             print(f"context {name}: {stats([timed(argv, env)[0] for _ in range(runs)])}")
         fire(binary, env, "posttooluse", read_payload(-1, "warm"))  # creates and migrates the DB
+        fill_session(binary, env, os.path.join(data, "cmgo.db"))
 
         # A fake live server so the curl redirect fires: this process's pid.
         run_dir = os.path.join(data, "run")
@@ -92,6 +114,11 @@ def main(binary, runs):
             ("sessionstart startup", "sessionstart",
              lambda i: {"source": "startup", "session_id": f"bench-start-{i}"},
              lambda out: out.startswith(b'{"hookSpecificOutput":{"hookEventName":"SessionStart"')),
+            (f"precompact ({MEM_EVENTS} events)", "precompact",
+             lambda i: {"session_id": MEM_SID, "trigger": "auto"}, lambda out: out == b"{}\n"),
+            (f"sessionstart compact ({MEM_EVENTS} events)", "sessionstart",
+             lambda i: {"source": "compact", "session_id": MEM_SID},
+             lambda out: b'<session_knowledge source=\\"compact\\">' in out),
         ]
         ok = True
         for name, event, payload, check in cases:
