@@ -132,3 +132,45 @@ func TestInstallErrors(t *testing.T) {
 		t.Fatalf("extra argument: exit %d", code)
 	}
 }
+
+// Claude Code keeps .claude.json inside $CLAUDE_CONFIG_DIR when that is set,
+// so the registration check must read it there.
+func TestInstallReadsClaudeJSONFromConfigDir(t *testing.T) {
+	home, claudeLog := installEnv(t)
+	cmgo := fakeBinaries(t)
+	registered := `{"mcpServers":{"cmgo":{"command":"` + cmgo + `","args":["serve"]}}}`
+
+	cfg := filepath.Join(t.TempDir(), "cfg")
+	os.MkdirAll(cfg, 0o755)
+	os.WriteFile(filepath.Join(cfg, ".claude.json"), []byte(registered), 0o644)
+	t.Setenv("CLAUDE_CONFIG_DIR", cfg)
+	if code, out, errs := runCmd(t, "install", "--binary", cmgo); code != 0 {
+		t.Fatalf("exit %d\nstdout %q\nstderr %q", code, out, errs)
+	}
+	if log, err := os.ReadFile(claudeLog); err == nil {
+		t.Fatalf("registered in $CLAUDE_CONFIG_DIR/.claude.json, but claude ran: %q", log)
+	}
+
+	// "~" expands like it does for settings.json.
+	os.MkdirAll(filepath.Join(home, "cfg2"), 0o755)
+	os.WriteFile(filepath.Join(home, "cfg2", ".claude.json"), []byte(registered), 0o644)
+	t.Setenv("CLAUDE_CONFIG_DIR", "~/cfg2")
+	if code, out, errs := runCmd(t, "install", "--binary", cmgo); code != 0 {
+		t.Fatalf("exit %d\nstdout %q\nstderr %q", code, out, errs)
+	}
+	if log, err := os.ReadFile(claudeLog); err == nil {
+		t.Fatalf("registered in ~/cfg2/.claude.json, but claude ran: %q", log)
+	}
+}
+
+func TestInstallReadsClaudeJSONFromHome(t *testing.T) {
+	home, claudeLog := installEnv(t)
+	cmgo := fakeBinaries(t)
+	os.WriteFile(filepath.Join(home, ".claude.json"), []byte(`{"mcpServers":{"cmgo":{"command":"`+cmgo+`","args":["serve"]}}}`), 0o644)
+	if code, out, errs := runCmd(t, "install", "--binary", cmgo); code != 0 {
+		t.Fatalf("exit %d\nstdout %q\nstderr %q", code, out, errs)
+	}
+	if log, err := os.ReadFile(claudeLog); err == nil {
+		t.Fatalf("registered in ~/.claude.json, but claude ran: %q", log)
+	}
+}

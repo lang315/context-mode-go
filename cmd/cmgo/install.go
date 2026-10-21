@@ -49,7 +49,7 @@ func runInstall(name, binary string, disableTS, dryRun bool, stdout, stderr io.W
 	}
 	o := install.Options{
 		SettingsPath:    settingsPath(home),
-		ClaudeJSONPath:  filepath.Join(home, ".claude.json"),
+		ClaudeJSONPath:  claudeJSONPath(home),
 		DisableTSPlugin: disableTS,
 		DryRun:          dryRun,
 		Stdout:          stdout,
@@ -85,9 +85,8 @@ func runInstall(name, binary string, disableTS, dryRun bool, stdout, stderr io.W
 	return install.Install(o)
 }
 
-// settingsPath is $CLAUDE_CONFIG_DIR/settings.json ("~" expanded), else
-// ~/.claude/settings.json.
-func settingsPath(home string) string {
+// claudeConfigDir is $CLAUDE_CONFIG_DIR ("~" expanded), else ~/.claude.
+func claudeConfigDir(home string) string {
 	dir := os.Getenv("CLAUDE_CONFIG_DIR")
 	switch {
 	case dir == "":
@@ -95,5 +94,19 @@ func settingsPath(home string) string {
 	case dir == "~" || strings.HasPrefix(dir, "~/"):
 		dir = filepath.Join(home, dir[1:])
 	}
-	return filepath.Join(dir, "settings.json")
+	return dir
+}
+
+// settingsPath is settings.json in the Claude config dir.
+func settingsPath(home string) string {
+	return filepath.Join(claudeConfigDir(home), "settings.json")
+}
+
+// claudeJSONPath is where Claude Code keeps the user-scope MCP servers:
+// .claude.json inside $CLAUDE_CONFIG_DIR when that is set, else ~/.claude.json.
+func claudeJSONPath(home string) string {
+	if os.Getenv("CLAUDE_CONFIG_DIR") == "" {
+		return filepath.Join(home, ".claude.json")
+	}
+	return filepath.Join(claudeConfigDir(home), ".claude.json")
 }
