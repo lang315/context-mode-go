@@ -1,5 +1,10 @@
 package store
 
+import (
+	"database/sql"
+	"errors"
+)
+
 // ToolStat is one tool's summed tool_stats counters.
 type ToolStat struct {
 	Tool                            string
@@ -37,4 +42,152 @@ func (s *Store) SetSessionCC(sessionID, project string, ccPID int) error {
 VALUES(?, ?, datetime('now'), datetime('now'), ?)
 ON CONFLICT(session_id) DO UPDATE SET cc_pid = excluded.cc_pid`, sessionID, project, ccPID)
 	return err
+}
+
+// StatsQuery identifies the cmgo serve process asking for ctx_stats.
+type StatsQuery struct {
+	ServerID string
+	CCPID    int // 0 when serve found no Claude Code ancestor
+	Project  string
+}
+
+// StatsSnapshot is everything the ctx_stats report shows except the version
+// and the clock (stats spec §1.2, §2).
+type StatsSnapshot struct {
+	SessionID     string
+	SessionLinked bool
+	SessionStart  string     // 'YYYY-MM-DD HH:MM:SS' UTC; "" when not linked
+	Tools         []ToolStat // linked session's rows, else this server's rows; by tool name
+	Raw           int64      // bytes processed: Kept + Returned over the Tools that have a raw size
+	// Redirects and RedirectBytes are the linked session's "redirect" events:
+	// their count and SUM(bytes_avoided).
+	Redirects, RedirectBytes int64
+	Events, Compactions      int
+	Categories               map[string]int // event count per category; nil when not linked
+	ProjectSources           int
+	ProjectContentBytes      int64 // UTF-8 bytes of the project's chunk contents
+	ProjectSessions          int
+	ProjectEvents            int
+	LifetimeKept             int64 // every tool_stats bytes_kept plus every redirect bytes_avoided
+	LifetimeSessions         int
+	LifetimeSince            string // earliest tool_stats started_at; "" when there is none
+}
+
+// rawTools are the tools whose calls have a raw size (stats spec §1.3); the
+// others (ctx_search, ctx_purge, ctx_stats) only return bytes.
+var rawTools = map[string]bool{"ctx_execute": true, "ctx_execute_file": true, "ctx_batch_execute": true, "ctx_fetch_and_index": true}
+
+// rawBytes is the bytes processed by tools: what they kept plus what they returned.
+func rawBytes(tools []ToolStat) int64 {
+	var n int64
+	for _, t := range tools {
+		if rawTools[t.Tool] {
+			n += t.BytesKept + t.BytesReturned
+		}
+	}
+	return n
+}
+
+// lifetimeKept is the all-projects kept-out total (stats spec §2 "Lifetime").
+const lifetimeKept = `(SELECT COALESCE(SUM(bytes_kept), 0) FROM tool_stats) +
+  (SELECT COALESCE(SUM(bytes_avoided), 0) FROM session_events WHERE category = 'redirect')`
+
+// Stats gathers the ctx_stats numbers. The caller's session is the newest
+// one its Claude Code process started in this project; its server rows are
+// those of that pid and project whose window is the session's started_at, so
+// a /clear starts from zero (stats spec §1.2). With no linked session the
+// server's own rows, all windows, are shown.
+func (s *Store) Stats(q StatsQuery) (StatsSnapshot, error) {
+	var st StatsSnapshot
+	// cc_pid 0 means unknown, and every session_meta row older than
+	// migration 3 has it: never link on it.
+	if q.CCPID != 0 {
+		err := s.db.QueryRow(`SELECT session_id, started_at FROM session_meta WHERE cc_pid = ? AND project = ?
+ORDER BY started_at DESC, rowid DESC LIMIT 1`, q.CCPID, q.Project).Scan(&st.SessionID, &st.SessionStart)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return st, err
+		}
+		st.SessionLinked = err == nil
+	}
+	var err error
+	if st.SessionLinked {
+		st.Tools, err = s.toolStats("cc_pid = ? AND project = ? AND window = ?", q.CCPID, q.Project, st.SessionStart)
+	} else {
+		st.Tools, err = s.toolStats("server_id = ?", q.ServerID)
+	}
+	if err != nil {
+		return st, err
+	}
+	st.Raw = rawBytes(st.Tools)
+	if st.SessionLinked {
+		if err := s.db.QueryRow(`SELECT count(*), COALESCE(SUM(bytes_avoided), 0) FROM session_events
+WHERE session_id = ? AND category = 'redirect'`, st.SessionID).Scan(&st.Redirects, &st.RedirectBytes); err != nil {
+			return st, err
+		}
+		if err := s.db.QueryRow("SELECT compact_count FROM session_meta WHERE session_id = ?", st.SessionID).Scan(&st.Compactions); err != nil {
+			return st, err
+		}
+		if st.Categories, st.Events, err = s.categories(st.SessionID); err != nil {
+			return st, err
+		}
+	}
+	err = s.db.QueryRow(`SELECT (SELECT count(*) FROM sources WHERE project = ?),
+  (SELECT COALESCE(SUM(length(CAST(content AS BLOB))), 0) FROM chunks WHERE source_id IN (SELECT id FROM sources WHERE project = ?)),
+  (SELECT count(*) FROM session_meta WHERE project = ?),
+  (SELECT count(*) FROM session_events WHERE project = ?),
+  `+lifetimeKept+`,
+  (SELECT count(*) FROM session_meta),
+  (SELECT COALESCE(MIN(started_at), '') FROM tool_stats)`, q.Project, q.Project, q.Project, q.Project).Scan(
+		&st.ProjectSources, &st.ProjectContentBytes, &st.ProjectSessions, &st.ProjectEvents,
+		&st.LifetimeKept, &st.LifetimeSessions, &st.LifetimeSince)
+	return st, err
+}
+
+// toolStats sums tool_stats rows matching where, one ToolStat per tool.
+func (s *Store) toolStats(where string, args ...any) ([]ToolStat, error) {
+	rows, err := s.db.Query("SELECT tool, SUM(calls), SUM(bytes_returned), SUM(bytes_kept) FROM tool_stats WHERE "+where+
+		" GROUP BY tool ORDER BY tool", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ToolStat
+	for rows.Next() {
+		var t ToolStat
+		if err := rows.Scan(&t.Tool, &t.Calls, &t.BytesReturned, &t.BytesKept); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// categories counts a session's events per category, and in total.
+func (s *Store) categories(sessionID string) (map[string]int, int, error) {
+	rows, err := s.db.Query("SELECT category, count(*) FROM session_events WHERE session_id = ? GROUP BY category", sessionID)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	cats, total := map[string]int{}, 0
+	for rows.Next() {
+		var name string
+		var n int
+		if err := rows.Scan(&name, &n); err != nil {
+			return nil, 0, err
+		}
+		cats[name] = n
+		total += n
+	}
+	return cats, total, rows.Err()
+}
+
+// SourceBytes is the UTF-8 size of a source's chunk contents: the raw bytes a
+// ctx_fetch_and_index cache hit keeps out (stats spec §1.3).
+// shortcut: source_id is UNINDEXED in FTS5, so this scans every chunk; add a
+// bytes column to sources if cache hits on a large knowledge base get slow.
+func (s *Store) SourceBytes(sourceID int64) (int64, error) {
+	var n int64
+	err := s.db.QueryRow("SELECT COALESCE(SUM(length(CAST(content AS BLOB))), 0) FROM chunks WHERE source_id = ?", sourceID).Scan(&n)
+	return n, err
 }

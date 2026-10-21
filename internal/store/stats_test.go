@@ -1,6 +1,7 @@
 package store
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -88,5 +89,169 @@ func TestSetSessionCC(t *testing.T) {
 	insertTestEvents(t, s, "s2", "/p", Event{Type: "a", Category: "file", Priority: 1, Data: "y"})
 	if n := tableCount(t, s, "SELECT cc_pid FROM session_meta WHERE session_id = 's2'"); n != 0 {
 		t.Fatalf("s2 cc_pid = %d", n)
+	}
+}
+
+// statsFixture is two Claude Code processes (cc 100 and 200) with one
+// session each in /p, their servers' rows, and a foreign project /q.
+// Session starts are set directly: the columns have one-second resolution.
+// Each row's window is the session started_at at write time.
+func statsFixture(t *testing.T) *Store {
+	t.Helper()
+	s := openTest(t)
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := s.db.Exec(q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add := func(server string, cc int, project, tool string, returned, kept int64) {
+		t.Helper()
+		if err := s.AddToolStat(server, cc, project, "2026-10-21 08:00:00", tool, returned, kept); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, sess := range []struct {
+		id      string
+		cc      int
+		project string
+	}{{"sA", 100, "/p"}, {"sB", 200, "/p"}, {"sQ", 300, "/q"}} {
+		if err := s.SetSessionCC(sess.id, sess.project, sess.cc); err != nil {
+			t.Fatal(err)
+		}
+		exec("UPDATE session_meta SET started_at = '2026-10-21 09:00:00' WHERE session_id = ?", sess.id)
+	}
+	add("srvA", 100, "/p", "ctx_execute", 100, 900)
+	add("srvA", 100, "/p", "ctx_execute", 100, 0)
+	add("srvB", 200, "/p", "ctx_execute", 10, 90)
+	add("srvB", 200, "/p", "ctx_search", 5, 0)
+	add("srvQ", 300, "/q", "ctx_fetch_and_index", 1, 4000)
+	add("srvX", 0, "/p", "ctx_execute", 2, 8)
+	insertTestEvents(t, s, "sA", "/p",
+		Event{Type: "bash-redirected", Category: "redirect", Priority: 2, Data: "a", BytesAvoided: 8192},
+		Event{Type: "webfetch-redirected", Category: "redirect", Priority: 2, Data: "b", BytesAvoided: 16384},
+		Event{Type: "file_read", Category: "file", Priority: 1, Data: "c"})
+	insertTestEvents(t, s, "sQ", "/q", Event{Type: "read-redirected", Category: "redirect", Priority: 2, Data: "d", BytesAvoided: 1000})
+	exec("UPDATE session_meta SET compact_count = 2 WHERE session_id = 'sA'")
+	for _, src := range []struct{ project, label, content string }{
+		{"/p", "one", "héllo"}, {"/p", "two", "abc"}, {"/q", "three", "zzzzzzzzzz"},
+	} {
+		if _, err := s.Index(src.project, src.label, []Chunk{{Title: "T", Content: src.content}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return s
+}
+
+func TestStatsLinksSessionByCCPID(t *testing.T) {
+	s := statsFixture(t)
+	got, err := s.Stats(StatsQuery{ServerID: "srvA", CCPID: 100, Project: "/p"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := StatsSnapshot{
+		SessionID: "sA", SessionLinked: true, SessionStart: "2026-10-21 09:00:00",
+		Tools: []ToolStat{{Tool: "ctx_execute", Calls: 2, BytesReturned: 200, BytesKept: 900}}, Raw: 1100,
+		Redirects: 2, RedirectBytes: 24576,
+		Events: 3, Compactions: 2, Categories: map[string]int{"redirect": 2, "file": 1},
+		ProjectSources: 2, ProjectContentBytes: 9, // "héllo" is 6 bytes, not 5 characters
+		ProjectSessions: 2, ProjectEvents: 3,
+		LifetimeKept: 900 + 90 + 4000 + 8 + 24576 + 1000, LifetimeSessions: 3, LifetimeSince: "2026-10-21 08:00:00",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Stats =\n%+v\nwant\n%+v", got, want)
+	}
+
+	// The other Claude Code process in the same project sees only its own server.
+	got, err = s.Stats(StatsQuery{ServerID: "srvB", CCPID: 200, Project: "/p"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantTools := []ToolStat{{Tool: "ctx_execute", Calls: 1, BytesReturned: 10, BytesKept: 90}, {Tool: "ctx_search", Calls: 1, BytesReturned: 5}}
+	if got.SessionID != "sB" || !got.SessionLinked || !reflect.DeepEqual(got.Tools, wantTools) || got.Raw != 100 || got.Events != 0 || got.Redirects != 0 || got.Categories == nil {
+		t.Fatalf("srvB: %+v", got)
+	}
+}
+
+// /clear keeps the server process: its later calls go to the new session's
+// window, and each session sees only its own calls.
+func TestStatsClearWindow(t *testing.T) {
+	s := statsFixture(t)
+	if err := s.SetSessionCC("sA2", "/p", 100); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec("UPDATE session_meta SET started_at = '2026-10-21 11:00:00' WHERE session_id = 'sA2'"); err != nil {
+		t.Fatal(err)
+	}
+	q := StatsQuery{ServerID: "srvA", CCPID: 100, Project: "/p"}
+	got, err := s.Stats(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SessionID != "sA2" || got.SessionStart != "2026-10-21 11:00:00" || len(got.Tools) != 0 || got.Raw != 0 || got.Events != 0 {
+		t.Fatalf("after /clear: %+v", got)
+	}
+	// The same server writes again, after the /clear.
+	if err := s.AddToolStat("srvA", 100, "/p", "2026-10-21 08:00:00", "ctx_execute", 1, 2); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = s.Stats(q)
+	if want := []ToolStat{{Tool: "ctx_execute", Calls: 1, BytesReturned: 1, BytesKept: 2}}; !reflect.DeepEqual(got.Tools, want) || got.Raw != 3 {
+		t.Fatalf("second session: %+v", got)
+	}
+	// The first session keeps its own calls, in its own window.
+	first, err := s.toolStats("cc_pid = 100 AND project = '/p' AND window = '2026-10-21 09:00:00'")
+	if want := []ToolStat{{Tool: "ctx_execute", Calls: 2, BytesReturned: 200, BytesKept: 900}}; err != nil || !reflect.DeepEqual(first, want) {
+		t.Fatalf("first session: %+v %v", first, err)
+	}
+	// Unlinked, the server's own rows add up across windows.
+	if got, _ := s.Stats(StatsQuery{ServerID: "srvA", CCPID: 0, Project: "/p"}); !reflect.DeepEqual(got.Tools, []ToolStat{{Tool: "ctx_execute", Calls: 3, BytesReturned: 201, BytesKept: 902}}) {
+		t.Fatalf("unlinked: %+v", got.Tools)
+	}
+}
+
+func TestStatsUnlinked(t *testing.T) {
+	s := statsFixture(t)
+	for _, q := range []StatsQuery{
+		{ServerID: "srvX", CCPID: 0, Project: "/p"},   // pid unknown: never linked, even to old cc_pid 0 rows
+		{ServerID: "srvX", CCPID: 100, Project: "/q"}, // cc_pid of a session in another project
+		{ServerID: "srvX", CCPID: 999, Project: "/p"}, // no SessionStart for this pid
+	} {
+		if err := s.SetSessionCC("old", "/p", 0); err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.Stats(q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.SessionLinked || got.SessionID != "" || got.SessionStart != "" || got.Events != 0 ||
+			!reflect.DeepEqual(got.Tools, []ToolStat{{Tool: "ctx_execute", Calls: 1, BytesReturned: 2, BytesKept: 8}}) {
+			t.Errorf("%+v: %+v", q, got)
+		}
+	}
+}
+
+func TestStatsEmptyDB(t *testing.T) {
+	s := openTest(t)
+	got, err := s.Stats(StatsQuery{ServerID: "srv", CCPID: 1, Project: "/p"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SessionLinked || len(got.Tools) != 0 || got.LifetimeKept != 0 || got.LifetimeSince != "" || got.LifetimeSessions != 0 {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestSourceBytes(t *testing.T) {
+	s := openTest(t)
+	r, err := s.Index("/p", "x", []Chunk{{Title: "A", Content: "héllo"}, {Title: "B", Content: "abc"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.SourceBytes(r.SourceID); err != nil || n != 9 {
+		t.Fatalf("SourceBytes = %d, %v", n, err)
+	}
+	if n, err := s.SourceBytes(r.SourceID + 1); err != nil || n != 0 {
+		t.Fatalf("missing source = %d, %v", n, err)
 	}
 }
