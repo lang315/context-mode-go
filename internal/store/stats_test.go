@@ -339,7 +339,7 @@ func TestStatsResumeOlderSession(t *testing.T) {
 	}
 }
 
-// Unlinked server calls have window ”. An empty session id (a statusline
+// Unlinked server calls have an empty window. An empty session id (a statusline
 // without a session) must not read them as a session's.
 func TestSessionLineEmptyID(t *testing.T) {
 	s := statsFixture(t) // srvX wrote with cc_pid 0, so window ''

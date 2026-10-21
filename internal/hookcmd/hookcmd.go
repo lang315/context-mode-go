@@ -179,8 +179,8 @@ func (h *hookCtx) insertEvents(sourceHook string, evs []store.Event) error {
 	defer st.Close()
 	// A session started before cmgo was installed is linked here, so the
 	// server's stats reach it (stats spec §1.2).
-	_, err = st.InsertEventsAndLink(h.sid, h.cfg.ProjectKey, sourceHook, evs, func() int {
-		return procinfo.ClaudePID(os.Getpid(), procLookup)
+	_, err = st.InsertEventsAndLink(h.sid, h.cfg.ProjectKey, sourceHook, evs, func() (int, time.Time) {
+		return procinfo.Claude(os.Getpid(), procLookup)
 	})
 	return err
 }

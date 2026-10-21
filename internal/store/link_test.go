@@ -1,6 +1,9 @@
 package store
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func promptEvent(data string) []Event {
 	return []Event{{Type: "user_prompt", Category: "user-prompt", Priority: 1, Data: data}}
@@ -19,10 +22,16 @@ func TestInsertEventsAndLinkAdoptsUnlinkedRows(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.InsertEventsAndLink("s1", "/p", "UserPromptSubmit", promptEvent("hi"), func() int { return 4242 }); err != nil {
+	// A server of an earlier Claude Code process that had the same pid
+	// started before this process did.
+	if err := s.AddToolStat("reused", 4242, "/p", "2026-10-20 07:59:59", "ctx_execute", 100, 40); err != nil {
 		t.Fatal(err)
 	}
-	for server, want := range map[string]string{"srv": "s1", "other": "", "elsewhere": ""} {
+	claudeStart := time.Date(2026, 10, 21, 7, 59, 59, 500e6, time.UTC)
+	if _, err := s.InsertEventsAndLink("s1", "/p", "UserPromptSubmit", promptEvent("hi"), func() (int, time.Time) { return 4242, claudeStart }); err != nil {
+		t.Fatal(err)
+	}
+	for server, want := range map[string]string{"srv": "s1", "other": "", "elsewhere": "", "reused": ""} {
 		var window string
 		var calls, returned int
 		if err := s.db.QueryRow("SELECT window, calls, bytes_returned FROM tool_stats WHERE server_id = ?", server).Scan(&window, &calls, &returned); err != nil {
@@ -39,7 +48,7 @@ func TestInsertEventsAndLinkAdoptsUnlinkedRows(t *testing.T) {
 func TestInsertEventsAndLinkWalksOnce(t *testing.T) {
 	s := openTest(t)
 	walks := 0
-	walk := func() int { walks++; return 0 }
+	walk := func() (int, time.Time) { walks++; return 0, time.Time{} }
 	for _, data := range []string{"one", "two"} {
 		if _, err := s.InsertEventsAndLink("s1", "/p", "UserPromptSubmit", promptEvent(data), walk); err != nil {
 			t.Fatal(err)

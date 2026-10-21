@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"time"
 )
 
 // ToolStat is one tool's summed tool_stats counters.
@@ -13,7 +14,7 @@ type ToolStat struct {
 
 // AddToolStat records one finished tool call of a cmgo serve process: calls+1
 // and the call's bytes are added, updated_at becomes now. The row's window is
-// the id of the session most recently linked to ccPID in project (” when
+// the id of the session most recently linked to ccPID in project (empty when
 // there is none, or ccPID is 0), so after a /clear or /resume the calls go to
 // that session's rows (stats spec §1.2). The first call of a (serverID, tool,
 // window) inserts the row with startedAt, the server start. One statement:
@@ -63,10 +64,11 @@ ON CONFLICT(session_id) DO UPDATE SET cc_pid = excluded.cc_pid, linked_at = excl
 // InsertEventsAndLink is InsertEvents that also links a session no cmgo
 // SessionStart has seen, such as one started before cmgo was installed, in
 // the same transaction (stats spec §1.2). claudePID finds the Claude Code
-// pid; it runs only while the session's linked_at is empty, so once per
-// session, also when it finds none (cc_pid stays 0, unknown). A linked
-// session is left alone: its linked_at picks the window.
-func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs []Event, claudePID func() int) (int, error) {
+// pid and when that process started; it runs only while the session's
+// linked_at is empty, so once per session, also when it finds none (cc_pid
+// stays 0, unknown). A linked session is left alone: its linked_at picks the
+// window.
+func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs []Event, claudePID func() (int, time.Time)) (int, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
@@ -81,7 +83,8 @@ func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs [
 		return 0, err
 	}
 	if linkedAt == "" {
-		if err := linkLate(tx, sessionID, project, claudePID()); err != nil {
+		cc, start := claudePID()
+		if err := linkLate(tx, sessionID, project, cc, start); err != nil {
 			return 0, err
 		}
 	}
@@ -90,12 +93,12 @@ func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs [
 
 // linkLate records cc as the session's Claude Code pid. The rows that
 // process's servers wrote for the project before the link, with an empty window, then
-// move to the session. No row of the session's window can exist yet: a
-// server writes that window only once the session is linked to its pid.
-// shortcut: a pid the OS reused for another Claude Code process in the same
-// project would carry over that process's unlinked rows too; add a process
-// start time to tool_stats if that ever shows up.
-func linkLate(tx *sql.Tx, sessionID, project string, cc int) error {
+// move to the session. Only servers started at or after ccStart are this
+// process's, so the rows of an earlier process that had the same pid stay
+// put; a zero ccStart (unknown) takes every row. No row of the session's
+// window can exist yet: a server writes that window only once the session is
+// linked to its pid.
+func linkLate(tx *sql.Tx, sessionID, project string, cc int, ccStart time.Time) error {
 	if _, err := tx.Exec(`UPDATE session_meta SET cc_pid = ?, linked_at = strftime('%Y-%m-%d %H:%M:%f', 'now') WHERE session_id = ?`,
 		cc, sessionID); err != nil {
 		return err
@@ -103,7 +106,9 @@ func linkLate(tx *sql.Tx, sessionID, project string, cc int) error {
 	if cc == 0 {
 		return nil
 	}
-	_, err := tx.Exec("UPDATE tool_stats SET window = ? WHERE cc_pid = ? AND project = ? AND window = ''", sessionID, cc, project)
+	// started_at has whole seconds, so ccStart is cut to the second as well.
+	_, err := tx.Exec("UPDATE tool_stats SET window = ? WHERE cc_pid = ? AND project = ? AND window = '' AND started_at >= ?",
+		sessionID, cc, project, ccStart.UTC().Format("2006-01-02 15:04:05"))
 	return err
 }
 

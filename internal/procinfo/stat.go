@@ -22,6 +22,30 @@ func parseStat(s string) (ppid int, err error) {
 	return strconv.Atoi(f[1])
 }
 
+// parseStatStart reads field 22 of a Linux /proc/<pid>/stat line: when the
+// process started, in clock ticks after boot.
+func parseStatStart(s string) (int64, error) {
+	end := strings.LastIndexByte(s, ')')
+	if end < 0 {
+		return 0, errors.New("procinfo: malformed stat")
+	}
+	f := strings.Fields(s[end+1:]) // field 3 (state) onwards
+	if len(f) < 20 {
+		return 0, errors.New("procinfo: short stat")
+	}
+	return strconv.ParseInt(f[19], 10, 64)
+}
+
+// parseBtime reads the boot time (Unix seconds) from Linux /proc/stat.
+func parseBtime(s string) (int64, error) {
+	for _, line := range strings.Split(s, "\n") {
+		if v, ok := strings.CutPrefix(line, "btime "); ok {
+			return strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+		}
+	}
+	return 0, errors.New("procinfo: no btime in /proc/stat")
+}
+
 // parseCmdline returns argv[0] and argv[1] from a Linux /proc/<pid>/cmdline,
 // whose arguments are NUL-terminated.
 func parseCmdline(b []byte) (arg0, arg1 string) {

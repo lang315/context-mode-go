@@ -26,8 +26,12 @@ var HookEvents = []struct{ Event, Arg, Matcher string }{
 func hookCommand(hookBinary, arg string) string { return shellQuote(hookBinary) + " " + arg }
 
 // shellWord reads the first word of a shell command line: single-quoted,
-// double-quoted (older installs wrote that form) or bare, joined as sh does
-// ('it'\”s' is it's). It returns the word and the rest of the line.
+// double-quoted (older installs wrote that form) or bare, joined as sh does,
+// so this word is it's:
+//
+//	'it'\''s'
+//
+// It returns the word and the rest of the line.
 func shellWord(cmd string) (word, rest string, ok bool) {
 	var b strings.Builder
 	for i := 0; i < len(cmd); i++ {

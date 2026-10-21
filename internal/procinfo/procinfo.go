@@ -2,13 +2,17 @@
 // MCP server and the hooks can agree on a session without being told its id.
 package procinfo
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
 // Info is what the walk needs to know about one process.
 type Info struct {
 	PPID       int
-	Exe        string // executable path; "" when unreadable
-	Arg0, Arg1 string // argv[0] and argv[1]; "" when absent or unreadable
+	Exe        string    // executable path; "" when unreadable
+	Arg0, Arg1 string    // argv[0] and argv[1]; "" when absent or unreadable
+	Start      time.Time // when the process started; zero when unknown
 }
 
 // Lookup returns a process's parent pid and the paths it was started with.
@@ -27,6 +31,13 @@ const maxHops = 8
 // do say "claude" (argv[1] covers a node install running
 // .../@anthropic-ai/claude-code/cli.js).
 func ClaudePID(pid int, look Lookup) int {
+	cc, _ := Claude(pid, look)
+	return cc
+}
+
+// Claude is ClaudePID that also returns when the Claude Code process started
+// (zero when unknown or none was found).
+func Claude(pid int, look Lookup) (int, time.Time) {
 	self, err := look(pid)
 	next := self.PPID
 	for hop := 0; hop < maxHops && err == nil && next > 0; hop++ {
@@ -34,12 +45,12 @@ func ClaudePID(pid int, look Lookup) int {
 		var info Info
 		if info, err = look(cur); err == nil {
 			if isClaude(info) {
-				return cur
+				return cur, info.Start
 			}
 			next = info.PPID
 		}
 	}
-	return 0
+	return 0, time.Time{}
 }
 
 // isClaude reports whether any of the paths has an element containing
