@@ -179,3 +179,47 @@ func TestInsertEventsEvictsLeastImportant(t *testing.T) {
 		t.Fatalf("total=%d priority1=%d victim left=%d", total, ones, gone)
 	}
 }
+
+// At the cap a new low-priority event must not push out a more important
+// row: priority 1 (prompts, files, rules, tasks) is kept over a priority 4.
+func TestInsertEventsSkipsNewEventLessImportantThanEveryRow(t *testing.T) {
+	s := openTest(t)
+	evs := make([]Event, MaxEventsPerSession)
+	for i := range evs {
+		evs[i] = Event{Type: "t", Category: "c", Priority: 1, Data: fmt.Sprint(i)}
+	}
+	if n, err := s.InsertEvents("s", "/p", "PostToolUse", evs); err != nil || n != MaxEventsPerSession {
+		t.Fatalf("fill: n=%d err=%v", n, err)
+	}
+	n, err := s.InsertEvents("s", "/p", "PostToolUse", []Event{{Type: "t", Category: "c", Priority: 4, Data: "low"}})
+	if err != nil || n != 0 {
+		t.Fatalf("priority-4 event at the cap: n=%d err=%v, want 0", n, err)
+	}
+	var total, ones, lows, meta int
+	s.db.QueryRow("SELECT count(*), sum(priority = 1), sum(data = 'low') FROM session_events").Scan(&total, &ones, &lows)
+	s.db.QueryRow("SELECT event_count FROM session_meta WHERE session_id = 's'").Scan(&meta)
+	if total != MaxEventsPerSession || ones != MaxEventsPerSession || lows != 0 || meta != MaxEventsPerSession {
+		t.Fatalf("total=%d priority1=%d low=%d event_count=%d", total, ones, lows, meta)
+	}
+}
+
+func TestInsertEventsEqualPriorityEvictsOldest(t *testing.T) {
+	s := openTest(t)
+	evs := make([]Event, MaxEventsPerSession)
+	for i := range evs {
+		evs[i] = Event{Type: "t", Category: "c", Priority: 2, Data: fmt.Sprint(i)}
+	}
+	if _, err := s.InsertEvents("s", "/p", "PostToolUse", evs); err != nil {
+		t.Fatal(err)
+	}
+	var oldest int64
+	s.db.QueryRow("SELECT min(id) FROM session_events").Scan(&oldest)
+	if n, err := s.InsertEvents("s", "/p", "PostToolUse", []Event{{Type: "t", Category: "c", Priority: 2, Data: "new"}}); err != nil || n != 1 {
+		t.Fatalf("equal priority at the cap: n=%d err=%v, want 1", n, err)
+	}
+	var total, gone, added int
+	s.db.QueryRow("SELECT count(*), sum(id = ?), sum(data = 'new') FROM session_events", oldest).Scan(&total, &gone, &added)
+	if total != MaxEventsPerSession || gone != 0 || added != 1 {
+		t.Fatalf("total=%d oldest left=%d new stored=%d", total, gone, added)
+	}
+}

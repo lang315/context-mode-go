@@ -84,9 +84,18 @@ VALUES(?, ?, datetime('now'), datetime('now'))`, sessionID, project); err != nil
 			continue
 		}
 		if count >= MaxEventsPerSession {
-			// Evict the oldest of the least important rows (TS: priority ASC, R2 Port note 1).
-			if _, err := tx.Exec(`DELETE FROM session_events WHERE id = (
-  SELECT id FROM session_events WHERE session_id = ? ORDER BY priority DESC, id ASC LIMIT 1)`, sessionID); err != nil {
+			// Evict the oldest of the least important rows (TS: priority ASC, R2 Port note 1),
+			// unless every row is more important than the new event: then drop the new one.
+			var victimID int64
+			var victimPriority int
+			if err := tx.QueryRow(`SELECT id, priority FROM session_events WHERE session_id = ?
+ORDER BY priority DESC, id ASC LIMIT 1`, sessionID).Scan(&victimID, &victimPriority); err != nil {
+				return 0, err
+			}
+			if victimPriority < ev.Priority {
+				continue
+			}
+			if _, err := tx.Exec("DELETE FROM session_events WHERE id = ?", victimID); err != nil {
 				return 0, err
 			}
 		} else {
