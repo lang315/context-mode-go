@@ -49,22 +49,33 @@ type cacheEntry struct {
 // Policy evaluates commands and paths against Claude Code settings files.
 type Policy struct {
 	projectDir string
-	home       string
+	claudeDir  string
 	warn       io.Writer
 
 	mu    sync.Mutex
 	cache map[string]cacheEntry
 }
 
-// NewPolicy returns a Policy reading settings under projectDir and home.
-// An empty projectDir or home skips the files rooted there.
+// NewPolicy returns a Policy reading settings under projectDir and
+// home/.claude. An empty projectDir or home skips the files rooted there.
 func NewPolicy(projectDir, home string) *Policy {
-	return &Policy{projectDir: projectDir, home: home, warn: os.Stderr, cache: map[string]cacheEntry{}}
+	claudeDir := ""
+	if home != "" {
+		claudeDir = filepath.Join(home, ".claude")
+	}
+	return NewPolicyDir(projectDir, claudeDir)
+}
+
+// NewPolicyDir is NewPolicy with the Claude config dir given directly, for
+// when $CLAUDE_CONFIG_DIR moves the global settings.json away from ~/.claude.
+func NewPolicyDir(projectDir, claudeDir string) *Policy {
+	return &Policy{projectDir: projectDir, claudeDir: claudeDir, warn: os.Stderr, cache: map[string]cacheEntry{}}
 }
 
 // settingsPaths ports readBashPolicies / readToolPermissionPatterns file order
-// (security.ts:363-394, 426-490). Only the claude global is read: adapter
-// globals and CLAUDE_CONFIG_DIR are dropped (spec §4.5).
+// (security.ts:363-394, 426-490). Only the claude global is read, from the
+// Claude config dir (cmgo follows CLAUDE_CONFIG_DIR, as install does): adapter
+// globals are dropped (spec §4.5).
 func (p *Policy) settingsPaths() []string {
 	var paths []string
 	if p.projectDir != "" {
@@ -72,8 +83,8 @@ func (p *Policy) settingsPaths() []string {
 			filepath.Join(p.projectDir, ".claude", "settings.local.json"),
 			filepath.Join(p.projectDir, ".claude", "settings.json"))
 	}
-	if p.home != "" {
-		paths = append(paths, filepath.Join(p.home, ".claude", "settings.json"))
+	if p.claudeDir != "" {
+		paths = append(paths, filepath.Join(p.claudeDir, "settings.json"))
 	}
 	return paths
 }

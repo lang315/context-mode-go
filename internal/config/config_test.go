@@ -55,3 +55,23 @@ func TestLoadMakesRelativeProjectAbsolute(t *testing.T) {
 		t.Fatalf("not absolute: %q", c.ProjectDir)
 	}
 }
+
+func TestLoadClaudeDir(t *testing.T) {
+	for _, c := range []struct{ name, val, want string }{
+		{"unset", "", "/h/.claude"},
+		{"blank", "  \t", "/h/.claude"},
+		{"absolute", "/cfg/claude", "/cfg/claude"},
+		{"tilde", "~/cfg", "/h/cfg"},
+		{"bare tilde", "~", "/h"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := Load(env(map[string]string{"HOME": "/h", "CLAUDE_CONFIG_DIR": c.val}), func() (string, error) { return "/w", nil })
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.ClaudeDir != c.want {
+				t.Fatalf("ClaudeDir = %q, want %q", got.ClaudeDir, c.want)
+			}
+		})
+	}
+}

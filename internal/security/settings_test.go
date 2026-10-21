@@ -182,3 +182,16 @@ func TestRulesCacheInvalidation(t *testing.T) {
 		t.Fatalf("after delete got %d rule sets", len(rs))
 	}
 }
+
+// The global settings file lives in the Claude config dir, which
+// $CLAUDE_CONFIG_DIR can move away from HOME/.claude.
+func TestNewPolicyDirReadsGlobalFromClaudeDir(t *testing.T) {
+	project, claudeDir := t.TempDir(), filepath.Join(t.TempDir(), "elsewhere")
+	writeFile(t, filepath.Join(claudeDir, "settings.json"), `{"permissions":{"deny":["Bash(rm -rf *)"]}}`)
+	p := NewPolicyDir(project, claudeDir)
+	p.warn = &bytes.Buffer{}
+	got, _ := p.EvaluateCommand("rm -rf /x")
+	if got != "deny" {
+		t.Fatalf("EvaluateCommand = %q, want deny", got)
+	}
+}

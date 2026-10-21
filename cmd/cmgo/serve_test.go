@@ -295,3 +295,25 @@ func TestServeConcurrentSessionsSameDB(t *testing.T) {
 	<-a.done
 	<-b.done
 }
+
+// ctx_execute checks deny rules itself; the global ones live in
+// $CLAUDE_CONFIG_DIR/settings.json when that is set.
+func TestServeDeniesFromClaudeConfigDir(t *testing.T) {
+	env := testEnv(t)
+	cfg := filepath.Join(t.TempDir(), "claudecfg")
+	os.MkdirAll(cfg, 0o755)
+	os.WriteFile(filepath.Join(cfg, "settings.json"), []byte(`{"permissions":{"deny":["Bash(echo cmgodenied*)"]}}`), 0o644)
+	env["CLAUDE_CONFIG_DIR"] = cfg
+	p := startServe(t, env)
+	p.initialize()
+	p.send(map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": map[string]any{
+		"name": "ctx_execute", "arguments": map[string]any{"language": "shell", "code": "echo cmgodenied"},
+	}})
+	res := p.recv(2)["result"].(map[string]any)
+	text := res["content"].([]any)[0].(map[string]any)["text"].(string)
+	if res["isError"] != true || !strings.Contains(text, "deny") {
+		t.Fatalf("not denied: %v", res)
+	}
+	p.in.Close()
+	<-p.done
+}

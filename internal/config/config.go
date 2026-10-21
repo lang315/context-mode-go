@@ -15,7 +15,8 @@ type Config struct {
 	ProjectDir  string // absolute project dir, as given (used as cwd)
 	ProjectKey  string // NormalizeProject(ProjectDir), stored in sources.project
 	Home        string
-	FetchStrict bool // CMGO_FETCH_STRICT=1 blocks private ranges
+	ClaudeDir   string // $CLAUDE_CONFIG_DIR ("~" expanded), default ~/.claude: where settings.json lives
+	FetchStrict bool   // CMGO_FETCH_STRICT=1 blocks private ranges
 }
 
 // Load reads the environment. getenv and getwd are injectable for tests.
@@ -27,6 +28,13 @@ func Load(getenv func(string) string, getwd func() (string, error)) (Config, err
 			return Config{}, err
 		}
 		home = h
+	}
+	claudeDir := strings.TrimSpace(getenv("CLAUDE_CONFIG_DIR"))
+	switch {
+	case claudeDir == "":
+		claudeDir = filepath.Join(home, ".claude")
+	case claudeDir == "~" || strings.HasPrefix(claudeDir, "~/"):
+		claudeDir = filepath.Join(home, claudeDir[1:])
 	}
 	dataDir := getenv("CMGO_DIR")
 	if dataDir == "" {
@@ -53,6 +61,7 @@ func Load(getenv func(string) string, getwd func() (string, error)) (Config, err
 		ProjectDir:  abs,
 		ProjectKey:  NormalizeProject(abs),
 		Home:        home,
+		ClaudeDir:   claudeDir,
 		FetchStrict: getenv("CMGO_FETCH_STRICT") == "1",
 	}, nil
 }

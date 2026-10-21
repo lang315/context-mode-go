@@ -177,7 +177,7 @@ func preToolUse(h *hookCtx) error {
 		ProjectDir: h.cfg.ProjectDir,
 		SessionID:  h.sid,
 		RunDir:     h.runDir,
-		Policy:     security.NewPolicy(h.cfg.ProjectDir, h.cfg.Home),
+		Policy:     security.NewPolicyDir(h.cfg.ProjectDir, h.cfg.ClaudeDir),
 		Getenv:     h.getenv,
 		MCPReady:   func() bool { return routing.MCPReady(h.runDir) },
 	})

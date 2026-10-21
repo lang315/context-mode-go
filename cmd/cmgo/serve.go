@@ -64,7 +64,7 @@ func serve(ctx context.Context, sio serveIO) int {
 		Cfg:    cfg,
 		Store:  st,
 		Exec:   ex,
-		Policy: security.NewPolicy(cfg.ProjectDir, cfg.Home),
+		Policy: security.NewPolicyDir(cfg.ProjectDir, cfg.ClaudeDir),
 		Fetch:  fetch.New(cfg.FetchStrict),
 	}
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)

@@ -323,3 +323,17 @@ func TestHookStop(t *testing.T) {
 		`turn_end|session|1|{"stop_hook_active":false,"last_assistant_message":"done"}|Stop|0`,
 		`turn_end|session|1|{"stop_hook_active":true,"last_assistant_message":null}|Stop|0`)
 }
+
+// install writes $CLAUDE_CONFIG_DIR/settings.json, so a deny rule there must
+// be enforced even though HOME/.claude has none.
+func TestHookPreToolUseDenyFromClaudeConfigDir(t *testing.T) {
+	env := hookEnv(t)
+	cfg := filepath.Join(t.TempDir(), "claudecfg")
+	os.MkdirAll(cfg, 0o755)
+	os.WriteFile(filepath.Join(cfg, "settings.json"), []byte(`{"permissions":{"deny":["Bash(rm -rf *)"]}}`), 0o644)
+	env["CLAUDE_CONFIG_DIR"] = cfg
+	out := callHook(t, env, "pretooluse", `{"tool_name":"Bash","tool_input":{"command":"rm -rf /x"},"session_id":"s1"}`)
+	if !strings.Contains(out, `"permissionDecision":"deny"`) {
+		t.Fatalf("got %q", out)
+	}
+}
