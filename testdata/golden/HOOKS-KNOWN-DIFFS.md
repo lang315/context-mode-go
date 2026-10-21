@@ -25,6 +25,7 @@ in `hooks-capture.json`); `strings:<name>` (a difference in the
 | `pretooluse:31` | `hooks-pretooluse.json` | spec §2.3: external-MCP guidance dropped; the TS `mcp__` matcher never fires in Claude Code (R1 P11) |
 | `capture:git -C checkout (TS bug)` | `hooks-capture.json` | spec §3.4: the parsed git subcommand is matched, so cmgo records `cwd` and `git branch` (TS records neither) |
 | `strings:ctx-purge` | `hooks-strings.json` (routing blocks with `includeCommands`) | The `ctx purge` action asks whether to purge one session or the whole project and warns before calling `ctx_purge`, as the `/ctx-purge` skill does. TS says `Call purge MCP tool with confirm: true. Warn: irreversible.`, which lets the model delete the whole project without asking. |
+| `strings:ctx-doctor` | `hooks-strings.json` (routing blocks with `includeCommands`) | The `ctx doctor` action shows the report that `ctx_doctor` returns, with its fix hints. TS says `Call doctor MCP tool, run returned shell command, display as checklist.`, but cmgo's `ctx_doctor` runs its checks itself and returns no command. |
 | `capture:Read CLAUDE.md CC object response` | `hooks-capture.json` | spec §3.4: `rule_content` stores `tool_response.file.content` (TS stores the stringified response object) |
 
 ## Dropped event types (applied to every capture case)

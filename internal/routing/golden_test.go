@@ -26,13 +26,21 @@ type goldenCase struct {
 	Output     *string         `json:"output"`
 }
 
-// The routing block's ctx purge line, in TS and in cmgo (HOOKS-KNOWN-DIFFS
-// strings:ctx-purge): cmgo asks for the scope and warns before it deletes,
-// as the /ctx-purge skill does, instead of calling ctx_purge at once.
-const (
-	tsPurgeLine   = "    → Call purge MCP tool with confirm: true. Warn: irreversible.\n"
-	cmgoPurgeLine = "    → Ask whether to purge one session or the whole project, and warn: irreversible. Only after the user confirms, call purge MCP tool with confirm: true and that sessionId or scope: \"project\".\n"
-)
+// blockDiffs are the routing block lines where cmgo differs from TS on
+// purpose, the strings: rows of HOOKS-KNOWN-DIFFS. They apply to the golden
+// blocks that have <ctx_commands>.
+var blockDiffs = []struct{ id, ts, cmgo string }{
+	// cmgo asks for the scope and warns before it deletes, as the /ctx-purge
+	// skill does, instead of calling ctx_purge at once.
+	{"strings:ctx-purge",
+		"    → Call purge MCP tool with confirm: true. Warn: irreversible.\n",
+		"    → Ask whether to purge one session or the whole project, and warn: irreversible. Only after the user confirms, call purge MCP tool with confirm: true and that sessionId or scope: \"project\".\n"},
+	// ctx_doctor returns its report and runs nothing (the TS tool returned a
+	// shell command).
+	{"strings:ctx-doctor",
+		"    → Call doctor MCP tool, run returned shell command, display as checklist.\n",
+		"    → Call doctor MCP tool and show its report as it is, with the fix hints of any [WARN] or [FAIL] line.\n"},
+}
 
 // knownDiff is a case where cmgo differs from TS on purpose, one row of
 // testdata/golden/HOOKS-KNOWN-DIFFS.md. want is the cmgo output ("" for none).
@@ -160,12 +168,15 @@ func TestGoldenStrings(t *testing.T) {
 	}
 	for _, b := range g.RoutingBlocks {
 		want := b.Text
-		if b.IncludeCommands {
-			// HOOKS-KNOWN-DIFFS strings:ctx-purge: the TS line must be there to replace.
-			if !strings.Contains(want, tsPurgeLine) {
-				t.Fatalf("%s: TS purge line not found; update the known diff", b.Name)
+		for _, d := range blockDiffs {
+			if !b.IncludeCommands {
+				break
 			}
-			want = strings.Replace(want, tsPurgeLine, cmgoPurgeLine, 1)
+			// The TS line must be there to replace, or the known diff is stale.
+			if !strings.Contains(want, d.ts) {
+				t.Fatalf("%s: %s: TS line not found; update HOOKS-KNOWN-DIFFS", b.Name, d.id)
+			}
+			want = strings.Replace(want, d.ts, d.cmgo, 1)
 		}
 		if got := RoutingBlock(b.IncludeCommands, b.ToolSearchBootstrap); got != want {
 			t.Errorf("%s: RoutingBlock(%v, %v) differs\ngot:\n%s", b.Name, b.IncludeCommands, b.ToolSearchBootstrap, got)
