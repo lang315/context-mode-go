@@ -56,11 +56,12 @@ func TestWrapFileContentPrefixes(t *testing.T) {
 }
 
 func TestWrapJS(t *testing.T) {
-	want := "\nasync function __cm_main(){\nawait 1\n}\n__cm_main().catch(e=>{console.error(e);process.exitCode=1});"
-	if got := wrapJS("await 1", false); got != want {
+	main := jsCounters + "await 1\n}\n__cm_main().catch(e=>{console.error(e);process.exitCode=1});"
+	end := "\n})(typeof require!=='undefined'?require:null);"
+	if got := wrapJS("await 1", false); got != main+end {
 		t.Errorf("wrapJS = %q", got)
 	}
-	if got := wrapJS("await 1", true); got != want+"\nsetInterval(()=>{},2147483647);" {
+	if got := wrapJS("await 1", true); got != main+"\nsetInterval(()=>{},2147483647);"+end {
 		t.Errorf("wrapJS background = %q", got)
 	}
 }

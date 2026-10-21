@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/lang315/context-mode-go/internal/executor"
 	"github.com/lang315/context-mode-go/internal/store"
 )
 
@@ -54,7 +56,8 @@ func TestStatsOffRecordsNothing(t *testing.T) {
 	}
 }
 
-// ctx_execute: raw is the run's stdout + stderr bytes (stats spec §1.3).
+// ctx_execute: raw is the run's stdout + stderr bytes (stats spec §1.3), plus
+// a JS/TS run's sandbox reads (next test).
 func TestStatsExecuteKept(t *testing.T) {
 	h := newHarness(t, nil)
 	row := h.recordStats()
@@ -78,6 +81,27 @@ func TestStatsExecuteKept(t *testing.T) {
 	want.Calls, want.BytesReturned = 3, want.BytesReturned+int64(len(bad))
 	if got := row("ctx_execute"); !isErr || got != want {
 		t.Fatalf("arg error: %+v, want %+v", got, want)
+	}
+}
+
+// ctx_execute JS/TS: raw also counts what the code read through fs or the
+// network, so a file read in the sandbox and summarized is kept out.
+func TestStatsExecuteKeptSandboxReads(t *testing.T) {
+	h := newHarness(t, nil)
+	if !slices.Contains(h.Deps.Exec.Available(), executor.JavaScript) {
+		t.Skip("no JS runtime")
+	}
+	row := h.recordStats()
+	h.writeProjectFile("data.txt", strings.Repeat("x", 10240))
+	code := `console.log(require("fs").readFileSync("data.txt", "utf8").length)`
+	text, isErr := h.call("ctx_execute", args("language", "javascript", "code", code))
+	stdout, ok := strings.CutPrefix(text, buildExecuteEcho("javascript", code, ""))
+	if isErr || !ok || stdout != "10240\n" {
+		t.Fatalf("run: %v %q", isErr, text)
+	}
+	want := store.ToolStat{Tool: "ctx_execute", Calls: 1, BytesReturned: int64(len(text)), BytesKept: int64(10240 + len(stdout) - len(text))}
+	if got := row("ctx_execute"); got != want {
+		t.Fatalf("%+v, want %+v", got, want)
 	}
 }
 
