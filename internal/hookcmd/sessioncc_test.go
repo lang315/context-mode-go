@@ -29,16 +29,22 @@ func fakeClaude(t *testing.T) {
 	}
 }
 
-// sessionCC reads a session's session_meta.cc_pid, or -1 when it has no row.
-func sessionCC(t *testing.T, env map[string]string, sid string) int {
+// metaDB opens the hook env's cmgo.db read-only, closed at the end of the test.
+func metaDB(t *testing.T, env map[string]string) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite3", (&url.URL{Scheme: "file", Path: filepath.Join(env["CMGO_DIR"], "cmgo.db")}).String()+"?mode=ro")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	t.Cleanup(func() { db.Close() })
+	return db
+}
+
+// sessionCC reads a session's session_meta.cc_pid, or -1 when it has no row.
+func sessionCC(t *testing.T, env map[string]string, sid string) int {
+	t.Helper()
 	cc := -1
-	if err := db.QueryRow("SELECT cc_pid FROM session_meta WHERE session_id = ?", sid).Scan(&cc); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err := metaDB(t, env).QueryRow("SELECT cc_pid FROM session_meta WHERE session_id = ?", sid).Scan(&cc); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		t.Fatal(err)
 	}
 	return cc
@@ -93,13 +99,8 @@ func TestHookKeepsExistingLink(t *testing.T) {
 
 func linkedAt(t *testing.T, env map[string]string, sid string) string {
 	t.Helper()
-	db, err := sql.Open("sqlite3", (&url.URL{Scheme: "file", Path: filepath.Join(env["CMGO_DIR"], "cmgo.db")}).String()+"?mode=ro")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
 	var at string
-	if err := db.QueryRow("SELECT linked_at FROM session_meta WHERE session_id = ?", sid).Scan(&at); err != nil {
+	if err := metaDB(t, env).QueryRow("SELECT linked_at FROM session_meta WHERE session_id = ?", sid).Scan(&at); err != nil {
 		t.Fatal(err)
 	}
 	return at
