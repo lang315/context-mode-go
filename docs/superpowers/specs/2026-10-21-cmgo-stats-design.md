@@ -54,8 +54,9 @@ CREATE TABLE tool_stats (
   bytes_returned INTEGER NOT NULL DEFAULT 0,
   bytes_kept INTEGER NOT NULL DEFAULT 0,
   started_at TEXT NOT NULL,         -- server start, UTC 'YYYY-MM-DD HH:MM:SS'
+  window TEXT NOT NULL DEFAULT '',   -- started_at of the linked session at write time ('' when none)
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (server_id, tool)
+  PRIMARY KEY (server_id, tool, window)
 );
 CREATE INDEX tool_stats_cc ON tool_stats(cc_pid, updated_at);
 CREATE INDEX tool_stats_project ON tool_stats(project);
@@ -72,7 +73,8 @@ Hooks, the statusline and `cmgo serve` all run under the same Claude Code proces
   - If no ancestor matches, `cc_pid` is 0.
 - **SessionStart** stores `cc_pid` in `session_meta` for its session id.
 - **`cmgo serve`** computes `cc_pid` once at start and writes it in every `tool_stats` row.
-- **A session's server stats** are the `tool_stats` rows whose `cc_pid` equals the session's `cc_pid` and whose `updated_at` is not earlier than the session's `started_at`. After `/clear`, the new session id gets the same `cc_pid`, and the time bound keeps the previous session's calls out.
+- **Each `tool_stats` write is tagged** with `window` = the `started_at` of the newest `session_meta` row with the server's `cc_pid` and project, read in the same transaction (`''` when there is none).
+- **A session's server stats** are the rows with its `cc_pid`, project and `window` = its `started_at`. After `/clear`, the new session gets a new `started_at`, so its calls go to new rows, and the previous session's rows stay with it.
 
 ### 1.3 Counting
 `mcpserver` records each tool call after its result is built. One UPSERT per call adds 1 to `calls`, plus that call's `bytes_returned` (UTF-8 bytes of all result text) and `bytes_kept`.
