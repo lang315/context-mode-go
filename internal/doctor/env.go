@@ -43,20 +43,13 @@ func NewEnv(cfg config.Config, version string, ex Executor) Env {
 	if err == nil {
 		bin, _ = filepath.EvalSymlinks(bin)
 	}
-	// shortcut: cmgo install keys on whether CLAUDE_CONFIG_DIR is set, this on
-	// whether it is the default dir; they differ only for an explicit
-	// CLAUDE_CONFIG_DIR=~/.claude. Upgrade if that case ever matters.
-	claudeJSON := filepath.Join(cfg.ClaudeDir, ".claude.json")
-	if cfg.ClaudeDir == filepath.Join(cfg.Home, ".claude") {
-		claudeJSON = filepath.Join(cfg.Home, ".claude.json")
-	}
 	return Env{
 		Version:        version,
 		Binary:         bin,
 		DataDir:        cfg.DataDir,
 		DBPath:         cfg.DBPath,
 		SettingsPath:   filepath.Join(cfg.ClaudeDir, "settings.json"),
-		ClaudeJSONPath: claudeJSON,
+		ClaudeJSONPath: cfg.ClaudeJSON,
 		Exec:           ex,
 	}
 }

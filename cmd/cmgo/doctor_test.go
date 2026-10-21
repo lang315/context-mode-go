@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lang315/context-mode-go/internal/config"
+	"github.com/lang315/context-mode-go/internal/doctor"
 	"github.com/lang315/context-mode-go/internal/install"
 )
 
@@ -64,5 +66,22 @@ func TestDoctorCmdUsage(t *testing.T) {
 	var out, errb bytes.Buffer
 	if code := doctorCmd([]string{"extra"}, &out, &errb); code != 2 {
 		t.Fatalf("exit %d", code)
+	}
+}
+
+// Doctor reads the .claude.json that install writes, for every way of setting
+// CLAUDE_CONFIG_DIR, including an explicit default dir.
+func TestDoctorReadsTheClaudeJSONInstallWrites(t *testing.T) {
+	root := doctorHome(t)
+	home := filepath.Join(root, "home")
+	for _, dir := range []string{"", filepath.Join(home, ".claude"), "~/.claude", "~", "/cfg"} {
+		t.Setenv("CLAUDE_CONFIG_DIR", dir)
+		cfg, err := config.Load(os.Getenv, os.Getwd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := doctor.NewEnv(cfg, "v", nil).ClaudeJSONPath, claudeJSONPath(home); got != want {
+			t.Errorf("CLAUDE_CONFIG_DIR=%q: doctor reads %s, install writes %s", dir, got, want)
+		}
 	}
 }

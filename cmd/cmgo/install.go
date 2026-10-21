@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lang315/context-mode-go/internal/config"
 	"github.com/lang315/context-mode-go/internal/install"
 )
 
@@ -108,11 +109,8 @@ func settingsPath(home string) string {
 	return filepath.Join(claudeConfigDir(home), "settings.json")
 }
 
-// claudeJSONPath is where Claude Code keeps the user-scope MCP servers:
-// .claude.json inside $CLAUDE_CONFIG_DIR when that is set, else ~/.claude.json.
+// claudeJSONPath is where Claude Code keeps the user-scope MCP servers; see
+// config.ClaudeJSONPath.
 func claudeJSONPath(home string) string {
-	if os.Getenv("CLAUDE_CONFIG_DIR") == "" {
-		return filepath.Join(home, ".claude.json")
-	}
-	return filepath.Join(claudeConfigDir(home), ".claude.json")
+	return config.ClaudeJSONPath(os.Getenv, home, claudeConfigDir(home))
 }

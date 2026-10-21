@@ -35,7 +35,7 @@ func TestNewEnv(t *testing.T) {
 		{"/cfg", "/cfg/.claude.json"},
 	}
 	for _, c := range cases {
-		cfg := config.Config{DataDir: "/d", DBPath: "/d/cmgo.db", Home: home, ClaudeDir: c.claudeDir}
+		cfg := config.Config{DataDir: "/d", DBPath: "/d/cmgo.db", Home: home, ClaudeDir: c.claudeDir, ClaudeJSON: c.want}
 		e := NewEnv(cfg, "v1", nil)
 		if e.ClaudeJSONPath != c.want || e.SettingsPath != c.claudeDir+"/settings.json" || e.DataDir != "/d" || e.DBPath != "/d/cmgo.db" || e.Version != "v1" {
 			t.Errorf("%s: %+v", c.claudeDir, e)

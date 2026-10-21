@@ -16,6 +16,7 @@ type Config struct {
 	ProjectKey  string // NormalizeProject(ProjectDir), stored in sources.project
 	Home        string
 	ClaudeDir   string // $CLAUDE_CONFIG_DIR ("~" expanded), default ~/.claude: where settings.json lives
+	ClaudeJSON  string // where Claude Code keeps user-scope MCP servers, see ClaudeJSONPath
 	FetchStrict bool   // CMGO_FETCH_STRICT=1 blocks private ranges
 }
 
@@ -62,8 +63,19 @@ func Load(getenv func(string) string, getwd func() (string, error)) (Config, err
 		ProjectKey:  NormalizeProject(abs),
 		Home:        home,
 		ClaudeDir:   claudeDir,
+		ClaudeJSON:  ClaudeJSONPath(getenv, home, claudeDir),
 		FetchStrict: getenv("CMGO_FETCH_STRICT") == "1",
 	}, nil
+}
+
+// ClaudeJSONPath is where Claude Code keeps the user-scope MCP servers:
+// .claude.json inside $CLAUDE_CONFIG_DIR when that is set (even to the default
+// dir), else ~/.claude.json. cmgo install writes it and cmgo doctor reads it.
+func ClaudeJSONPath(getenv func(string) string, home, claudeDir string) string {
+	if strings.TrimSpace(getenv("CLAUDE_CONFIG_DIR")) == "" {
+		return filepath.Join(home, ".claude.json")
+	}
+	return filepath.Join(claudeDir, ".claude.json")
 }
 
 // NormalizeProject cleans an absolute path; darwin paths are lowercased
