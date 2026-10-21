@@ -118,3 +118,64 @@ func TestInsertEventsConcurrentStores(t *testing.T) {
 		t.Fatalf("rows=%d event_count=%d, want %d", len(evs), count, stores*calls)
 	}
 }
+
+func insertOne(t *testing.T, s *Store, typ string, priority int, data string) int {
+	t.Helper()
+	n, err := s.InsertEvents("s", "/p", "PostToolUse", []Event{{Type: typ, Category: "c", Priority: priority, Data: data}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestInsertEventsDedup(t *testing.T) {
+	s := openTest(t)
+	// Same (type, data) twice in one batch: the second sees the first.
+	n, err := s.InsertEvents("s", "/p", "PostToolUse", []Event{
+		{Type: "git", Category: "c", Priority: 2, Data: "status"},
+		{Type: "git", Category: "c", Priority: 2, Data: "status"},
+	})
+	if err != nil || n != 1 {
+		t.Fatalf("same batch: n=%d err=%v", n, err)
+	}
+	if insertOne(t, s, "git", 2, "status") != 0 {
+		t.Fatal("duplicate in a later call was inserted")
+	}
+	if insertOne(t, s, "file_read", 2, "status") != 1 {
+		t.Fatal("same data with another type was skipped")
+	}
+	// Push "git status" out of the 5-row window, then it is new again.
+	for i := 0; i < EventDedupWindow; i++ {
+		insertOne(t, s, "other", 3, fmt.Sprint(i))
+	}
+	if insertOne(t, s, "git", 2, "status") != 1 {
+		t.Fatal("event outside the dedup window was skipped")
+	}
+	evs, _ := s.SessionEvents("s")
+	if _, _, _, count := metaRow(t, s, "s"); len(evs) != 8 || count != 8 {
+		t.Fatalf("rows=%d event_count=%d, want 8", len(evs), count)
+	}
+}
+
+// At the cap the oldest row of the least important priority goes first; the
+// priority-1 rows survive (TS evicted them first, R2 Port note 1).
+func TestInsertEventsEvictsLeastImportant(t *testing.T) {
+	s := openTest(t)
+	evs := make([]Event, MaxEventsPerSession)
+	for i := range evs {
+		evs[i] = Event{Type: "t", Category: "c", Priority: 1 + i%4, Data: fmt.Sprint(i)}
+	}
+	if n, err := s.InsertEvents("s", "/p", "PostToolUse", evs); err != nil || n != MaxEventsPerSession {
+		t.Fatalf("fill: n=%d err=%v", n, err)
+	}
+	var victim int64
+	s.db.QueryRow("SELECT min(id) FROM session_events WHERE priority = 4").Scan(&victim)
+	if insertOne(t, s, "t", 1, "new") != 1 {
+		t.Fatal("event at the cap was not inserted")
+	}
+	var total, ones, gone int
+	s.db.QueryRow("SELECT count(*), sum(priority = 1), sum(id = ?) FROM session_events", victim).Scan(&total, &ones, &gone)
+	if total != MaxEventsPerSession || ones != MaxEventsPerSession/4+1 || gone != 0 {
+		t.Fatalf("total=%d priority1=%d victim left=%d", total, ones, gone)
+	}
+}

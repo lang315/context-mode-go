@@ -64,12 +64,37 @@ func (s *Store) InsertEvents(sessionID, project, sourceHook string, evs []Event)
 VALUES(?, ?, datetime('now'), datetime('now'))`, sessionID, project); err != nil {
 		return 0, err
 	}
+	var count int
+	if err := tx.QueryRow("SELECT count(*) FROM session_events WHERE session_id = ?", sessionID).Scan(&count); err != nil {
+		return 0, err
+	}
 	inserted := 0
 	for _, ev := range evs {
 		data := cutData(ev.Data)
+		hash := EventDataHash(data)
+		// DB:962-968; the window sees rows inserted earlier in this transaction.
+		var dup int
+		err := tx.QueryRow(`SELECT count(*) FROM (
+  SELECT type, data_hash FROM session_events WHERE session_id = ? ORDER BY id DESC LIMIT ?
+) WHERE type = ? AND data_hash = ?`, sessionID, EventDedupWindow, ev.Type, hash).Scan(&dup)
+		if err != nil {
+			return 0, err
+		}
+		if dup > 0 {
+			continue
+		}
+		if count >= MaxEventsPerSession {
+			// Evict the oldest of the least important rows (TS: priority ASC, R2 Port note 1).
+			if _, err := tx.Exec(`DELETE FROM session_events WHERE id = (
+  SELECT id FROM session_events WHERE session_id = ? ORDER BY priority DESC, id ASC LIMIT 1)`, sessionID); err != nil {
+				return 0, err
+			}
+		} else {
+			count++
+		}
 		if _, err := tx.Exec(`INSERT INTO session_events(session_id, project, type, category, priority, data, data_hash, source_hook, bytes_avoided, created_at)
 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-			sessionID, project, ev.Type, ev.Category, ev.Priority, data, EventDataHash(data), sourceHook, ev.BytesAvoided); err != nil {
+			sessionID, project, ev.Type, ev.Category, ev.Priority, data, hash, sourceHook, ev.BytesAvoided); err != nil {
 			return 0, err
 		}
 		inserted++
