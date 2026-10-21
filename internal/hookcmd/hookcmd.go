@@ -200,7 +200,13 @@ func preToolUse(h *hookCtx) error {
 		input = &hookio.Object{}
 	}
 	subagent := notNull(h.in, "agent_id") || notNull(h.in, "agent_type")
+	cwd, _ := h.in.String("cwd") // relative paths in a Bash command resolve against it
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
 	dec := routing.Route(tool, input, subagent, routing.Deps{
+		Cwd:        cwd,
+		Home:       h.cfg.Home,
 		ProjectDir: h.cfg.ProjectDir,
 		SessionID:  h.sid,
 		RunDir:     h.runDir,
