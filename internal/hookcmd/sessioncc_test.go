@@ -106,6 +106,22 @@ func linkedAt(t *testing.T, env map[string]string, sid string) string {
 	return at
 }
 
+// With no claude ancestor only the session's first hook walks the process
+// tree; later hooks do not pay for it again.
+func TestHookWalksOnceWithoutClaudeAncestor(t *testing.T) {
+	old := procLookup
+	t.Cleanup(func() { procLookup = old })
+	lookups := 0
+	procLookup = func(int) (procinfo.Info, error) { lookups++; return procinfo.Info{}, errors.New("no such process") }
+	env := hookEnv(t)
+	callHook(t, env, "userpromptsubmit", `{"session_id":"s1","prompt":"one"}`)
+	first := lookups
+	callHook(t, env, "userpromptsubmit", `{"session_id":"s1","prompt":"two"}`)
+	if first == 0 || lookups != first {
+		t.Fatalf("lookups after hook 1 = %d, after hook 2 = %d; want one walk", first, lookups)
+	}
+}
+
 // With no claude ancestor the row still exists, with cc_pid 0 (never linked).
 func TestHookSessionStartNoClaudeAncestor(t *testing.T) {
 	old := procLookup

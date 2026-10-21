@@ -60,12 +60,51 @@ ON CONFLICT(session_id) DO UPDATE SET cc_pid = excluded.cc_pid, linked_at = excl
 	return err
 }
 
-// SessionCC returns the Claude Code pid linked to a session, 0 when it has
-// none. The session_meta row must exist (InsertEvents creates it).
-func (s *Store) SessionCC(sessionID string) (int, error) {
-	var cc int
-	err := s.db.QueryRow("SELECT cc_pid FROM session_meta WHERE session_id = ?", sessionID).Scan(&cc)
-	return cc, err
+// InsertEventsAndLink is InsertEvents that also links a session no cmgo
+// SessionStart has seen, such as one started before cmgo was installed, in
+// the same transaction (stats spec §1.2). claudePID finds the Claude Code
+// pid; it runs only while the session's linked_at is empty, so once per
+// session, also when it finds none (cc_pid stays 0, unknown). A linked
+// session is left alone: its linked_at picks the window.
+func (s *Store) InsertEventsAndLink(sessionID, project, sourceHook string, evs []Event, claudePID func() int) (int, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	inserted, err := insertEvents(tx, sessionID, project, sourceHook, evs)
+	if err != nil {
+		return 0, err
+	}
+	var linkedAt string
+	if err := tx.QueryRow("SELECT linked_at FROM session_meta WHERE session_id = ?", sessionID).Scan(&linkedAt); err != nil {
+		return 0, err
+	}
+	if linkedAt == "" {
+		if err := linkLate(tx, sessionID, project, claudePID()); err != nil {
+			return 0, err
+		}
+	}
+	return inserted, tx.Commit()
+}
+
+// linkLate records cc as the session's Claude Code pid. The rows that
+// process's servers wrote for the project before the link, with an empty window, then
+// move to the session. No row of the session's window can exist yet: a
+// server writes that window only once the session is linked to its pid.
+// shortcut: a pid the OS reused for another Claude Code process in the same
+// project would carry over that process's unlinked rows too; add a process
+// start time to tool_stats if that ever shows up.
+func linkLate(tx *sql.Tx, sessionID, project string, cc int) error {
+	if _, err := tx.Exec(`UPDATE session_meta SET cc_pid = ?, linked_at = strftime('%Y-%m-%d %H:%M:%f', 'now') WHERE session_id = ?`,
+		cc, sessionID); err != nil {
+		return err
+	}
+	if cc == 0 {
+		return nil
+	}
+	_, err := tx.Exec("UPDATE tool_stats SET window = ? WHERE cc_pid = ? AND project = ? AND window = ''", sessionID, cc, project)
+	return err
 }
 
 // StatsQuery identifies the cmgo serve process asking for ctx_stats.
