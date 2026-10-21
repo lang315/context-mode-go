@@ -103,7 +103,7 @@ func testEnv(t *testing.T) map[string]string {
 	return map[string]string{"HOME": filepath.Join(root, "home"), "CMGO_DIR": filepath.Join(root, "data"), "CMGO_PROJECT_DIR": project}
 }
 
-func TestServeListsSixToolsAndExitsOnEOF(t *testing.T) {
+func TestServeListsSevenToolsAndExitsOnEOF(t *testing.T) {
 	env := testEnv(t)
 	p := startServe(t, env)
 	p.initialize()
@@ -114,7 +114,7 @@ func TestServeListsSixToolsAndExitsOnEOF(t *testing.T) {
 		names = append(names, tool.(map[string]any)["name"].(string))
 	}
 	sort.Strings(names)
-	want := "ctx_batch_execute,ctx_execute,ctx_execute_file,ctx_fetch_and_index,ctx_purge,ctx_search"
+	want := "ctx_batch_execute,ctx_execute,ctx_execute_file,ctx_fetch_and_index,ctx_purge,ctx_search,ctx_stats"
 	if strings.Join(names, ",") != want {
 		t.Fatalf("tools = %v", names)
 	}
