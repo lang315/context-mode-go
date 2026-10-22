@@ -59,7 +59,7 @@ The statusline runs on every refresh with a 10 ms budget. Today `lifetimeKept` i
 
 ## 5. Compatibility
 
-- Existing rows are read differently, not changed. The lifetime figure drops from 14.66 MB to 2.73 MB measured plus about 0.19 MB estimated here, which is the point; the PR body shows the before and after on a copy of the real DB.
+- Existing rows are read differently, not changed. On the 2026-10-22 DB copy the lifetime figure drops from 14.66 MB to 2.73 MB measured (2.67 MB of it one test call) plus 40 KB estimated (5 `bash-redirected` events; the 53 Read tips, 12.47 MB, are no longer counted), which is the point; the PR body shows the before and after on a copy of the real DB.
 - `stats_totals` already holds measured bytes only; nothing to backfill.
 - A database at schema 3 or 4 works unchanged (no new column).
 
