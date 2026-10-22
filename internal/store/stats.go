@@ -10,6 +10,7 @@ import (
 type ToolStat struct {
 	Tool                            string
 	Calls, BytesReturned, BytesKept int64
+	Unmeasured                      int64 // ctx_execute calls whose kept bytes could not be counted
 }
 
 // AddToolStat records one finished tool call of a cmgo serve process: calls+1
@@ -22,18 +23,25 @@ type ToolStat struct {
 // stats_totals row, the running lifetime sums the statusline reads, is
 // updated in that transaction too.
 func (s *Store) AddToolStat(serverID string, ccPID int, project, startedAt, tool string, returned, kept int64) error {
+	return s.AddToolStatExec(serverID, ccPID, project, startedAt, tool, returned, kept, 0)
+}
+
+// AddToolStatExec is AddToolStat for a call that may not be measurable:
+// unmeasured (0 or 1) is added to the row's unmeasured_calls.
+func (s *Store) AddToolStatExec(serverID string, ccPID int, project, startedAt, tool string, returned, kept, unmeasured int64) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`INSERT INTO tool_stats(server_id, cc_pid, project, tool, calls, bytes_returned, bytes_kept, started_at, window, updated_at)
-VALUES(?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, CASE WHEN ?2 = 0 THEN '' ELSE COALESCE((`+newestSession+`), '') END, datetime('now'))
+	if _, err := tx.Exec(`INSERT INTO tool_stats(server_id, cc_pid, project, tool, calls, bytes_returned, bytes_kept, started_at, window, updated_at, unmeasured_calls)
+VALUES(?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, CASE WHEN ?2 = 0 THEN '' ELSE COALESCE((`+newestSession+`), '') END, datetime('now'), ?8)
 ON CONFLICT(server_id, tool, window) DO UPDATE SET calls = calls + 1,
   bytes_returned = bytes_returned + excluded.bytes_returned,
   bytes_kept = bytes_kept + excluded.bytes_kept,
+  unmeasured_calls = unmeasured_calls + excluded.unmeasured_calls,
   updated_at = excluded.updated_at`,
-		serverID, ccPID, project, tool, returned, kept, startedAt); err != nil {
+		serverID, ccPID, project, tool, returned, kept, startedAt, unmeasured); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO stats_totals(project, calls, bytes_returned, bytes_kept, first_at) VALUES(?1, 1, ?2, ?3, ?4)
@@ -138,6 +146,7 @@ type StatsSnapshot struct {
 	ProjectSessions          int
 	ProjectEvents            int
 	LifetimeKept             int64 // every tool_stats bytes_kept plus every redirect bytes_avoided
+	LifetimeUnmeasured       int64 // every tool_stats unmeasured_calls
 	LifetimeSessions         int
 	LifetimeSince            string // earliest tool_stats started_at; "" when there is none
 }
@@ -207,15 +216,16 @@ WHERE session_id = ? AND category = 'redirect'`, st.SessionID).Scan(&st.Redirect
   (SELECT count(*) FROM session_events WHERE project = ?1),
   `+lifetimeKept+`,
   (SELECT count(*) FROM session_meta),
-  (SELECT COALESCE(MIN(first_at), '') FROM stats_totals)`, q.Project).Scan(
+  (SELECT COALESCE(MIN(first_at), '') FROM stats_totals),
+  (SELECT COALESCE(SUM(unmeasured_calls), 0) FROM tool_stats)`, q.Project).Scan(
 		&st.ProjectSources, &st.ProjectContentBytes, &st.ProjectSessions, &st.ProjectEvents,
-		&st.LifetimeKept, &st.LifetimeSessions, &st.LifetimeSince)
+		&st.LifetimeKept, &st.LifetimeSessions, &st.LifetimeSince, &st.LifetimeUnmeasured)
 	return st, err
 }
 
 // toolStats sums tool_stats rows matching where, one ToolStat per tool.
 func (s *Store) toolStats(where string, args ...any) ([]ToolStat, error) {
-	rows, err := s.db.Query("SELECT tool, SUM(calls), SUM(bytes_returned), SUM(bytes_kept) FROM tool_stats WHERE "+where+
+	rows, err := s.db.Query("SELECT tool, SUM(calls), SUM(bytes_returned), SUM(bytes_kept), SUM(unmeasured_calls) FROM tool_stats WHERE "+where+
 		" GROUP BY tool ORDER BY tool", args...)
 	if err != nil {
 		return nil, err
@@ -224,7 +234,7 @@ func (s *Store) toolStats(where string, args ...any) ([]ToolStat, error) {
 	var out []ToolStat
 	for rows.Next() {
 		var t ToolStat
-		if err := rows.Scan(&t.Tool, &t.Calls, &t.BytesReturned, &t.BytesKept); err != nil {
+		if err := rows.Scan(&t.Tool, &t.Calls, &t.BytesReturned, &t.BytesKept, &t.Unmeasured); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
