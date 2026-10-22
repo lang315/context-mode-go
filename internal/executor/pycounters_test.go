@@ -27,6 +27,15 @@ func pythons(t *testing.T) []string {
 			out = append(out, "/usr/bin/python3")
 		}
 	}
+	if st, err := os.Stat("/opt/homebrew/bin/python3.14"); err == nil {
+		dup := false
+		for _, o := range out {
+			dup = dup || os.SameFile(st, mustStat(t, o))
+		}
+		if !dup {
+			out = append(out, "/opt/homebrew/bin/python3.14")
+		}
+	}
 	if len(out) == 0 {
 		t.Skip("no python3")
 	}
@@ -201,10 +210,18 @@ for mode, enc, err, nl in itertools.product(("r", "rt", "rb"), (None, "utf-8", "
     if a != b:
         bad += 1
         print("DIFF", mode, enc, err, repr(nl), a, b)
+from pathlib import Path
+for mode in ("r", "rb"):
+    a = snap(lambda: _io.open(Path(p), mode))
+    b = snap(lambda: open(Path(p), mode))
+    n += 1
+    if a != b:
+        bad += 1
+        print("DIFF path", mode, a, b)
 print("OK" if bad == 0 else "BAD", n)`
 	for _, py := range pythons(t) {
 		res := runPy(t, pyExec(t, py), code)
-		if res.ExitCode != 0 || !strings.HasPrefix(res.Stdout, "OK 72") {
+		if res.ExitCode != 0 || !strings.HasPrefix(res.Stdout, "OK 74") {
 			t.Fatalf("%s: %+v", py, res)
 		}
 	}
@@ -314,13 +331,22 @@ var fidelityCases = map[string]string{
 	"future import":    "from __future__ import annotations\ndef f(x: Undefined): return x\nprint(f(1))",
 	"main identity": "import sys, os\nprint(sorted(globals()))\nprint(__name__, type(__loader__).__name__, __spec__, __cached__)\n" +
 		"print(os.path.basename(__file__), len(sys.argv), os.path.basename(sys.argv[0]), sys.path[0] == os.path.dirname(__file__))",
-	"latin-1 cookie":     "# -*- coding: latin-1 -*-\nprint('caf\xe9', len('\xe9'))",
-	"utf-8 no cookie":    "print('caf\u00e9', len('\u00e9'))",
-	"multiprocessing":    "import multiprocessing as mp\ndef g(x): return x * 2\nif __name__ == '__main__':\n    with mp.get_context('spawn').Pool(1) as p:\n        print(p.map(g, [1, 2]))",
-	"atexit reads":       "import atexit\np = __file__\natexit.register(lambda: print(len(open(p).read()) > 0))\nprint('body')",
-	"os._exit":           "import os\nprint('x', flush=True)\nos._exit(7)",
-	"custom excepthook":  "import sys\nsys.excepthook = lambda t, v, tb: print('hook', t.__name__)\nraise KeyError('k')",
-	"traceback in frame": "import traceback\ndef f():\n    traceback.print_exc()\ntry:\n    1/0\nexcept ZeroDivisionError:\n    f()",
+	"latin-1 cookie":            "# -*- coding: latin-1 -*-\nprint('caf\xe9', len('\xe9'))",
+	"utf-8 no cookie":           "print('caf\u00e9', len('\u00e9'))",
+	"multiprocessing":           "import multiprocessing as mp\ndef g(x): return x * 2\nif __name__ == '__main__':\n    with mp.get_context('spawn').Pool(1) as p:\n        print(p.map(g, [1, 2]))",
+	"atexit reads":              "import atexit\np = __file__\natexit.register(lambda: print(len(open(p).read()) > 0))\nprint('body')",
+	"os._exit":                  "import os\nprint('x', flush=True)\nos._exit(7)",
+	"custom excepthook":         "import sys\nsys.excepthook = lambda t, v, tb: print('hook', t.__name__)\nraise KeyError('k')",
+	"missing file":              "open('nope.txt')",
+	"missing pathlib":           "from pathlib import Path\nPath('nope.txt').read_text()",
+	"socket timeout":            "import socket\na, b = socket.socketpair()\na.settimeout(0.05)\na.recv(1)",
+	"raise from wrapper":        "try:\n    open('nope.txt')\nexcept OSError as e:\n    raise RuntimeError('x') from e",
+	"path name and msg":         "from pathlib import Path\nprint(repr(open(Path('/etc/hosts')).name))\ntry:\n    open(Path('nope.txt'))\nexcept OSError as e:\n    print(e)",
+	"syntax warning then error": "x = '\\d'\ny = (\n",
+	"syntax warning ok":         "x = '\\d'\nprint(x)",
+	"nonblocking fifo":          "import os, tempfile\np = os.path.join(tempfile.mkdtemp(), 'f')\nos.mkfifo(p)\nw = os.open(p, os.O_RDWR | os.O_NONBLOCK)\nf = open(p, 'rb', opener=lambda q, fl: os.open(q, fl | os.O_NONBLOCK))\nprint(f.read())",
+	"nul byte":                  "print(1)\x00",
+	"traceback in frame":        "import traceback\ndef f():\n    traceback.print_exc()\ntry:\n    1/0\nexcept ZeroDivisionError:\n    f()",
 }
 
 func masked(s string) string { return runDir.ReplaceAllString(s, "/D/") }
@@ -424,13 +450,14 @@ func TestPySetupFailureRunsScript(t *testing.T) {
 	dir := t.TempDir()
 	script := filepath.Join(dir, "script.py")
 	counts := filepath.Join(dir, ".counts")
-	os.WriteFile(script, []byte("print(len(open("+jsonQuote(script)+").read()))"), 0o644)
+	data := writeData(t, 3000)
+	os.WriteFile(script, []byte("print(len(open("+jsonQuote(data)+").read()))"), 0o644)
 	argv := []string{"-c", `exec(compile(` + jsonQuote(broken) + `, "<cm>", "exec"), {"__name__": "cm"})`, counts, script}
 	for _, py := range pythons(t) {
 		var out, errb bytes.Buffer
 		cmd := exec.CommandContext(context.Background(), py, argv...)
 		cmd.Stdout, cmd.Stderr = &out, &errb
-		if err := cmd.Run(); err != nil || strings.TrimSpace(out.String()) == "" || errb.Len() != 0 {
+		if err := cmd.Run(); err != nil || strings.TrimSpace(out.String()) != "3000" || errb.Len() != 0 {
 			t.Fatalf("%s: err=%v out=%q err=%q", py, err, out.String(), errb.String())
 		}
 		if readPyCounts(counts) != 0 {
@@ -447,5 +474,67 @@ func TestKnownDiffsListsPythonCounters(t *testing.T) {
 	}
 	if !strings.Contains(string(b), "executor:python-counters") {
 		t.Error("KNOWN-DIFFS.md has no executor:python-counters entry")
+	}
+}
+
+// Errors and warnings render source files through linecache/tokenize; those reads
+// are not data the code read, and a failed request received nothing.
+func TestPyErrorsCountNothing(t *testing.T) {
+	for name, code := range map[string]string{
+		"refused urlopen": "import urllib.request\nurllib.request.urlopen('http://127.0.0.1:9/')",
+		"json error":      "import json\njson.loads('{')",
+		"missing pathlib": "from pathlib import Path\nPath('/nonexistent/x').read_text()",
+		"missing open":    "open('/nonexistent/x')",
+	} {
+		for _, py := range pythons(t) {
+			t.Run(name+"/"+py, func(t *testing.T) {
+				res := runPy(t, pyExec(t, py), code)
+				if res.ExitCode != 1 || res.SandboxBytes != 0 {
+					t.Errorf("exit %d SandboxBytes %d, want 1 and 0\n%s", res.ExitCode, res.SandboxBytes, res.Stderr)
+				}
+			})
+		}
+	}
+}
+
+// MSG_PEEK reads nothing: only the bytes recv consumes count.
+func TestPyPeekNotCounted(t *testing.T) {
+	code := "import socket\na, b = socket.socketpair()\nb.send(b'x' * 100)\na.recv(100, socket.MSG_PEEK)\nbuf = bytearray(100)\na.recv_into(buf, 100, socket.MSG_PEEK)\nprint(len(a.recv(100)))"
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), code)
+		if res.ExitCode != 0 || strings.TrimSpace(res.Stdout) != "100" || res.SandboxBytes != 100 {
+			t.Errorf("%s: %+v", py, res)
+		}
+	}
+}
+
+// A forked child that exits normally must not write the counts file.
+func TestPyForkedChildDoesNotFlush(t *testing.T) {
+	file := writeData(t, 5000)
+	code := "import os\nrpid = os.fork()\nif rpid == 0:\n    open(" + jsonQuote(file) + ").read()\n    raise SystemExit(0)\nos.waitpid(rpid, 0)\nos._exit(0)"
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), code)
+		if res.ExitCode != 0 || res.SandboxBytes != 0 {
+			t.Errorf("%s: %+v", py, res)
+		}
+	}
+}
+
+// EncodingWarning (3.10+) points at the user's line, not the bootstrap.
+func TestPyEncodingWarningLocation(t *testing.T) {
+	t.Setenv("PYTHONWARNDEFAULTENCODING", "1")
+	code := "print(len(open('/etc/hosts').read()) > 0)"
+	for _, py := range pythons(t) {
+		off := pyExec(t, py)
+		off.getenv = func(k string) string {
+			if k == "CMGO_PY_COUNTERS" {
+				return "0"
+			}
+			return os.Getenv(k)
+		}
+		a, b := runPy(t, pyExec(t, py), code), runPy(t, off, code)
+		if a.Stdout != b.Stdout || masked(a.Stderr) != masked(b.Stderr) {
+			t.Errorf("%s: on %q off %q", py, a.Stderr, b.Stderr)
+		}
 	}
 }

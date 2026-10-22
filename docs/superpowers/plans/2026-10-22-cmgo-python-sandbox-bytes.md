@@ -8,6 +8,8 @@
 
 **Tech Stack:** Go 1.x (stdlib `embed`), Python 3.9+ bootstrap, existing `internal/executor` tests.
 
+**Note:** the Python blocks below are the staged first version. The final bootstrap is `internal/executor/pycounters.py`; it carries the review fixes (rev 2.2 in the spec).
+
 **Spec:** `docs/superpowers/specs/2026-10-22-cmgo-python-sandbox-bytes-design.md` (rev 2.1, owner approved)
 
 ## Global Constraints
@@ -915,7 +917,7 @@ Run `gofmt -w` on the file.
 
 - [ ] **Step 2: Overhead table** — wait for load average below 5 (`uptime`), then
 `go test ./internal/executor -run '^$' -bench BenchmarkPyRun -benchtime 100x -count 5 | tee $SCRATCH/pybench.txt`
-Build the median ns/op per case (off vs on) and the delta. Budget: `print` median delta <= 3 ms. If it is over, stop and report to "context"; do not drop the network patch silently (spec §Q6).
+Build the median ns/op per case (off vs on) and the delta. Budget: `print` median delta <= 4 ms. If it is over, stop and report to "context"; do not drop the network patch silently (spec §Q6).
 
 - [ ] **Step 3: Live before/after** with `bench/driver.py`'s `Server` against a scratch `CMGO_DIR`/`HOME`/`CLAUDE_CONFIG_DIR`: build `go build -o bin/ ./cmd/cmgo`, start a local `http.server` for a 20 KB JSON, call `ctx_execute` (python, `urllib.request.urlopen(url).read()`, print 3 lines) once with `CMGO_PY_COUNTERS=0` and once without, then call `ctx_stats` each time. Keep the two `ctx_stats` kept/returned lines for the PR (before: kept 0; after: kept about 20 KB).
 

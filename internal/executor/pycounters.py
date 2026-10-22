@@ -4,12 +4,13 @@ if sys.version_info < (3, 9) and sys.executable:
     os.execv(sys.executable, [sys.executable, sys.argv[2]])
 def cm_main():
     counts, script = sys.argv[1], sys.argv[2]
-    import os, io, builtins, atexit
+    import os, io, builtins, atexit, types, warnings
     orig_open = builtins.open
     with orig_open(script, "rb") as f:
         src = f.read()
     n = [0]
     undo = []
+    pid = os.getpid()
     def install():
         class CFile(io.FileIO):
             def readinto(self, b):
@@ -19,12 +20,18 @@ def cm_main():
                 return r
             def readall(self):
                 d = io.FileIO.readall(self)
-                n[0] += len(d)
+                if d:
+                    n[0] += len(d)
                 return d
         def cm_open(file, mode="r", buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
-            if (mode in ("r", "rt", "rb") and buffering == -1 and isinstance(file, (str, bytes, os.PathLike))
+            try:
+                skip = sys._getframe(1).f_globals.get("__name__") in ("tokenize", "linecache", "cm")
+            except Exception:
+                skip = False
+            if not skip and (mode in ("r", "rt", "rb") and buffering == -1 and isinstance(file, (str, bytes, os.PathLike))
                     and not (isinstance(file, str) and os.path.abspath(file) == script)
                     and (mode != "rb" or (encoding is None and errors is None and newline is None))):
+                file = os.fspath(file)
                 raw = CFile(file, "r", closefd, opener)
                 try:
                     size = io.DEFAULT_BUFFER_SIZE
@@ -37,6 +44,8 @@ def cm_main():
                     buf = io.BufferedReader(raw, size)
                     if mode == "rb":
                         return buf
+                    if encoding is None and hasattr(io, "text_encoding"):
+                        encoding = io.text_encoding(None, 2)
                     txt = io.TextIOWrapper(buf, encoding, errors, newline, raw.isatty())
                     txt.mode = mode
                     return txt
@@ -52,13 +61,16 @@ def cm_main():
             if "_cm" in S.__dict__:
                 return
             o_recv, o_into = S.recv, S.recv_into
+            peek = m.MSG_PEEK
             def recv(self, *a, **k):
                 r = o_recv(self, *a, **k)
-                n[0] += len(r)
+                if not ((a[1] if len(a) > 1 else k.get("flags", 0)) & peek):
+                    n[0] += len(r)
                 return r
             def recv_into(self, *a, **k):
                 r = o_into(self, *a, **k)
-                n[0] += r
+                if not ((a[2] if len(a) > 2 else k.get("flags", 0)) & peek):
+                    n[0] += r
                 return r
             S.recv, S.recv_into, S._cm = recv, recv_into, True
         def count_ssl(m):
@@ -108,8 +120,10 @@ def cm_main():
             if name in sys.modules:
                 p(sys.modules[name])
         def flush():
+            if os.getpid() != pid:
+                return
             try:
-                with orig_open(counts, "w") as f:
+                with orig_open(counts, "w", encoding="ascii") as f:
                     f.write(str(n[0]))
             except BaseException:
                 pass
@@ -123,10 +137,33 @@ def cm_main():
             except BaseException:
                 pass
     oh = sys.excepthook
-    def hook(t, v, tb):
-        while tb is not None and tb.tb_frame.f_code.co_filename in ("<string>", "<cm>"):
+    def clean(tb):
+        keep = []
+        while tb is not None:
+            if tb.tb_frame.f_code.co_filename not in ("<string>", "<cm>"):
+                keep.append(tb)
             tb = tb.tb_next
-        oh(t, v.with_traceback(tb), tb)
+        out = None
+        for x in reversed(keep):
+            out = types.TracebackType(out, x.tb_frame, x.tb_lasti, x.tb_lineno)
+        return out
+    def hook(t, v, tb):
+        saved, todo, seen = [], [v], set()
+        while todo:
+            e = todo.pop()
+            if e is None or id(e) in seen:
+                continue
+            seen.add(id(e))
+            saved.append((e, e.__traceback__))
+            todo.append(e.__cause__)
+            todo.append(e.__context__)
+        try:
+            for e, t0 in saved:
+                e.__traceback__ = clean(t0)
+            oh(t, v, v.__traceback__)
+        finally:
+            for e, t0 in saved:
+                e.__traceback__ = t0
     sys.excepthook = hook
     sys.argv = [script]
     if not getattr(sys.flags, "safe_path", False):
@@ -136,11 +173,14 @@ def cm_main():
     ns["__cached__"] = None
     ns["__loader__"] = sys.modules["_frozen_importlib_external"].SourceFileLoader("__main__", script)
     try:
-        code = compile(src, script, "exec", dont_inherit=True)
-    except SyntaxError:
+        with warnings.catch_warnings(record=True) as ws:
+            code = compile(src, script, "exec", dont_inherit=True)
+    except (SyntaxError, ValueError):
         if sys.executable:
             os.execv(sys.executable, [sys.executable, script])
         raise
+    for w in ws:
+        warnings.warn_explicit(w.message, w.category, w.filename, w.lineno)
     try:
         exec(code, ns)
     except SystemExit:

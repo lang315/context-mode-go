@@ -33,7 +33,7 @@ shows kept 0, returned 422. The saving was real but not measured.
 2. Output is identical to an unwrapped run: stdout, stderr, exit code,
    traceback line numbers, `__name__`, `__file__`, `sys.argv`, `sys.path[0]`.
 3. Printing `__CM_FS__:99` (or any text) cannot change a count.
-4. Added startup cost per Python run: median <= +3 ms on `print(1)`; no
+4. Added startup cost per Python run: median <= +4 ms on `print(1)` (raised from +3 ms by the owner after the first measurement); no
    `socket`/`ssl` import unless the user code imports them (§5).
 5. Unmeasured languages are documented as unmeasured, not guessed.
 
@@ -182,7 +182,7 @@ Measure before and after with the same harness, same machine, load average
 below 5 (as the hook benches): 100 runs each of `print(1)` through
 `Executor.Run`, report median and p95, plus the same for a script that imports
 `json` and one that imports `urllib.request` (lazy patching applies at import).
-Budget: median <= +3 ms for `print(1)`. If lazy patching is not enough, fall
+Budget: median <= +4 ms for `print(1)` (owner, after measuring +4.0 ms under load). If lazy patching is not enough, fall
 back to patching only `open` and dropping the network patch; that is a
 decision for the owner at that point, not made silently. Results go in the PR.
 
@@ -253,10 +253,25 @@ and local sockets. Background runs return 0. `inspect.stack()`,
 `traceback.print_stack()` and `logging` with `stack_info` show one extra
 `<string>` bootstrap frame below the script's `<module>` frame (the `-c`
 module and the `exec` frame cannot be removed from a live stack; uncaught
-errors are cleaned by the excepthook, §1 Q1). If user code resets
+errors are cleaned by the excepthook, §1 Q1). The excepthook drops every `<cm>`/`<string>` frame at any
+position, through `__cause__`/`__context__`, and restores each exception's own
+`__traceback__` afterwards. `traceback.print_exc()`, `logging.exception` and other
+user-side renderers still show a `<cm>` line when the error came from inside a wrapper. If user code resets
 `sys.excepthook` (for example to `sys.__excepthook__`), an uncaught traceback
 shows the bootstrap frames (`<string>`/`<cm>`). `type(f.buffer.raw)` is a `FileIO`
 subclass, not `FileIO`; `isinstance` holds.
+
+Review fixes (rev 2.2). Reads made while rendering a traceback or warning
+(callers `tokenize`, `linecache`, or the bootstrap's own hook) are not counted. Paths
+are passed through `os.fspath` first. `compile()` runs under `catch_warnings(record=True)`
+and replays its warnings only when it succeeds, so the SyntaxError re-exec does not print
+them twice; `ValueError` from `compile` (NUL byte, 3.9-3.11) also re-execs. A
+`MSG_PEEK` receive is not counted. Only the process that installed the hooks writes the
+counts file (a forked child does not). The counts file is written with ASCII encoding so
+`PYTHONWARNDEFAULTENCODING` stays quiet; text `open` resolves the default encoding with
+`io.text_encoding(None, 2)` so an `EncodingWarning` points at the user's line.
+Known residue: a module-level `warnings.warn(stacklevel=2)` in the script reports
+`<cm>` instead of `sys:1`, and `len(sys.orig_argv)` is 5 instead of 2.
 
 ## 6. Owner decisions (all taken, 2026-10-22)
 
