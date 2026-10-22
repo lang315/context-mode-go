@@ -349,6 +349,9 @@ var fidelityCases = map[string]string{
 	"dataclass post_init":       "from dataclasses import dataclass\n@dataclass\nclass A:\n    x: int\n    def __post_init__(self):\n        raise ValueError('p')\nA(1)",
 	"namedtuple args":           "from collections import namedtuple\nP = namedtuple('P', 'a b')\nP(1)",
 	"exception group":           "err = None\ntry:\n    open('nope.txt')\nexcept OSError as e:\n    err = e\nraise ExceptionGroup('g', [err])",
+	"exceptions attr int":       "class E(Exception):\n    exceptions = 3\nraise E()",
+	"exceptions attr list":      "class E(Exception):\n    exceptions = ['a', 'b']\nraise E()",
+	"exec context frame":        "exec('try:\\n    1/0\\nexcept Exception:\\n    raise KeyError(1)')",
 	"nul byte":                  "print(1)\x00",
 	"traceback in frame":        "import traceback\ndef f():\n    traceback.print_exc()\ntry:\n    1/0\nexcept ZeroDivisionError:\n    f()",
 }

@@ -278,6 +278,13 @@ counts file (a forked child does not). The counts file is written with ASCII enc
 `sys.last_traceback`/`sys.last_exc` still contain bootstrap frames (`extract_tb` in an
 atexit handler shows extra frames). `warnings` is preloaded in `sys.modules`.
 Not checked: Python 3.10, 3.11, 3.13, `requests`, `httpx`, Linux system excepthooks, `_pyrepl`.
+The excepthook drops the bootstrap's own frames by identity (recorded at start) plus any
+`<cm>` frame, so a user's `exec()` frame is kept in every position, and it walks
+`.exceptions` only on a `BaseExceptionGroup`. An uncaught error inside a `threading.Thread`
+that came from a wrapper (`open`) still shows a `<cm>` frame, because `threading.excepthook`
+is not wrapped. Traceback rendering of source with no `.py` suffix (code compiled with
+another filename) is still counted, about 8 KB, and 3.14 counts it twice. `open(x.py, "rb")`
+data reads (hashing, `tokenize.open`) count 0; both are within the lower bound.
 Known residue: a module-level `warnings.warn(stacklevel=2)` in the script reports
 `<cm>` instead of `sys:1`, and `len(sys.orig_argv)` is 5 instead of 2.
 

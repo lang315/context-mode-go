@@ -10,6 +10,12 @@ def cm_main():
         src = f.read()
     n = [0]
     undo = []
+    boot = set()
+    f = sys._getframe()
+    while f is not None:
+        boot.add(f)
+        f = f.f_back
+    groups = getattr(builtins, "BaseExceptionGroup", ())
     pid = os.getpid()
     def install():
         class CFile(io.FileIO):
@@ -139,14 +145,9 @@ def cm_main():
     def clean(tb):
         import types
         keep = []
-        lead = True
         while tb is not None:
-            name = tb.tb_frame.f_code.co_filename
-            if name == "<cm>" or (lead and name == "<string>"):
-                pass
-            else:
+            if tb.tb_frame not in boot and tb.tb_frame.f_code.co_filename != "<cm>":
                 keep.append(tb)
-                lead = False
             tb = tb.tb_next
         out = None
         for x in reversed(keep):
@@ -162,7 +163,8 @@ def cm_main():
             saved.append((e, e.__traceback__))
             todo.append(e.__cause__)
             todo.append(e.__context__)
-            todo.extend(getattr(e, "exceptions", ()))
+            if isinstance(e, groups):
+                todo.extend(e.exceptions)
         try:
             for e, t0 in saved:
                 e.__traceback__ = clean(t0)
