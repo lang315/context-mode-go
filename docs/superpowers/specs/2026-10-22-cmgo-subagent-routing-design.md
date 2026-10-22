@@ -32,7 +32,11 @@ The audit found 84% of raw tool results over 5 KB in subagents (52.3 of 62.1 MB 
 | **O2** | Subagent tips by agent type or size: Read tip from 16 KiB instead of 50,000 B, and a per-subagent marker (`agent_id`) instead of the session marker. | reaches 60% of subagent Read bytes (17.4 of 29.2 MB; 640 of 1,948 results) with a tip; but tips were ignored 71% of the time in the main session | more hook output; a tip still needs the ToolSearch step first |
 | **O3** | Deny or rewrite large subagent reads. | would force routing | breaks Edit workflows and fixed-tool agents; rejected |
 
-## 3. Recommendation
+## 3. Decision and recommendation
+
+**Decision (owner, 2026-10-22): O0.** No behavior change. The subagent funnel is part of the audit script (`tools/audit/`). Revisit O1 when the cmgo row of the funnel has at least 60 subagents with the block and the tools listed.
+
+Recommendation as written before the decision:
 
 **O0 now, O1 only if the owner wants to pursue subagent cost.**
 
