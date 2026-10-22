@@ -28,7 +28,7 @@ type Result struct {
 	Stdout, Stderr         string
 	ExitCode               int
 	TimedOut, Backgrounded bool
-	SandboxBytes           int64 // bytes a ctx_execute JS/TS run read through fs or the network
+	SandboxBytes           int64 // bytes a ctx_execute JS/TS or Python run read through files or the network
 }
 
 // Run writes the script to a fresh temp dir, runs it, and removes the dir unless the
@@ -64,6 +64,12 @@ func (e *Executor) Run(ctx context.Context, r Request) (Result, error) {
 	}
 	env := buildEnv(os.Environ(), dir)
 
+	countsFile := ""
+	if r.Language == Python && file == "" && !r.Background && e.getenv("CMGO_PY_COUNTERS") != "0" {
+		countsFile = filepath.Join(dir, ".counts")
+		argv = pyArgv(argv[0], countsFile, script)
+	}
+
 	if r.Language == Rust {
 		bin := strings.TrimSuffix(script, ".rs")
 		limit := 60 * time.Second // a hung compile must not run forever
@@ -83,6 +89,9 @@ func (e *Executor) Run(ctx context.Context, r Request) (Result, error) {
 
 	res := e.spawn(ctx, argv, cwd, env, r.Timeout, r.Background)
 	keep = res.Backgrounded
+	if countsFile != "" {
+		res.SandboxBytes = readPyCounts(countsFile)
+	}
 	if strings.HasPrefix(code, jsCounters) { // only a wrapJS run reports counts
 		res.Stderr, res.SandboxBytes = takeCounters(res.Stderr)
 	}
