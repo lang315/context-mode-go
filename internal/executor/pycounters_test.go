@@ -1,6 +1,8 @@
 package executor
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -229,6 +231,70 @@ print(len(open(` + jsonQuote(file) + `, "rb", buffering=0).read()))`
 		res := runPy(t, pyExec(t, py), code)
 		if res.ExitCode != 0 || res.Stdout != "2048\n2048\n" || res.SandboxBytes != 0 {
 			t.Errorf("%s: %+v", py, res)
+		}
+	}
+}
+
+func bodyServer(t *testing.T, tls bool, size int) *httptest.Server {
+	t.Helper()
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(strings.Repeat("n", size)))
+	})
+	var srv *httptest.Server
+	if tls {
+		srv = httptest.NewTLSServer(h)
+	} else {
+		srv = httptest.NewServer(h)
+	}
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// urllib over plain HTTP counts the body plus the response headers.
+func TestPyCountsHTTP(t *testing.T) {
+	srv := bodyServer(t, false, 5000)
+	code := "import urllib.request\nprint(len(urllib.request.urlopen(" + jsonQuote(srv.URL) + ").read()))"
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), code)
+		if res.ExitCode != 0 || strings.TrimSpace(res.Stdout) != "5000" {
+			t.Fatalf("%s: %+v", py, res)
+		}
+		if res.SandboxBytes < 5000 || res.SandboxBytes > 5000+1024 {
+			t.Errorf("%s: SandboxBytes = %d, want 5000..6024", py, res.SandboxBytes)
+		}
+	}
+}
+
+// HTTPS goes through SSLSocket.read once: no double count with recv/recv_into.
+func TestPyCountsHTTPSOnce(t *testing.T) {
+	srv := bodyServer(t, true, 100000)
+	code := "import ssl, urllib.request\nctx = ssl._create_unverified_context()\nprint(len(urllib.request.urlopen(" + jsonQuote(srv.URL) + ", context=ctx).read()))"
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), code)
+		if res.ExitCode != 0 || strings.TrimSpace(res.Stdout) != "100000" {
+			t.Fatalf("%s: %+v", py, res)
+		}
+		if res.SandboxBytes < 100000 || res.SandboxBytes > 100000+2048 {
+			t.Errorf("%s: SandboxBytes = %d, want 100000..102048", py, res.SandboxBytes)
+		}
+	}
+}
+
+// socket and ssl are patched only when the code imports them, and imports are not counted.
+func TestPyNetworkPatchIsLazy(t *testing.T) {
+	probe := "import sys\nprint('socket' in sys.modules, 'ssl' in sys.modules)\nimport json\nprint(json.dumps(1))"
+	for _, py := range pythons(t) {
+		on := runPy(t, pyExec(t, py), probe)
+		off := pyExec(t, py)
+		off.getenv = func(k string) string {
+			if k == "CMGO_PY_COUNTERS" {
+				return "0"
+			}
+			return os.Getenv(k)
+		}
+		plain := runPy(t, off, probe)
+		if on.Stdout != plain.Stdout || on.SandboxBytes != 0 {
+			t.Errorf("%s: on=%+v plain=%+v", py, on, plain)
 		}
 	}
 }

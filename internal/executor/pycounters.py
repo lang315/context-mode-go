@@ -47,7 +47,66 @@ def cm_main():
         builtins.open = io.open = cm_open
         undo.append(lambda: (setattr(builtins, "open", orig_open), setattr(io, "open", orig_open)))
 
-        # CM:NET
+        def count_socket(m):
+            S = m.socket
+            if "_cm" in S.__dict__:
+                return
+            o_recv, o_into = S.recv, S.recv_into
+            def recv(self, *a, **k):
+                r = o_recv(self, *a, **k)
+                n[0] += len(r)
+                return r
+            def recv_into(self, *a, **k):
+                r = o_into(self, *a, **k)
+                n[0] += r
+                return r
+            S.recv, S.recv_into, S._cm = recv, recv_into, True
+        def count_ssl(m):
+            S = m.SSLSocket
+            if "_cm" in S.__dict__:
+                return
+            o_read = S.read
+            def read(self, *a, **k):
+                r = o_read(self, *a, **k)
+                n[0] += r if isinstance(r, int) else len(r)
+                return r
+            S.read, S._cm = read, True
+        patchers = {"socket": count_socket, "ssl": count_ssl}
+        class Finder:
+            busy = set()
+            def find_spec(self, name, path=None, target=None):
+                if name not in patchers or name in self.busy:
+                    return None
+                self.busy.add(name)
+                try:
+                    spec = None
+                    for f in sys.meta_path:
+                        fs = getattr(f, "find_spec", None)
+                        if f is self or fs is None:
+                            continue
+                        spec = fs(name, path, target)
+                        if spec is not None:
+                            break
+                finally:
+                    self.busy.discard(name)
+                if spec is None or spec.loader is None or not hasattr(spec.loader, "exec_module"):
+                    return spec
+                ld = spec.loader
+                oe = ld.exec_module
+                def exec_module(module):
+                    oe(module)
+                    try:
+                        patchers[name](module)
+                    except Exception:
+                        pass
+                ld.exec_module = exec_module
+                return spec
+        fin = Finder()
+        sys.meta_path.insert(0, fin)
+        undo.append(lambda: fin in sys.meta_path and sys.meta_path.remove(fin))
+        for name, p in patchers.items():
+            if name in sys.modules:
+                p(sys.modules[name])
         def flush():
             try:
                 with orig_open(counts, "w") as f:

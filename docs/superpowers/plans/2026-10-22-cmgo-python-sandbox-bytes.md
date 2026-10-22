@@ -577,7 +577,7 @@ Expected: `TestPyCountsHTTP` and `TestPyCountsHTTPSOnce` FAIL with `SandboxBytes
 ```python
         def count_socket(m):
             S = m.socket
-            if getattr(S, "_cm", False):
+            if "_cm" in S.__dict__:
                 return
             o_recv, o_into = S.recv, S.recv_into
             def recv(self, *a, **k):
@@ -591,7 +591,7 @@ Expected: `TestPyCountsHTTP` and `TestPyCountsHTTPSOnce` FAIL with `SandboxBytes
             S.recv, S.recv_into, S._cm = recv, recv_into, True
         def count_ssl(m):
             S = m.SSLSocket
-            if getattr(S, "_cm", False):
+            if "_cm" in S.__dict__:
                 return
             o_read = S.read
             def read(self, *a, **k):
