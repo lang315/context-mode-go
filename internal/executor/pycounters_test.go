@@ -1,11 +1,14 @@
 package executor
 
 import (
+	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -295,6 +298,143 @@ func TestPyNetworkPatchIsLazy(t *testing.T) {
 		plain := runPy(t, off, probe)
 		if on.Stdout != plain.Stdout || on.SandboxBytes != 0 {
 			t.Errorf("%s: on=%+v plain=%+v", py, on, plain)
+		}
+	}
+}
+
+var runDir = regexp.MustCompile(`/\.cmgo-[A-Za-z0-9]+/`)
+
+// fidelityCases are run with the counters on and off; stdout, stderr (run dir
+// masked) and the exit code must match byte for byte.
+var fidelityCases = map[string]string{
+	"syntax mid-file":  "x = 1\ny = (\nz = 2\n",
+	"syntax at eof":    "x = (\n",
+	"nested exception": "def f():\n    raise ValueError('boom')\ntry:\n    f()\nexcept ValueError as e:\n    raise RuntimeError('outer') from e\n",
+	"sys.exit":         "import sys\nsys.exit(3)",
+	"future import":    "from __future__ import annotations\ndef f(x: Undefined): return x\nprint(f(1))",
+	"main identity": "import sys, os\nprint(sorted(globals()))\nprint(__name__, type(__loader__).__name__, __spec__, __cached__)\n" +
+		"print(os.path.basename(__file__), len(sys.argv), os.path.basename(sys.argv[0]), sys.path[0] == os.path.dirname(__file__))",
+	"latin-1 cookie":     "# -*- coding: latin-1 -*-\nprint('caf\xe9', len('\xe9'))",
+	"utf-8 no cookie":    "print('caf\u00e9', len('\u00e9'))",
+	"multiprocessing":    "import multiprocessing as mp\ndef g(x): return x * 2\nif __name__ == '__main__':\n    with mp.get_context('spawn').Pool(1) as p:\n        print(p.map(g, [1, 2]))",
+	"atexit reads":       "import atexit\np = __file__\natexit.register(lambda: print(len(open(p).read()) > 0))\nprint('body')",
+	"os._exit":           "import os\nprint('x', flush=True)\nos._exit(7)",
+	"custom excepthook":  "import sys\nsys.excepthook = lambda t, v, tb: print('hook', t.__name__)\nraise KeyError('k')",
+	"traceback in frame": "import traceback\ndef f():\n    traceback.print_exc()\ntry:\n    1/0\nexcept ZeroDivisionError:\n    f()",
+}
+
+func masked(s string) string { return runDir.ReplaceAllString(s, "/D/") }
+
+func TestPyFidelity(t *testing.T) {
+	for _, py := range pythons(t) {
+		on := pyExec(t, py)
+		off := pyExec(t, py)
+		off.getenv = func(k string) string {
+			if k == "CMGO_PY_COUNTERS" {
+				return "0"
+			}
+			return os.Getenv(k)
+		}
+		for name, code := range fidelityCases {
+			t.Run(py+"/"+name, func(t *testing.T) {
+				a, b := runPy(t, on, code), runPy(t, off, code)
+				if a.ExitCode != b.ExitCode || a.Stdout != b.Stdout || masked(a.Stderr) != masked(b.Stderr) {
+					t.Errorf("counters on:  %d %q %q\ncounters off: %d %q %q", a.ExitCode, a.Stdout, masked(a.Stderr), b.ExitCode, b.Stdout, masked(b.Stderr))
+				}
+			})
+		}
+	}
+}
+
+// Reads of script.py itself (linecache on a traceback, __file__) are code, not data.
+func TestPyIgnoresScriptSource(t *testing.T) {
+	code := "print(len(open(__file__).read()) > 0)\nraise ValueError('x')"
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), code)
+		if res.ExitCode != 1 || res.SandboxBytes != 0 {
+			t.Errorf("%s: %+v", py, res)
+		}
+	}
+}
+
+// With PYTHONSAFEPATH (3.11+) the bootstrap leaves sys.path alone, as a plain run does.
+func TestPySafePathFidelity(t *testing.T) {
+	t.Setenv("PYTHONSAFEPATH", "1")
+	for _, py := range pythons(t) {
+		if out, _ := exec.Command(py, "-c", "import sys;print(sys.version_info >= (3, 11))").Output(); strings.TrimSpace(string(out)) != "True" {
+			t.Logf("%s has no safe_path, skipped", py)
+			continue
+		}
+		code := "import sys\nprint(sys.path)"
+		off := pyExec(t, py)
+		off.getenv = func(k string) string {
+			if k == "CMGO_PY_COUNTERS" {
+				return "0"
+			}
+			return os.Getenv(k)
+		}
+		a, b := runPy(t, pyExec(t, py), code), runPy(t, off, code)
+		if masked(a.Stdout) != masked(b.Stdout) || a.ExitCode != 0 {
+			t.Errorf("%s: on %q off %q", py, a.Stdout, b.Stdout)
+		}
+	}
+}
+
+// Below the version floor the bootstrap execs the plain interpreter and writes no counts.
+// (No Python below 3.9 is installed here, so the floor is raised in the test instead.)
+func TestPyOldVersionRunsPlain(t *testing.T) {
+	old := strings.Replace(pyBootstrap, "sys.version_info < (3, 9)", "sys.version_info < (99, 0)", 1)
+	if old == pyBootstrap {
+		t.Fatal("version guard not found in pycounters.py")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "script.py")
+	counts := filepath.Join(dir, ".counts")
+	os.WriteFile(script, []byte("print('plain')"), 0o644)
+	for _, py := range pythons(t) {
+		out, err := exec.Command(py, "-c", `exec(compile(`+jsonQuote(old)+`, "<cm>", "exec"), {"__name__": "cm"})`, counts, script).Output()
+		if err != nil || string(out) != "plain\n" {
+			t.Fatalf("%s: err=%v out=%q", py, err, out)
+		}
+		if _, err := os.Stat(counts); err == nil {
+			t.Errorf("%s: counts file written", py)
+		}
+	}
+}
+
+// A sitecustomize on the user's PYTHONPATH still runs.
+func TestPyKeepsUserSitecustomize(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "sitecustomize.py"), []byte("print('site ran')\n"), 0o644)
+	t.Setenv("PYTHONPATH", dir)
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), "print('main')")
+		if res.Stdout != "site ran\nmain\n" {
+			t.Errorf("%s: %+v", py, res)
+		}
+	}
+}
+
+// Any error while the hooks are installed runs the script unhooked with no counts.
+func TestPySetupFailureRunsScript(t *testing.T) {
+	broken := strings.Replace(pyBootstrap, "    def install():\n", "    def install():\n        raise RuntimeError('seam')\n", 1)
+	if broken == pyBootstrap {
+		t.Fatal("seam not found in pycounters.py: keep `    def install():` unchanged")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "script.py")
+	counts := filepath.Join(dir, ".counts")
+	os.WriteFile(script, []byte("print(len(open("+jsonQuote(script)+").read()))"), 0o644)
+	argv := []string{"-c", `exec(compile(` + jsonQuote(broken) + `, "<cm>", "exec"), {"__name__": "cm"})`, counts, script}
+	for _, py := range pythons(t) {
+		var out, errb bytes.Buffer
+		cmd := exec.CommandContext(context.Background(), py, argv...)
+		cmd.Stdout, cmd.Stderr = &out, &errb
+		if err := cmd.Run(); err != nil || strings.TrimSpace(out.String()) == "" || errb.Len() != 0 {
+			t.Fatalf("%s: err=%v out=%q err=%q", py, err, out.String(), errb.String())
+		}
+		if readPyCounts(counts) != 0 {
+			t.Errorf("%s: counts file written after setup failure", py)
 		}
 	}
 }

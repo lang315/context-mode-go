@@ -303,7 +303,7 @@ def cm_main():
     sys.excepthook = hook
     sys.argv = [script]
     if not getattr(sys.flags, "safe_path", False):
-        sys.path[0] = os.path.dirname(script)
+        sys.path[0] = os.path.dirname(os.path.realpath(script))
     ns = sys.modules["__main__"].__dict__
     ns["__file__"] = script
     ns["__cached__"] = None
@@ -314,7 +314,16 @@ def cm_main():
         if sys.executable:
             os.execv(sys.executable, [sys.executable, script])
         raise
-    exec(code, ns)
+    try:
+        exec(code, ns)
+    except SystemExit:
+        raise
+    except BaseException:
+        ns.pop("__file__", None)
+        ns.pop("__cached__", None)
+        raise
+    ns.pop("__file__", None)
+    ns.pop("__cached__", None)
 cm_main()
 ```
 
@@ -679,7 +688,7 @@ var fidelityCases = map[string]string{
 	"latin-1 cookie":     "# -*- coding: latin-1 -*-\nprint('caf\xe9', len('\xe9'))",
 	"utf-8 no cookie":    "print('caf\u00e9', len('\u00e9'))",
 	"multiprocessing":    "import multiprocessing as mp\ndef g(x): return x * 2\nif __name__ == '__main__':\n    with mp.get_context('spawn').Pool(1) as p:\n        print(p.map(g, [1, 2]))",
-	"atexit reads":       "import atexit\natexit.register(lambda: print(len(open(__file__).read()) > 0))\nprint('body')",
+	"atexit reads":       "import atexit\np = __file__\natexit.register(lambda: print(len(open(p).read()) > 0))\nprint('body')",
 	"os._exit":           "import os\nprint('x', flush=True)\nos._exit(7)",
 	"custom excepthook":  "import sys\nsys.excepthook = lambda t, v, tb: print('hook', t.__name__)\nraise KeyError('k')",
 	"traceback in frame": "import traceback\ndef f():\n    traceback.print_exc()\ntry:\n    1/0\nexcept ZeroDivisionError:\n    f()",

@@ -130,7 +130,7 @@ def cm_main():
     sys.excepthook = hook
     sys.argv = [script]
     if not getattr(sys.flags, "safe_path", False):
-        sys.path[0] = os.path.dirname(script)
+        sys.path[0] = os.path.dirname(os.path.realpath(script))
     ns = sys.modules["__main__"].__dict__
     ns["__file__"] = script
     ns["__cached__"] = None
@@ -141,5 +141,14 @@ def cm_main():
         if sys.executable:
             os.execv(sys.executable, [sys.executable, script])
         raise
-    exec(code, ns)
+    try:
+        exec(code, ns)
+    except SystemExit:
+        raise
+    except BaseException:
+        ns.pop("__file__", None)
+        ns.pop("__cached__", None)
+        raise
+    ns.pop("__file__", None)
+    ns.pop("__cached__", None)
 cm_main()
