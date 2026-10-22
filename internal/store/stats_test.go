@@ -152,7 +152,7 @@ func TestStatsLinksSessionByCCPID(t *testing.T) {
 		Events: 3, Compactions: 2, Categories: map[string]int{"redirect": 2, "file": 1},
 		ProjectSources: 2, ProjectContentBytes: 9, // "héllo" is 6 bytes, not 5 characters
 		ProjectSessions: 2, ProjectEvents: 3,
-		LifetimeKept: 900 + 90 + 4000 + 8 + 24576 + 1000, LifetimeSessions: 3, LifetimeSince: "2026-10-21 08:00:00",
+		LifetimeKept: 900 + 90 + 4000 + 8, LifetimeSessions: 3, LifetimeSince: "2026-10-21 08:00:00",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Stats =\n%+v\nwant\n%+v", got, want)
@@ -417,11 +417,38 @@ func TestStatusLineQueriesDoNotScanGrowingTables(t *testing.T) {
 	if strings.Contains(life, "tool_stats") {
 		t.Errorf("lifetime query plan reads tool_stats:\n%s", life)
 	}
-	// stats_totals has one row per project; the redirect sum reads only the
-	// partial index that holds the redirect rows.
-	for _, want := range []string{"stats_totals", "session_events USING COVERING INDEX session_events_redirect"} {
-		if !strings.Contains(life, want) {
-			t.Errorf("lifetime query plan lacks %q:\n%s", want, life)
-		}
+	// The lifetime is a sum over stats_totals (one row per project); session_events is not read.
+	if !strings.Contains(life, "stats_totals") || strings.Contains(life, "session_events") {
+		t.Errorf("lifetime query plan should read only stats_totals:\n%s", life)
+	}
+}
+
+// The lifetime figure is what the sandbox measured; hook redirect estimates are not part of it.
+func TestLifetimeIgnoresRedirectEvents(t *testing.T) {
+	s := statsFixture(t) // has bash, webfetch and read redirect events
+	snap, err := s.Stats(StatsQuery{ServerID: "srvA", CCPID: 100, Project: "/p"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := int64(900 + 90 + 4000 + 8); snap.LifetimeKept != want {
+		t.Fatalf("LifetimeKept = %d, want %d (stats_totals only)", snap.LifetimeKept, want)
+	}
+}
+
+// A Read tip is not a redirect: the Read still runs.
+func TestSessionRedirectsIgnoreReadTips(t *testing.T) {
+	s := openTest(t)
+	if err := s.SetSessionCC("s1", "/p", 100); err != nil {
+		t.Fatal(err)
+	}
+	insertTestEvents(t, s, "s1", "/p",
+		Event{Type: "bash-redirected", Category: "redirect", Priority: 2, Data: "a", BytesAvoided: 8192},
+		Event{Type: "read-redirected", Category: "redirect", Priority: 2, Data: "b", BytesAvoided: 50000})
+	snap, err := s.Stats(StatsQuery{CCPID: 100, Project: "/p"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Redirects != 1 || snap.RedirectBytes != 8192 {
+		t.Fatalf("Redirects = %d, RedirectBytes = %d; want 1 and 8192", snap.Redirects, snap.RedirectBytes)
 	}
 }

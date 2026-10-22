@@ -112,11 +112,11 @@ func TestSessionLine(t *testing.T) {
 		session         string
 		kept, raw, life int64
 	}{
-		// sA: srvA's ctx_execute row; lifetime is every kept byte plus every redirect.
-		{"sA", 900, 1100, 900 + 90 + 4000 + 8 + 24576 + 1000},
+		// sA: srvA's ctx_execute row; lifetime is every kept byte (stats_totals).
+		{"sA", 900, 1100, 900 + 90 + 4000 + 8},
 		// sB: ctx_search returns bytes but has no raw size.
-		{"sB", 90, 100, 900 + 90 + 4000 + 8 + 24576 + 1000},
-		{"missing", 0, 0, 900 + 90 + 4000 + 8 + 24576 + 1000},
+		{"sB", 90, 100, 900 + 90 + 4000 + 8},
+		{"missing", 0, 0, 900 + 90 + 4000 + 8},
 	}
 	for _, c := range cases {
 		kept, raw, life, err := s.SessionLine(c.session)
@@ -153,9 +153,9 @@ func TestSessionLine(t *testing.T) {
 	}
 }
 
-// The lifetime total runs on every statusline call; it must read the partial
-// redirect index, not scan session_events.
-func TestLifetimeKeptUsesRedirectIndex(t *testing.T) {
+// The lifetime total runs on every statusline call; it reads stats_totals (one row per
+// project) and never session_events.
+func TestLifetimeKeptReadsOnlyStatsTotals(t *testing.T) {
 	s := openTest(t)
 	rows, err := s.db.Query("EXPLAIN QUERY PLAN SELECT " + lifetimeKept)
 	if err != nil {
@@ -172,7 +172,7 @@ func TestLifetimeKeptUsesRedirectIndex(t *testing.T) {
 		plan = append(plan, detail)
 	}
 	got := strings.Join(plan, "\n")
-	if !strings.Contains(got, "session_events USING COVERING INDEX session_events_redirect") {
+	if !strings.Contains(got, "stats_totals") || strings.Contains(got, "session_events") || strings.Contains(got, "tool_stats") {
 		t.Fatalf("plan:\n%s", got)
 	}
 }

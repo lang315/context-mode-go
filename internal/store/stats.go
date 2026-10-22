@@ -138,14 +138,14 @@ type StatsSnapshot struct {
 	Raw           int64      // bytes processed: Kept + Returned over the Tools that have a raw size
 	// Redirects and RedirectBytes are the linked session's "redirect" events:
 	// their count and SUM(bytes_avoided).
-	Redirects, RedirectBytes int64
+	Redirects, RedirectBytes int64 // read-redirected tips are not redirects: the Read still runs
 	Events, Compactions      int
 	Categories               map[string]int // event count per category; nil when not linked
 	ProjectSources           int
 	ProjectContentBytes      int64 // UTF-8 bytes of the project's chunk contents
 	ProjectSessions          int
 	ProjectEvents            int
-	LifetimeKept             int64 // every tool_stats bytes_kept plus every redirect bytes_avoided
+	LifetimeKept             int64 // every tool_stats bytes_kept (stats_totals): measured bytes only
 	LifetimeUnmeasured       int64 // every tool_stats unmeasured_calls
 	LifetimeSessions         int
 	LifetimeSince            string // earliest tool_stats started_at; "" when there is none
@@ -167,9 +167,9 @@ func rawBytes(tools []ToolStat) int64 {
 }
 
 // lifetimeKept is the all-projects kept-out total (stats spec §2 "Lifetime"):
-// the stats_totals rows, one per project, and the redirects' bytes.
-const lifetimeKept = `(SELECT COALESCE(SUM(bytes_kept), 0) FROM stats_totals) +
-  (SELECT COALESCE(SUM(bytes_avoided), 0) FROM session_events WHERE category = 'redirect')`
+// the stats_totals rows, one per project. Only measured sandbox bytes: the
+// hook's redirect estimates in session_events are not part of it.
+const lifetimeKept = `(SELECT COALESCE(SUM(bytes_kept), 0) FROM stats_totals)`
 
 // Stats gathers the ctx_stats numbers. The caller's session is the one most
 // recently linked to its Claude Code process in this project; its server rows
@@ -200,7 +200,7 @@ ORDER BY linked_at DESC, rowid DESC LIMIT 1`, q.CCPID, q.Project).Scan(&st.Sessi
 	st.Raw = rawBytes(st.Tools)
 	if st.SessionLinked {
 		if err := s.db.QueryRow(`SELECT count(*), COALESCE(SUM(bytes_avoided), 0) FROM session_events
-WHERE session_id = ? AND category = 'redirect'`, st.SessionID).Scan(&st.Redirects, &st.RedirectBytes); err != nil {
+WHERE session_id = ? AND category = 'redirect' AND type <> 'read-redirected'`, st.SessionID).Scan(&st.Redirects, &st.RedirectBytes); err != nil {
 			return st, err
 		}
 		if err := s.db.QueryRow("SELECT compact_count FROM session_meta WHERE session_id = ?", st.SessionID).Scan(&st.Compactions); err != nil {
