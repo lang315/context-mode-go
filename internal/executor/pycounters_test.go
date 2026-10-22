@@ -36,6 +36,11 @@ func pythons(t *testing.T) []string {
 			out = append(out, "/opt/homebrew/bin/python3.14")
 		}
 	}
+	for _, p := range strings.Split(os.Getenv("CMGO_TEST_PYTHONS"), ":") {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
 	if len(out) == 0 {
 		t.Skip("no python3")
 	}
@@ -566,5 +571,25 @@ func TestPyBinarySourceReadsNotCounted(t *testing.T) {
 		if res := runPy(t, e, "open("+jsonQuote(txt)+", 'rb').read()"); res.SandboxBytes != 4096 {
 			t.Errorf("%s .txt rb: SandboxBytes = %d, want 4096", py, res.SandboxBytes)
 		}
+	}
+}
+
+// io.open stored as a class attribute (pathlib in 3.10 does this) must not turn
+// into a bound method: the patched open is called like a builtin function.
+func TestPyOpenStoredAsClassAttribute(t *testing.T) {
+	data := writeData(t, 4096)
+	code := `import io
+class A:
+    open = io.open
+class B:
+    open = open
+print(len(A().open(` + jsonQuote(data) + `).read()), len(B().open(` + jsonQuote(data) + `, "rb").read()))`
+	for _, py := range pythons(t) {
+		t.Run(py, func(t *testing.T) {
+			res := runPy(t, pyExec(t, py), code)
+			if res.ExitCode != 0 || strings.TrimSpace(res.Stdout) != "4096 4096" || res.SandboxBytes != 8192 {
+				t.Errorf("got %+v", res)
+			}
+		})
 	}
 }

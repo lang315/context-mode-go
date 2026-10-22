@@ -50,7 +50,7 @@ def cm_main():
                     if mode == "rb":
                         return buf
                     if encoding is None and hasattr(io, "text_encoding"):
-                        encoding = io.text_encoding(None, 2)
+                        encoding = io.text_encoding(None, 3)  # COpen.__call__ adds a frame
                     txt = io.TextIOWrapper(buf, encoding, errors, newline, raw.isatty())
                     txt.mode = mode
                     return txt
@@ -58,7 +58,12 @@ def cm_main():
                     raw.close()
                     raise
             return orig_open(file, mode, buffering, encoding, errors, newline, closefd, opener)
-        builtins.open = io.open = cm_open
+        class COpen:
+            # not a function: a class attribute holding io.open (3.10 pathlib) must not bind
+            __slots__ = ()
+            def __call__(self, *a, **k):
+                return cm_open(*a, **k)
+        builtins.open = io.open = COpen()
         undo.append(lambda: (setattr(builtins, "open", orig_open), setattr(io, "open", orig_open)))
 
         def count_socket(m):
@@ -178,7 +183,8 @@ def cm_main():
         sys.path[0] = os.path.dirname(os.path.realpath(script))
     ns = sys.modules["__main__"].__dict__
     ns["__file__"] = script
-    ns["__cached__"] = None
+    if sys.version_info < (3, 15):  # a 3.15 script has no __cached__
+        ns["__cached__"] = None
     ns["__loader__"] = sys.modules["_frozen_importlib_external"].SourceFileLoader("__main__", script)
     try:
         with warnings.catch_warnings(record=True) as ws:
