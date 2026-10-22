@@ -4,7 +4,7 @@ if sys.version_info < (3, 9) and sys.executable:
     os.execv(sys.executable, [sys.executable, sys.argv[2]])
 def cm_main():
     counts, script = sys.argv[1], sys.argv[2]
-    import os, io, builtins, atexit, types, warnings
+    import os, io, builtins, atexit, warnings
     orig_open = builtins.open
     with orig_open(script, "rb") as f:
         src = f.read()
@@ -23,13 +23,12 @@ def cm_main():
                 if d:
                     n[0] += len(d)
                 return d
+        def is_source(fp):
+            return fp.endswith((b".py", b".pyw") if isinstance(fp, bytes) else (".py", ".pyw"))
         def cm_open(file, mode="r", buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
-            try:
-                skip = sys._getframe(1).f_globals.get("__name__") in ("tokenize", "linecache", "cm")
-            except Exception:
-                skip = False
-            if not skip and (mode in ("r", "rt", "rb") and buffering == -1 and isinstance(file, (str, bytes, os.PathLike))
+            if (mode in ("r", "rt", "rb") and buffering == -1 and isinstance(file, (str, bytes, os.PathLike))
                     and not (isinstance(file, str) and os.path.abspath(file) == script)
+                    and not (mode == "rb" and isinstance(file, (str, bytes, os.PathLike)) and is_source(os.fspath(file)))
                     and (mode != "rb" or (encoding is None and errors is None and newline is None))):
                 file = os.fspath(file)
                 raw = CFile(file, "r", closefd, opener)
@@ -138,10 +137,16 @@ def cm_main():
                 pass
     oh = sys.excepthook
     def clean(tb):
+        import types
         keep = []
+        lead = True
         while tb is not None:
-            if tb.tb_frame.f_code.co_filename not in ("<string>", "<cm>"):
+            name = tb.tb_frame.f_code.co_filename
+            if name == "<cm>" or (lead and name == "<string>"):
+                pass
+            else:
                 keep.append(tb)
+                lead = False
             tb = tb.tb_next
         out = None
         for x in reversed(keep):
@@ -157,6 +162,7 @@ def cm_main():
             saved.append((e, e.__traceback__))
             todo.append(e.__cause__)
             todo.append(e.__context__)
+            todo.extend(getattr(e, "exceptions", ()))
         try:
             for e, t0 in saved:
                 e.__traceback__ = clean(t0)

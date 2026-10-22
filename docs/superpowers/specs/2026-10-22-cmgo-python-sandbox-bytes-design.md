@@ -261,8 +261,13 @@ user-side renderers still show a `<cm>` line when the error came from inside a w
 shows the bootstrap frames (`<string>`/`<cm>`). `type(f.buffer.raw)` is a `FileIO`
 subclass, not `FileIO`; `isinstance` holds.
 
-Review fixes (rev 2.2). Reads made while rendering a traceback or warning
-(callers `tokenize`, `linecache`, or the bootstrap's own hook) are not counted. Paths
+Review fixes (rev 2.2, 2.3). Reads made while rendering a traceback or warning are
+not counted. Every source renderer (C `traceback.c`, `tokenize.open` under `linecache`)
+opens the file with mode `rb`, so a binary read of a `.py`/`.pyw` file is not counted
+(a user reading source as data is rare; counts are a lower bound). Other binary reads
+count. The excepthook drops `<cm>` frames anywhere but `<string>` only as the leading
+bootstrap frame (a user's `exec()` or a dataclass `__init__` keeps its own), and also
+walks `ExceptionGroup.exceptions`. Paths
 are passed through `os.fspath` first. `compile()` runs under `catch_warnings(record=True)`
 and replays its warnings only when it succeeds, so the SyntaxError re-exec does not print
 them twice; `ValueError` from `compile` (NUL byte, 3.9-3.11) also re-execs. A
@@ -270,6 +275,9 @@ them twice; `ValueError` from `compile` (NUL byte, 3.9-3.11) also re-execs. A
 counts file (a forked child does not). The counts file is written with ASCII encoding so
 `PYTHONWARNDEFAULTENCODING` stays quiet; text `open` resolves the default encoding with
 `io.text_encoding(None, 2)` so an `EncodingWarning` points at the user's line.
+`sys.last_traceback`/`sys.last_exc` still contain bootstrap frames (`extract_tb` in an
+atexit handler shows extra frames). `warnings` is preloaded in `sys.modules`.
+Not checked: Python 3.10, 3.11, 3.13, `requests`, `httpx`, Linux system excepthooks, `_pyrepl`.
 Known residue: a module-level `warnings.warn(stacklevel=2)` in the script reports
 `<cm>` instead of `sys:1`, and `len(sys.orig_argv)` is 5 instead of 2.
 

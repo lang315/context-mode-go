@@ -345,6 +345,10 @@ var fidelityCases = map[string]string{
 	"syntax warning then error": "x = '\\d'\ny = (\n",
 	"syntax warning ok":         "x = '\\d'\nprint(x)",
 	"nonblocking fifo":          "import os, tempfile\np = os.path.join(tempfile.mkdtemp(), 'f')\nos.mkfifo(p)\nw = os.open(p, os.O_RDWR | os.O_NONBLOCK)\nf = open(p, 'rb', opener=lambda q, fl: os.open(q, fl | os.O_NONBLOCK))\nprint(f.read())",
+	"exec string frame":         "exec('x = 1\\n1/0')",
+	"dataclass post_init":       "from dataclasses import dataclass\n@dataclass\nclass A:\n    x: int\n    def __post_init__(self):\n        raise ValueError('p')\nA(1)",
+	"namedtuple args":           "from collections import namedtuple\nP = namedtuple('P', 'a b')\nP(1)",
+	"exception group":           "err = None\ntry:\n    open('nope.txt')\nexcept OSError as e:\n    err = e\nraise ExceptionGroup('g', [err])",
 	"nul byte":                  "print(1)\x00",
 	"traceback in frame":        "import traceback\ndef f():\n    traceback.print_exc()\ntry:\n    1/0\nexcept ZeroDivisionError:\n    f()",
 }
@@ -481,10 +485,13 @@ func TestKnownDiffsListsPythonCounters(t *testing.T) {
 // are not data the code read, and a failed request received nothing.
 func TestPyErrorsCountNothing(t *testing.T) {
 	for name, code := range map[string]string{
-		"refused urlopen": "import urllib.request\nurllib.request.urlopen('http://127.0.0.1:9/')",
-		"json error":      "import json\njson.loads('{')",
-		"missing pathlib": "from pathlib import Path\nPath('/nonexistent/x').read_text()",
-		"missing open":    "open('/nonexistent/x')",
+		"refused urlopen":   "import urllib.request\nurllib.request.urlopen('http://127.0.0.1:9/')",
+		"json error":        "import json\njson.loads('{')",
+		"missing pathlib":   "from pathlib import Path\nPath('/nonexistent/x').read_text()",
+		"missing open":      "open('/nonexistent/x')",
+		"thread excepthook": "import threading, json\nt = threading.Thread(target=lambda: json.loads('{'))\nt.start()\nt.join()\nraise SystemExit(1)",
+		"reset excepthook":  "import sys, json\nsys.excepthook = sys.__excepthook__\njson.loads('{')",
+		"direct excepthook": "import sys, json\ntry:\n    json.loads('{')\nexcept Exception:\n    sys.__excepthook__(*sys.exc_info())\nraise SystemExit(1)",
 	} {
 		for _, py := range pythons(t) {
 			t.Run(name+"/"+py, func(t *testing.T) {
@@ -535,6 +542,26 @@ func TestPyEncodingWarningLocation(t *testing.T) {
 		a, b := runPy(t, pyExec(t, py), code), runPy(t, off, code)
 		if a.Stdout != b.Stdout || masked(a.Stderr) != masked(b.Stderr) {
 			t.Errorf("%s: on %q off %q", py, a.Stderr, b.Stderr)
+		}
+	}
+}
+
+// Source files read as binary (what traceback and warning renderers do) are not
+// data; any other binary read is still counted.
+func TestPyBinarySourceReadsNotCounted(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "mod.py")
+	txt := filepath.Join(dir, "mod.txt")
+	body := []byte(strings.Repeat("x", 4096))
+	os.WriteFile(src, body, 0o644)
+	os.WriteFile(txt, body, 0o644)
+	for _, py := range pythons(t) {
+		e := pyExec(t, py)
+		if res := runPy(t, e, "open("+jsonQuote(src)+", 'rb').read()"); res.SandboxBytes != 0 {
+			t.Errorf("%s .py rb: SandboxBytes = %d, want 0", py, res.SandboxBytes)
+		}
+		if res := runPy(t, e, "open("+jsonQuote(txt)+", 'rb').read()"); res.SandboxBytes != 4096 {
+			t.Errorf("%s .txt rb: SandboxBytes = %d, want 4096", py, res.SandboxBytes)
 		}
 	}
 }
