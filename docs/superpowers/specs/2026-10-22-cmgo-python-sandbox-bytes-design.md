@@ -277,7 +277,9 @@ counts file (a forked child does not). The counts file is written with ASCII enc
 `io.text_encoding(None, 2)` so an `EncodingWarning` points at the user's line.
 `sys.last_traceback`/`sys.last_exc` still contain bootstrap frames (`extract_tb` in an
 atexit handler shows extra frames). `warnings` is preloaded in `sys.modules`.
-Not checked: Python 3.10, 3.11, 3.13, `requests`, `httpx`, Linux system excepthooks, `_pyrepl`.
+Checked after PR #12 (2026-10-22, `CMGO_TEST_PYTHONS` adds interpreters to the `TestPy*` tests): 3.9, 3.10, 3.11, 3.12, 3.13, 3.14 and a 3.15 pre-release; `requests` and `httpx` over HTTP (body plus headers counted), and a urllib fetch through a real `cmgo serve`. That pass found two bugs, both fixed: 3.10 `pathlib` keeps `io.open` as a class attribute, so the Python-function `open` bound as a method and `Path.read_text()` raised `TypeError` (the patched `open` is now a callable object, not a function); and a 3.15 script has no `__cached__`.
+
+Not checked: HTTPS through `requests`/`httpx`, Linux system excepthooks, `_pyrepl`.
 The excepthook drops the bootstrap's own frames by identity (recorded at start) plus any
 `<cm>` frame, so a user's `exec()` frame is kept in every position, and it walks
 `.exceptions` only on a `BaseExceptionGroup`. An uncaught error inside a `threading.Thread`
