@@ -119,3 +119,40 @@ func TestStatusLineOldSchema(t *testing.T) {
 		t.Fatalf("hook errors: %s", log)
 	}
 }
+
+// A schema 3 file (no unmeasured_calls column yet) still prints the real line: the
+// read-only queries use only columns that exist since migration 3.
+func TestStatusLineSchema3(t *testing.T) {
+	env := hookEnv(t)
+	path := filepath.Join(env["CMGO_DIR"], "cmgo.db")
+	st, err := store.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, err := range []error{
+		st.SetSessionCC("s1", "/p", 100),
+		st.AddToolStat("srv", 100, "/p", "2000-01-01 00:00:00", "ctx_execute", 10, 90),
+	} {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	st.Close()
+	db, err := sql.Open("sqlite3", (&url.URL{Scheme: "file", Path: path}).String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, q := range []string{"ALTER TABLE tool_stats DROP COLUMN unmeasured_calls", "PRAGMA user_version = 3"} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := "cmgo  ●  90 B this chat  ·  90 B lifetime  ·  90% kept out"
+	if got := callHook(t, env, "statusline", `{"session_id":"s1"}`); got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	if log := hookErrors(env); log != "" {
+		t.Fatalf("hook errors: %s", log)
+	}
+}

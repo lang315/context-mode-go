@@ -51,7 +51,7 @@ The statusline runs on every refresh with a 10 ms budget. After this change its 
 ## 5. Compatibility
 
 - Existing rows are read differently, not changed. On the 2026-10-22 DB copy the lifetime figure drops from 14.66 MB to 2.73 MB (2.67 MB of it one test call). The 58 redirect events, 12.5 MB of estimates (53 Read tips, 5 `bash-redirected`), no longer feed any lifetime or statusline number. The PR body shows the before and after on a copy.
-- This change adds no column and no read of a new one. A schema 4 database works unchanged. The statusline on a schema 3 database already falls back to `cmgo  ●  ready` (its per-session query reads `unmeasured_calls`, added by migration 4) until a writer hook migrates the file; that is not changed here.
+- This change adds no column. A schema 3 or 4 database works unchanged for the statusline: `SessionLine` reads only columns that exist since migration 3 (it no longer shares `toolStats`, which also reads `unmeasured_calls` from migration 4). `TestStatusLineSchema3` pins it; before this fix a schema 3 file printed `cmgo  ●  ready`.
 
 ## 6. KNOWN-DIFFS
 
