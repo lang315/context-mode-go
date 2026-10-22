@@ -162,3 +162,73 @@ func TestPyBootstrapIsASCII(t *testing.T) {
 		}
 	}
 }
+
+// Patched open() and the original (_io.open) agree on content and attributes
+// across read modes, encodings, error handlers and newline settings.
+func TestPyOpenEquivalence(t *testing.T) {
+	data := filepath.Join(t.TempDir(), "mixed.bin")
+	os.WriteFile(data, []byte("line1\r\nline2\ncaf\xc3\xa9 ok\nlast"), 0o644)
+	code := `import _io, io, itertools
+p = ` + jsonQuote(data) + `
+def snap(op):
+    try:
+        f = op()
+    except Exception as e:
+        return ("raise", type(e).__name__, str(e))
+    with f:
+        try:
+            c = f.read()
+        except Exception as e:
+            return ("readraise", type(e).__name__)
+        raw = getattr(f, "buffer", f)
+        raw = getattr(raw, "raw", raw)
+        f.seek(0)
+        first = f.readline()
+        return (c, first, f.tell(), f.mode, f.name, getattr(f, "encoding", None), getattr(f, "errors", None),
+                getattr(f, "newlines", None), getattr(f, "line_buffering", None), type(f).__name__,
+                isinstance(raw, io.FileIO), list(f) == list(f))
+bad = 0
+n = 0
+for mode, enc, err, nl in itertools.product(("r", "rt", "rb"), (None, "utf-8", "latin-1"), (None, "replace"), (None, "", "\n", "\r\n")):
+    a = snap(lambda: _io.open(p, mode, -1, enc, err, nl))
+    b = snap(lambda: open(p, mode, -1, enc, err, nl))
+    n += 1
+    if a != b:
+        bad += 1
+        print("DIFF", mode, enc, err, repr(nl), a, b)
+print("OK" if bad == 0 else "BAD", n)`
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), code)
+		if res.ExitCode != 0 || !strings.HasPrefix(res.Stdout, "OK 72") {
+			t.Fatalf("%s: %+v", py, res)
+		}
+	}
+}
+
+// Reading the start of a large file counts about one buffer, not the file.
+func TestPyPartialReadCountsBuffer(t *testing.T) {
+	file := writeData(t, 1<<20)
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), "f = open("+jsonQuote(file)+"); f.read(100)")
+		if res.SandboxBytes <= 0 || res.SandboxBytes > 64<<10 {
+			t.Errorf("%s: SandboxBytes = %d, want 1..65536", py, res.SandboxBytes)
+		}
+	}
+}
+
+// Write mode, file descriptors and buffering=0 take the original path and count 0.
+func TestPyUncountedOpens(t *testing.T) {
+	file := writeData(t, 2048)
+	out := filepath.Join(t.TempDir(), "out.txt")
+	code := `import os
+with open(` + jsonQuote(out) + `, "w") as f: f.write("x" * 500)
+fd = os.open(` + jsonQuote(file) + `, os.O_RDONLY)
+print(len(open(fd, "rb", closefd=True).read()))
+print(len(open(` + jsonQuote(file) + `, "rb", buffering=0).read()))`
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), code)
+		if res.ExitCode != 0 || res.Stdout != "2048\n2048\n" || res.SandboxBytes != 0 {
+			t.Errorf("%s: %+v", py, res)
+		}
+	}
+}
