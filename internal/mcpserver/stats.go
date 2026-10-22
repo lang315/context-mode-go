@@ -38,6 +38,7 @@ type statJob struct {
 	st             *store.Store
 	project, tool  string
 	returned, kept int64
+	unmeasured     int64 // 1 for a ctx_execute run that could not be measured
 	flush          chan struct{}
 }
 
@@ -52,7 +53,7 @@ func (r *StatsRecorder) start() {
 				close(j.flush)
 				continue
 			}
-			_ = j.st.AddToolStat(r.ServerID, r.CCPID, j.project, r.StartedAt, j.tool, j.returned, j.kept)
+			_ = j.st.AddToolStatExec(r.ServerID, r.CCPID, j.project, r.StartedAt, j.tool, j.returned, j.kept, j.unmeasured)
 		}
 	}()
 }
@@ -63,6 +64,12 @@ func (r *StatsRecorder) start() {
 // a closed recorder drops the call, and a failed write is dropped too: stats
 // never fail or slow a tool.
 func (r *StatsRecorder) Record(d *Deps, tool string, raw int64, res *mcp.CallToolResult) {
+	r.RecordExec(d, tool, raw, res, false)
+}
+
+// RecordExec is Record for a call that ran code: unmeasured says the executor
+// could not count what the code read, so its kept bytes are unknown (not zero).
+func (r *StatsRecorder) RecordExec(d *Deps, tool string, raw int64, res *mcp.CallToolResult, unmeasured bool) {
 	if r == nil || res == nil {
 		return
 	}
@@ -73,6 +80,9 @@ func (r *StatsRecorder) Record(d *Deps, tool string, raw int64, res *mcp.CallToo
 		}
 	}
 	job := statJob{st: d.Store, project: d.Cfg.ProjectKey, tool: tool, returned: returned, kept: max(0, raw-returned)}
+	if unmeasured {
+		job.unmeasured = 1
+	}
 	r.mu.Lock() // not RLock: the first call starts the worker
 	defer r.mu.Unlock()
 	if r.closed {
