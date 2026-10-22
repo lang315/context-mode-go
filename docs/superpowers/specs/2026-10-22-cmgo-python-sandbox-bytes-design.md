@@ -52,8 +52,9 @@ user's code (`subprocess`), shell, and compiled languages (§3).
 | `sitecustomize` via `PYTHONPATH` | rejected | Hides the user's or venv's own `sitecustomize` unless chained; `PYTHONPATH` is inherited by every child Python, which would then print counters into captured output; ignores `python -I` |
 | Bootstrap run with `python3 -c BOOT <countsfile> <script>` | chosen | `script.py` is still written verbatim, so lines and file name are unchanged; no env var, no extra file, no inheritance |
 
-Bootstrap behavior (constant in `internal/executor/pycounters.go`, about 60
-lines of Python):
+Bootstrap behavior (`internal/executor/pycounters.py`, embedded with `go:embed`,
+about 130 lines of Python; the `-c` argument is `exec(compile(<source>, "<cm>",
+"exec"), {})`):
 
 0. **No leaked names.** The `-c` text is only `exec(<bootstrap source>, {})`, so
    `__main__` gains no name. The bootstrap lives in one function inside that
@@ -75,7 +76,10 @@ lines of Python):
    `multiprocessing` spawn then re-imports the same `script.py`.
 3. Install the hooks (below), `atexit.register(write_counts)` first, so it runs
    last (LIFO) and sees reads done by the user's own atexit handlers.
-4. `exec(compile(src, script, "exec", dont_inherit=True), ns)`.
+4. `exec(compile(src, script, "exec", dont_inherit=True), ns)`. If `compile` raises
+   `SyntaxError`, nothing has run, so the bootstrap `os.execv`s `sys.executable`
+   on the script: the interpreter then prints its own error (Python 3.9 reports
+   an EOF error on a different line from `compile()`; verified on 3.9.6).
 5. `sys.excepthook` wrapper drops the bootstrap frame (`tb.tb_next`) so an
    uncaught error or `SyntaxError` prints exactly what a plain script prints.
    `SystemExit` passes through unchanged, so exit codes match.
@@ -84,11 +88,12 @@ The user's `PYTHONSTARTUP`, `PYTHONHOME` etc. stay in `deniedEnv` as today.
 
 **File reads.** Patch `builtins.open` and `io.open` (pathlib's `read_text` and
 `codecs.open` go through them). For the common read-only text/binary calls
-(path argument, mode `r`, `rt`, `rb`, no `opener`, default buffering) build the
+(path argument, mode `r`, `rt`, `rb`, default buffering; an `opener` is forwarded
+to `FileIO`, because Python 3.9 `pathlib` passes one) build the
 same stack Python builds, `FileIO` subclass counting `readinto` -> `BufferedReader`
 -> `TextIOWrapper` (same encoding/errors/newline handling, `mode` and `name`
 set as `open` sets them). Every other call (write modes, file descriptors,
-`buffering=0`, `opener`) is delegated to the original `open` and is not
+`buffering != -1`) is delegated to the original `open` and is not
 counted. The count is "bytes the kernel returned to the process", so reading
 one line of a large file counts one buffer (<= 8 KiB over), never the file size.
 Imports use `_io.open_code`, so `import json` is not counted.
@@ -174,7 +179,7 @@ decision for the owner at that point, not made silently. Results go in the PR.
 
 ## 2. Code changes (for the plan)
 
-- `internal/executor/pycounters.go` (new): `pyBootstrap` constant,
+- `internal/executor/pycounters.go` (new): embeds `pycounters.py` (new), `pyArgv`,
   `pyArgv(python, countsFile, script) []string`, `readPyCounts(path) int64`
   (missing or malformed file = 0, no error).
 - `internal/executor/run.go`: for `Python` with `r.FilePath == ""` and not
@@ -214,7 +219,7 @@ Tests never touch the real home; they use `t.TempDir()` and `httptest`.
    `f.line_buffering`, `type(f)`, and `isinstance(f.buffer.raw, io.FileIO)` for
    text files (`f.raw` for binary). Also `readline`, iteration, `seek`/`tell`,
    `with` and `close` behave the same, and unsupported calls (write mode, fd,
-   `buffering=0`, `opener`) return the original object type.
+   `buffering=0`) return the original object type.
 4b. Fidelity corpus, unwrapped vs wrapped, equal stdout, stderr, exit code. Also:
    a `# -*- coding: latin-1 -*-` cookie with a non-ASCII literal, printed (and
    a UTF-8 file with no cookie); `sorted(globals())` equal; `__loader__` type
@@ -239,7 +244,10 @@ and local sockets. Background runs return 0. `inspect.stack()`,
 `traceback.print_stack()` and `logging` with `stack_info` show one extra
 `<string>` bootstrap frame below the script's `<module>` frame (the `-c`
 module and the `exec` frame cannot be removed from a live stack; uncaught
-errors are cleaned by the excepthook, §1 Q1).
+errors are cleaned by the excepthook, §1 Q1). An uncaught error also counts the
+script's own source once, because `linecache` reads it through the patched
+`open` when it prints the traceback. `type(f.buffer.raw)` is a `FileIO`
+subclass, not `FileIO`; `isinstance` holds.
 
 ## 6. Owner decisions (all taken, 2026-10-22)
 
