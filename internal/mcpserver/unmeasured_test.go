@@ -33,7 +33,7 @@ func TestStatsShowsNotMeasuredOnlyWhenCounted(t *testing.T) {
 	}
 	h.call("ctx_execute", args("language", "shell", "code", "echo hi"))
 	got, _ := h.call("ctx_stats", `{}`)
-	if !strings.Contains(got, "returned  ·  1 not measured\n") || !strings.Contains(got, "kept out  ·  1 ctx_execute calls not measured  ·  ") {
+	if !strings.Contains(got, "returned  ·  1 not measured\n") || !strings.Contains(got, "kept out  ·  1 ctx_execute call not measured  ·  ") {
 		t.Fatalf("report:\n%s", got)
 	}
 }

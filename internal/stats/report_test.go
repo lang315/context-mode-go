@@ -165,3 +165,10 @@ func TestFormatNotMeasuredSuffixes(t *testing.T) {
 		t.Errorf("lifetime suffix missing:\n%s", got)
 	}
 }
+
+func TestFormatLifetimeNotMeasuredSingular(t *testing.T) {
+	r := Report{Version: "x", Now: now, LifetimeUnmeasured: 1}
+	if got := Format(r); !strings.Contains(got, "  ·  1 ctx_execute call not measured  ·  ") {
+		t.Errorf("singular missing:\n%s", got)
+	}
+}

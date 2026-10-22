@@ -45,7 +45,7 @@ Q2. `ctx_stats`:
 
   A JS-only session, and every session that has only pre-migration rows, prints exactly as before.
 - **Project:** the report has no kept figure per project (stats spec §2), so there is nothing to annotate. Not changed.
-- **Lifetime** (`All projects` line): `kept out` is a lower bound. When `SUM(unmeasured_calls)` over `tool_stats` (all projects) is N > 0, the line gets ` · N ctx_execute calls not measured` after the kept figure (before `sessions`). One more subselect in the existing `Stats` query.
+- **Lifetime** (`All projects` line): `kept out` is a lower bound. When `SUM(unmeasured_calls)` over `tool_stats` (all projects) is N > 0, the line gets ` · N ctx_execute calls not measured` (`call` when N is 1) after the kept figure (before `sessions`). One more subselect in the existing `Stats` query.
 - Headline `Kept out of context` and `pct`: unchanged.
 - Statusline: unchanged.
 

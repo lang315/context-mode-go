@@ -49,7 +49,7 @@ No golden case differs because of a §2.2 item, so none is skipped:
   `open()`/pathlib and receives on sockets (TS counts JS/TS only). No golden case runs
   Python through stats, so none is skipped. Spec: `2026-10-22-cmgo-python-sandbox-bytes-design.md`.
 - `stats:kept-not-measured`: the `ctx_stats` `ctx_execute` row ends with `· N not measured`,
-  and the `All projects` line has `· N ctx_execute calls not measured`, when `ctx_execute` ran
+  and the `All projects` line has `· N ctx_execute calls not measured` (`call` when N is 1), when `ctx_execute` ran
   code cmgo cannot count (shell and the other languages, detached background runs; TS has no
   such field). No golden case runs such a call through stats, so none is skipped. Spec:
   `2026-10-22-cmgo-kept-not-measured-design.md`.

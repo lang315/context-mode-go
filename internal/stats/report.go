@@ -91,7 +91,11 @@ func Format(r Report) string {
 		r.ProjectSources, KB(r.ProjectContentBytes), r.ProjectSessions, r.ProjectEvents)
 	fmt.Fprintf(&b, "\nAll projects  ·  %s kept out", KB(r.LifetimeKept))
 	if r.LifetimeUnmeasured > 0 {
-		fmt.Fprintf(&b, "  ·  %d ctx_execute calls not measured", r.LifetimeUnmeasured)
+		calls := "calls"
+		if r.LifetimeUnmeasured == 1 {
+			calls = "call"
+		}
+		fmt.Fprintf(&b, "  ·  %d ctx_execute %s not measured", r.LifetimeUnmeasured, calls)
 	}
 	fmt.Fprintf(&b, "  ·  %d sessions", r.LifetimeSessions)
 	if !r.LifetimeSince.IsZero() {
