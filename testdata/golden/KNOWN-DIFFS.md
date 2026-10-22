@@ -53,6 +53,11 @@ No golden case differs because of a §2.2 item, so none is skipped:
   code cmgo cannot count (shell and the other languages, detached background runs; TS has no
   such field). No golden case runs such a call through stats, so none is skipped. Spec:
   `2026-10-22-cmgo-kept-not-measured-design.md`.
+- `stats:lifetime-split`: the `All projects` line of `ctx_stats` and the statusline `lifetime`
+  show measured sandbox bytes only (`stats_totals`); hook-estimated `bytes_avoided` is no longer
+  added to them. The session line `Redirected by hooks` excludes Read tips (the Read still runs)
+  and ends with `(estimated)`. No golden case reads these lines, so none is skipped. Spec:
+  `2026-10-22-cmgo-stats-measured-vs-estimated-design.md`.
 - Timeline sort (`t11`): differs on purpose, session memory spec §3.2. TS
   keeps the best ranked matches and sorts them oldest first; cmgo ranks up to
   200 matches, keeps the newest by `indexed_at` (ties: the later chunk) and
