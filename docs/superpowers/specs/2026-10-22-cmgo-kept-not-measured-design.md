@@ -60,7 +60,7 @@ Q4. TS has no such field. Add `stats:kept-not-measured` to `testdata/golden/KNOW
 ## 5. Testing (TDD, red first)
 
 - `store`: migration 4 on a v3 DB keeps rows with `unmeasured_calls` 0; `AddToolStatExec` adds it; `AddToolStat` adds 0; `Stats` sums it per tool and for the lifetime; fresh DB reaches version 4 (`TestSchemaVersion` compares to `len(migrations)`).
-- `executor`: `Measured` true for JS, TS and Python (counters on); false for shell, Ruby, Python with `CMGO_PY_COUNTERS=0`, Background, `execute_file`.
+- `executor`: `Measured` true for JS, TS and Python (counters on); false for shell, Ruby, Python with `CMGO_PY_COUNTERS=0`, a detached Background run.
 - `mcpserver`: shell call then `ctx_stats` shows `· 1 not measured`; JS call shows no suffix; argument-error call adds nothing; a seeded legacy row prints no suffix; lifetime suffix present only with unmeasured calls.
 - `stats.Format`: row suffix and lifetime suffix, present and absent.
 - `gofmt`, `go vet`, `go test ./... -count=1`, `-race`, `cmgo-hook` deps unchanged (stats formatting only, no `executor` import).
