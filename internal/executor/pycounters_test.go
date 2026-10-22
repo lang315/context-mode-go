@@ -438,3 +438,14 @@ func TestPySetupFailureRunsScript(t *testing.T) {
 		}
 	}
 }
+
+// The Python counters are a listed difference from TS (KNOWN-DIFFS.md).
+func TestKnownDiffsListsPythonCounters(t *testing.T) {
+	b, err := os.ReadFile("../../testdata/golden/KNOWN-DIFFS.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "executor:python-counters") {
+		t.Error("KNOWN-DIFFS.md has no executor:python-counters entry")
+	}
+}
