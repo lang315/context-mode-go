@@ -115,6 +115,8 @@ CREATE INDEX session_meta_cc ON session_meta(cc_pid, project, linked_at);
 -- Not in the spec DDL: the statusline sums every redirect's bytes_avoided on
 -- each run, and a scan of 50,000 events alone takes longer than its 10 ms budget.
 CREATE INDEX session_events_redirect ON session_events(bytes_avoided) WHERE category = 'redirect';`,
+	// ctx_execute calls whose kept bytes cannot be measured (kept-not-measured spec §1).
+	`ALTER TABLE tool_stats ADD COLUMN unmeasured_calls INTEGER NOT NULL DEFAULT 0;`,
 }
 
 // defaultBusyTimeout is how long a statement or the WAL switch waits for

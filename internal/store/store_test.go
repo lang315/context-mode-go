@@ -30,7 +30,7 @@ func TestOpenSchemaAndPragmas(t *testing.T) {
 	s.db.QueryRow("PRAGMA busy_timeout").Scan(&busy)
 	s.db.QueryRow("PRAGMA foreign_keys").Scan(&fk)
 	s.db.QueryRow("PRAGMA synchronous").Scan(&syncMode)
-	if v != 3 || jm != "wal" || busy != 30000 || fk != 1 || syncMode != 1 {
+	if v != 4 || jm != "wal" || busy != 30000 || fk != 1 || syncMode != 1 {
 		t.Fatalf("user_version=%d journal=%s busy=%d fk=%d sync=%d", v, jm, busy, fk, syncMode)
 	}
 	for _, tbl := range []string{"meta", "sources", "chunks", "chunks_trigram", "vocabulary", "tool_stats"} {
@@ -81,8 +81,8 @@ func TestMigrateFromV1(t *testing.T) {
 	var v, n int
 	s.db.QueryRow("PRAGMA user_version").Scan(&v)
 	s.db.QueryRow("SELECT count(*) FROM sources").Scan(&n)
-	if v != 3 || n != 1 {
-		t.Fatalf("user_version=%d sources=%d, want 3 and 1", v, n)
+	if v != 4 || n != 1 {
+		t.Fatalf("user_version=%d sources=%d, want 4 and 1", v, n)
 	}
 	for _, name := range []string{"session_meta", "session_events", "session_events_session", "session_events_project", "session_events_evict",
 		"tool_stats", "tool_stats_window", "tool_stats_project", "session_meta_cc", "session_events_redirect"} {

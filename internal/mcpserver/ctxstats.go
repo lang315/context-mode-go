@@ -62,11 +62,12 @@ func statsReport(s store.StatsSnapshot, now time.Time, version string) stats.Rep
 		ProjectSessions:     s.ProjectSessions,
 		ProjectEvents:       s.ProjectEvents,
 		LifetimeKept:        s.LifetimeKept,
+		LifetimeUnmeasured:  s.LifetimeUnmeasured,
 		LifetimeSessions:    s.LifetimeSessions,
 		LifetimeSince:       sqliteUTC(s.LifetimeSince),
 	}
 	for _, t := range s.Tools {
-		r.Tools = append(r.Tools, stats.ToolRow{Tool: t.Tool, Calls: t.Calls, Returned: t.BytesReturned, Kept: t.BytesKept})
+		r.Tools = append(r.Tools, stats.ToolRow{Tool: t.Tool, Calls: t.Calls, Returned: t.BytesReturned, Kept: t.BytesKept, Unmeasured: t.Unmeasured})
 	}
 	for name, n := range s.Categories {
 		r.Categories = append(r.Categories, stats.Category{Name: name, Count: n})

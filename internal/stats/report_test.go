@@ -13,10 +13,10 @@ func lines(l ...string) string { return strings.Join(l, "\n") }
 
 func TestFormatFull(t *testing.T) {
 	tools := []ToolRow{
-		{"ctx_search", 3, 1200, 0},
-		{"ctx_execute", 5, 2048, 50000},
-		{"ctx_fetch_and_index", 1, 3000, 120000},
-		{"ctx_batch_execute", 5, 1000, 200000},
+		{"ctx_search", 3, 1200, 0, 0},
+		{"ctx_execute", 5, 2048, 50000, 0},
+		{"ctx_fetch_and_index", 1, 3000, 120000, 0},
+		{"ctx_batch_execute", 5, 1000, 200000, 0},
 	}
 	cats := []Category{
 		{"rule", 1}, {"prompt", 2}, {"env", 1}, {"cwd", 2}, {"decision", 3},
@@ -99,7 +99,7 @@ func TestFormatUnlinked(t *testing.T) {
 	// the server's own rows are still shown.
 	r := Report{
 		Version: "0.4.0", Now: now,
-		Tools: []ToolRow{{"ctx_execute", 1, 300, 4096}}, Raw: 4396,
+		Tools: []ToolRow{{"ctx_execute", 1, 300, 4096, 0}}, Raw: 4396,
 		Redirects: 9, Events: 5, Categories: []Category{{"file", 5}},
 		ProjectSources: 1, ProjectContentBytes: 2048, ProjectSessions: 1, ProjectEvents: 5,
 		LifetimeKept: 4096, LifetimeSessions: 1, LifetimeSince: now,
@@ -126,7 +126,7 @@ func TestFormatUnlinked(t *testing.T) {
 func TestFormatZeroRaw(t *testing.T) {
 	r := Report{
 		Version: "0.4.0", Now: now, SessionLinked: true, SessionStart: now.Add(-30 * time.Minute),
-		Tools: []ToolRow{{"ctx_search", 2, 900, 0}},
+		Tools: []ToolRow{{"ctx_search", 2, 900, 0, 0}},
 	}
 	want := lines(
 		"cmgo stats",
@@ -147,5 +147,28 @@ func TestFormatZeroRaw(t *testing.T) {
 	)
 	if got := Format(r); got != want {
 		t.Errorf("Format =\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestFormatNotMeasuredSuffixes(t *testing.T) {
+	r := Report{Version: "x", Now: now, SessionLinked: true, SessionStart: now.Add(-time.Minute),
+		Tools: []ToolRow{{Tool: "ctx_execute", Calls: 20, Returned: 3000, Kept: 1200, Unmeasured: 14}}}
+	if got := Format(r); !strings.Contains(got, "returned  ·  14 not measured\n") {
+		t.Errorf("row suffix missing:\n%s", got)
+	}
+	r.Tools[0].Unmeasured = 0
+	if got := Format(r); strings.Contains(got, "not measured") {
+		t.Errorf("suffix printed with 0:\n%s", got)
+	}
+	r.LifetimeUnmeasured = 31
+	if got := Format(r); !strings.Contains(got, "0 B kept out  ·  31 ctx_execute calls not measured  ·  0 sessions") {
+		t.Errorf("lifetime suffix missing:\n%s", got)
+	}
+}
+
+func TestFormatLifetimeNotMeasuredSingular(t *testing.T) {
+	r := Report{Version: "x", Now: now, LifetimeUnmeasured: 1}
+	if got := Format(r); !strings.Contains(got, "  ·  1 ctx_execute call not measured  ·  ") {
+		t.Errorf("singular missing:\n%s", got)
 	}
 }

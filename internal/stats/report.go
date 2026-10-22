@@ -12,6 +12,7 @@ import (
 type ToolRow struct {
 	Tool                  string
 	Calls, Returned, Kept int64
+	Unmeasured            int64 // calls whose kept bytes could not be counted
 }
 
 // Category is a session-memory event category and its event count.
@@ -42,6 +43,7 @@ type Report struct {
 	ProjectSessions     int
 	ProjectEvents       int
 	LifetimeKept        int64 // all tool_stats kept plus all redirect bytes_avoided
+	LifetimeUnmeasured  int64 // all ctx_execute calls recorded as not measured
 	LifetimeSessions    int
 	LifetimeSince       time.Time // earliest started_at; zero hides "since"
 }
@@ -69,7 +71,11 @@ func Format(r Report) string {
 		return cmp.Or(cmp.Compare(b.Calls, a.Calls), strings.Compare(a.Tool, b.Tool))
 	})
 	for _, t := range tools {
-		fmt.Fprintf(&b, "  %-22s %4d calls  %9s kept  %9s returned\n", t.Tool, t.Calls, KB(t.Kept), KB(t.Returned))
+		fmt.Fprintf(&b, "  %-22s %4d calls  %9s kept  %9s returned", t.Tool, t.Calls, KB(t.Kept), KB(t.Returned))
+		if t.Unmeasured > 0 {
+			fmt.Fprintf(&b, "  ·  %d not measured", t.Unmeasured)
+		}
+		b.WriteString("\n")
 	}
 	if r.SessionLinked {
 		fmt.Fprintf(&b, "\nSession memory  ·  %d events  ·  %d compactions\n", r.Events, r.Compactions)
@@ -83,7 +89,15 @@ func Format(r Report) string {
 	}
 	fmt.Fprintf(&b, "\nThis project  ·  %d sources indexed (%s)  ·  %d sessions  ·  %d events\n",
 		r.ProjectSources, KB(r.ProjectContentBytes), r.ProjectSessions, r.ProjectEvents)
-	fmt.Fprintf(&b, "\nAll projects  ·  %s kept out  ·  %d sessions", KB(r.LifetimeKept), r.LifetimeSessions)
+	fmt.Fprintf(&b, "\nAll projects  ·  %s kept out", KB(r.LifetimeKept))
+	if r.LifetimeUnmeasured > 0 {
+		calls := "calls"
+		if r.LifetimeUnmeasured == 1 {
+			calls = "call"
+		}
+		fmt.Fprintf(&b, "  ·  %d ctx_execute %s not measured", r.LifetimeUnmeasured, calls)
+	}
+	fmt.Fprintf(&b, "  ·  %d sessions", r.LifetimeSessions)
 	if !r.LifetimeSince.IsZero() {
 		b.WriteString("  ·  since " + r.LifetimeSince.UTC().Format("2006-01-02"))
 	}

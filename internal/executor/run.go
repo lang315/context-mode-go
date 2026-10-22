@@ -29,6 +29,7 @@ type Result struct {
 	ExitCode               int
 	TimedOut, Backgrounded bool
 	SandboxBytes           int64 // bytes a ctx_execute JS/TS or Python run read through files or the network
+	Measured               bool  // the run was instrumented and exited, so SandboxBytes is a real count (0 may be true)
 }
 
 // Run writes the script to a fresh temp dir, runs it, and removes the dir unless the
@@ -91,9 +92,11 @@ func (e *Executor) Run(ctx context.Context, r Request) (Result, error) {
 	keep = res.Backgrounded
 	if countsFile != "" {
 		res.SandboxBytes = readPyCounts(countsFile)
+		res.Measured = !res.Backgrounded // a detached run has not exited: no counts yet
 	}
 	if strings.HasPrefix(code, jsCounters) { // only a wrapJS run reports counts
 		res.Stderr, res.SandboxBytes = takeCounters(res.Stderr)
+		res.Measured = !res.Backgrounded
 	}
 	return res, nil
 }

@@ -64,14 +64,14 @@ func TestStatsExecuteKept(t *testing.T) {
 
 	small, _ := h.call("ctx_execute", args("language", "shell", "code", "printf abc; printf de >&2"))
 	// 5 raw bytes, more returned (the code echo): nothing kept.
-	if got, want := row("ctx_execute"), (store.ToolStat{Tool: "ctx_execute", Calls: 1, BytesReturned: int64(len(small))}); got != want {
+	if got, want := row("ctx_execute"), (store.ToolStat{Tool: "ctx_execute", Calls: 1, BytesReturned: int64(len(small)), Unmeasured: 1}); got != want {
 		t.Fatalf("small run: %+v, want %+v", got, want)
 	}
 
 	// Over 5 KB with an intent: indexed, and only matching sections come back.
 	big, _ := h.call("ctx_execute", args("language", "shell", "code", `head -c 100000 /dev/zero | tr '\0' a`, "intent", "letters"))
 	got := row("ctx_execute")
-	want := store.ToolStat{Tool: "ctx_execute", Calls: 2, BytesReturned: int64(len(small) + len(big)), BytesKept: int64(100000 - len(big))}
+	want := store.ToolStat{Tool: "ctx_execute", Calls: 2, BytesReturned: int64(len(small) + len(big)), BytesKept: int64(100000 - len(big)), Unmeasured: 2}
 	if got != want || len(big) > 10000 {
 		t.Fatalf("indexed run: %+v, want %+v (returned %d bytes)", got, want, len(big))
 	}
