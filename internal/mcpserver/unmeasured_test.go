@@ -47,3 +47,16 @@ func TestKnownDiffsListsKeptNotMeasured(t *testing.T) {
 		t.Error("KNOWN-DIFFS.md has no stats:kept-not-measured entry")
 	}
 }
+
+// A call the security policy refuses never ran code: nothing was left to measure.
+func TestSecurityDenialIsNotUnmeasured(t *testing.T) {
+	h := newHarness(t, nil)
+	h.writeSettings("Bash(sudo *)")
+	row := h.recordStats()
+	if _, isErr := h.call("ctx_execute", args("language", "shell", "code", "sudo reboot")); !isErr {
+		t.Fatal("sudo was not refused")
+	}
+	if got := row("ctx_execute"); got.Calls != 1 || got.Unmeasured != 0 {
+		t.Fatalf("after denial: %+v", got)
+	}
+}

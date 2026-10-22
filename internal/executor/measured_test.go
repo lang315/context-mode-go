@@ -18,6 +18,8 @@ func TestResultMeasured(t *testing.T) {
 		want bool
 	}{
 		{"javascript", Request{Language: JavaScript, Code: "console.log(1)"}, false, true},
+		{"typescript", Request{Language: TypeScript, Code: "console.log(1)"}, false, true},
+		{"ruby", Request{Language: Ruby, Code: "puts 1"}, false, false},
 		{"shell", Request{Language: Shell, Code: "echo 1"}, false, false},
 		{"python", Request{Language: Python, Code: "print(1)"}, false, true},
 		{"python counters off", Request{Language: Python, Code: "print(1)"}, true, false},
