@@ -33,7 +33,7 @@ type Report struct {
 	// ctx_execute, ctx_execute_file, ctx_batch_execute, ctx_fetch_and_index).
 	// The caller computes it; the headline percentage is Pct(sum Kept, Raw).
 	Raw                 int64
-	Redirects           int64 // PreToolUse redirects this session
+	Redirects           int64 // PreToolUse redirects this session (Read tips excluded)
 	RedirectBytes       int64 // their bytes_avoided, shown apart from Kept
 	Events              int
 	Compactions         int
@@ -42,7 +42,7 @@ type Report struct {
 	ProjectContentBytes int64
 	ProjectSessions     int
 	ProjectEvents       int
-	LifetimeKept        int64 // all tool_stats kept plus all redirect bytes_avoided
+	LifetimeKept        int64 // all tool_stats kept: measured bytes only
 	LifetimeUnmeasured  int64 // all ctx_execute calls recorded as not measured
 	LifetimeSessions    int
 	LifetimeSince       time.Time // earliest started_at; zero hides "since"
@@ -64,7 +64,7 @@ func Format(r Report) string {
 	fmt.Fprintf(&b, "  Kept out of context    %s   (%d%% of %s processed)\n", KB(kept), Pct(kept, r.Raw), KB(r.Raw))
 	fmt.Fprintf(&b, "  Returned to context    %s\n", KB(returned))
 	if r.SessionLinked {
-		fmt.Fprintf(&b, "  Redirected by hooks    %d calls  ·  ~%s\n", r.Redirects, KB(r.RedirectBytes))
+		fmt.Fprintf(&b, "  Redirected by hooks    %d calls  ·  ~%s (estimated)\n", r.Redirects, KB(r.RedirectBytes))
 	}
 	tools := slices.Clone(r.Tools)
 	slices.SortFunc(tools, func(a, b ToolRow) int {
