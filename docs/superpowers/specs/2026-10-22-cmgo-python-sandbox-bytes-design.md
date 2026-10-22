@@ -1,6 +1,6 @@
 # cmgo: count Python sandbox reads in ctx_execute `bytes_kept`
 
-Date: 2026-10-22. Status: draft for owner approval. No code until approved.
+Date: 2026-10-22. Status: approved by the owner (rev 2, four changes in §1 Q1, §4, §5 and §6).
 Extends: core spec §2.2 (intentional differences), stats spec §1.3 (raw bytes).
 
 ## 0. Context and goals
@@ -55,8 +55,21 @@ user's code (`subprocess`), shell, and compiled languages (§3).
 Bootstrap behavior (constant in `internal/executor/pycounters.go`, about 60
 lines of Python):
 
-1. Read `script.py` with the original `open` (before any patch).
-2. Restore the ordinary script environment: `sys.argv = [script]`,
+0. **No leaked names.** The `-c` text is only `exec(<bootstrap source>, {})`, so
+   `__main__` gains no name. The bootstrap lives in one function inside that
+   private namespace and the user code runs in the `__main__` dict, which holds
+   only what a plain script run holds: `__name__`, `__doc__`, `__package__`,
+   `__spec__ = None`, `__loader__` (a `SourceFileLoader("__main__", script)`, as
+   a plain run has), `__file__ = script`, `__cached__ = None`, `__builtins__`.
+1. **Source encoding.** Read `script.py` in binary mode with the original
+   `open` (before any patch) and pass the `bytes` to `compile()`. A PEP 263
+   coding cookie and the default UTF-8 then behave as in a plain run.
+2. **Version floor: Python 3.9+** (`/usr/bin/python3` here is 3.9.6). No 3.10+
+   syntax or API in the bootstrap; `io.text_encoding` is used only when present.
+   **Setup failure rule:** the whole hook setup is in one `try`. On any error the
+   bootstrap skips the hooks and execs the script unhooked, writing no counts
+   file, so the user's run is unchanged.
+2b. Restore the ordinary script environment: `sys.argv = [script]`,
    `sys.path[0] = dirname(script)` (with `-c` it would be `''`), run in the
    `__main__` module namespace with `__file__ = script`, `__spec__ = None`.
    `multiprocessing` spawn then re-imports the same `script.py`.
@@ -193,7 +206,20 @@ Tests never touch the real home; they use `t.TempDir()` and `httptest`.
    `http.client`; a write-mode `open` counts 0.
 2. No double count: TLS response counted once (`SSLSocket.read` path).
 3. Trust: spoof lines on stdout and stderr; `ctx_execute_file`; shell.
-4. Fidelity corpus, unwrapped vs wrapped, equal stdout, stderr, exit code:
+4a. `open()` equivalence matrix, patched vs original `open`, for modes `r`, `rt`,
+   `rb` crossed with `encoding` (None, `utf-8`, `latin-1`), `errors` (None,
+   `replace`), `newline` (None, `""`, `"\n"`, `"\r\n"`) and `buffering=-1`, on a
+   file with `\n`, `\r\n` and non-ASCII bytes. Compare the read content and
+   `f.mode`, `f.name`, `f.encoding`, `f.errors`, `f.newlines` (after reading),
+   `f.line_buffering`, `type(f)`, and `isinstance(f.buffer.raw, io.FileIO)` for
+   text files (`f.raw` for binary). Also `readline`, iteration, `seek`/`tell`,
+   `with` and `close` behave the same, and unsupported calls (write mode, fd,
+   `buffering=0`, `opener`) return the original object type.
+4b. Fidelity corpus, unwrapped vs wrapped, equal stdout, stderr, exit code. Also:
+   a `# -*- coding: latin-1 -*-` cookie with a non-ASCII literal, printed (and
+   a UTF-8 file with no cookie); `sorted(globals())` equal; `__loader__` type
+   and `__spec__` equal; run on 3.9.6 (`/usr/bin/python3`) and on the PATH
+   python3; a forced setup error (test seam) still runs the script, counts 0:
    `SyntaxError`; nested uncaught exception (line numbers); `sys.exit(3)`;
    `from __future__ import annotations` as first statement; `__name__ ==
    "__main__"`; `__file__`, `sys.argv`, `sys.path[0]`; reading stdin;
@@ -209,14 +235,22 @@ Tests never touch the real home; they use `t.TempDir()` and `httptest`.
 
 Counts are a lower bound. Lost on SIGKILL/timeout and `os._exit`. Child
 processes (`subprocess`) are not instrumented. Network counts include headers
-and local sockets. Background runs return 0.
+and local sockets. Background runs return 0. `inspect.stack()`,
+`traceback.print_stack()` and `logging` with `stack_info` show one extra
+`<string>` bootstrap frame below the script's `<module>` frame (the `-c`
+module and the `exec` frame cannot be removed from a live stack; uncaught
+errors are cleaned by the excepthook, §1 Q1).
 
-## 6. Decisions I need from the owner
+## 6. Owner decisions (all taken, 2026-10-22)
 
-1. Bootstrap via `python3 -c` (recommended) vs sitecustomize.
-2. Keep `CMGO_PY_COUNTERS=0` switch (recommended).
-3. Accept socket-level network counting (headers included) instead of body-only.
-4. Shell and compiled languages stay "not measured"; Ruby as a separate
-   follow-up only when demand is shown.
-5. JS/TS spoofing via stderr text: leave as is (TS parity) or give it the same
-   file channel as a separate change.
+1. Bootstrap via `python3 -c`: yes.
+2. Keep the `CMGO_PY_COUNTERS=0` switch: yes.
+3. Socket-level network counting, headers included: accepted.
+4. Shell and compiled languages stay "not measured"; Ruby is a follow-up only
+   when demand is shown.
+5. JS/TS keeps the stderr channel (TS parity), no change: a local single-user
+   tool, and spoofing your own stats is not a threat.
+
+Owner changes to rev 1: binary source read (§1 step 1), no leaked names (§1
+step 0, §5), Python 3.9+ floor with an unhooked fallback (§1 step 2), and the
+`open()` equivalence matrix (§4 4a).
