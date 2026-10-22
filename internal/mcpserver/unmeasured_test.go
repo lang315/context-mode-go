@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -34,5 +35,15 @@ func TestStatsShowsNotMeasuredOnlyWhenCounted(t *testing.T) {
 	got, _ := h.call("ctx_stats", `{}`)
 	if !strings.Contains(got, "returned  ·  1 not measured\n") || !strings.Contains(got, "kept out  ·  1 ctx_execute calls not measured  ·  ") {
 		t.Fatalf("report:\n%s", got)
+	}
+}
+
+func TestKnownDiffsListsKeptNotMeasured(t *testing.T) {
+	b, err := os.ReadFile("../../testdata/golden/KNOWN-DIFFS.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "stats:kept-not-measured") {
+		t.Error("KNOWN-DIFFS.md has no stats:kept-not-measured entry")
 	}
 }

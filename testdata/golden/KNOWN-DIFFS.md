@@ -48,6 +48,11 @@ No golden case differs because of a §2.2 item, so none is skipped:
 - `executor:python-counters`: `ctx_execute` counts the bytes a Python run reads through
   `open()`/pathlib and receives on sockets (TS counts JS/TS only). No golden case runs
   Python through stats, so none is skipped. Spec: `2026-10-22-cmgo-python-sandbox-bytes-design.md`.
+- `stats:kept-not-measured`: the `ctx_stats` `ctx_execute` row ends with `· N not measured`,
+  and the `All projects` line has `· N ctx_execute calls not measured`, when `ctx_execute` ran
+  code cmgo cannot count (shell and the other languages, detached background runs; TS has no
+  such field). No golden case runs such a call through stats, so none is skipped. Spec:
+  `2026-10-22-cmgo-kept-not-measured-design.md`.
 - Timeline sort (`t11`): differs on purpose, session memory spec §3.2. TS
   keeps the best ranked matches and sorts them oldest first; cmgo ranks up to
   200 matches, keeps the newest by `indexed_at` (ties: the later chunk) and

@@ -74,6 +74,8 @@ CREATE INDEX session_events_redirect ON session_events(bytes_avoided) WHERE cate
 ```
 Sub-project 3 adds no schema change, so this is migration 3.
 
+Migration 4 (`2026-10-22-cmgo-kept-not-measured-design.md`) adds `ALTER TABLE tool_stats ADD COLUMN unmeasured_calls INTEGER NOT NULL DEFAULT 0;`: the `ctx_execute` calls whose kept bytes could not be counted. Rows from before it keep 0.
+
 ### 1.2 Linking a server to a session
 Hooks, the statusline and `cmgo serve` all run under the same Claude Code process. The MCP server is never told its session id, because Claude Code does not export `CLAUDE_SESSION_ID` to MCP servers (R4 §A.2).
 
@@ -106,6 +108,8 @@ Hooks, the statusline and `cmgo serve` all run under the same Claude Code proces
 
 `bytes_kept = max(0, raw - bytes_returned)`. A failed DB write is ignored: stats must never fail a tool.
 
+A `ctx_execute` run the executor could not instrument (shell and the other languages, Python with `CMGO_PY_COUNTERS=0`, a detached background run) adds 1 to `unmeasured_calls`; its `bytes_kept` is then unknown, not zero.
+
 ## 2. `ctx_stats`
 - **Input:** `{}`.
 - **Output:** plain text. All sizes use the TS `kb()` helper (A:1961-1977), and durations use `formatDuration`.
@@ -117,7 +121,7 @@ This session  ·  <duration>  ·  <calls> calls
   Kept out of context    <kb kept>   (<pct>% of <kb raw> processed)
   Returned to context    <kb returned>
   Redirected by hooks    <n> calls  ·  ~<kb bytes_avoided>
-  <tool padEnd 22> <calls padStart 4> calls  <kb kept padStart 9> kept  <kb returned padStart 9> returned     (one line per tool, by calls desc)
+  <tool padEnd 22> <calls padStart 4> calls  <kb kept padStart 9> kept  <kb returned padStart 9> returned     (one line per tool, by calls desc; the `ctx_execute` line ends with `  ·  <n> not measured` when n > 0)
 
 Session memory  ·  <events> events  ·  <compactions> compactions
   <category padEnd 22> <count padStart 5>     (top 8 categories by count)
@@ -132,7 +136,7 @@ cmgo <version>
 Details:
 - **"This session":** the caller's session is resolved as in §1.2, from `serve`'s own `cc_pid`. If no session is linked, the session lines are replaced by `This session  ·  no hook data yet (is cmgo-hook installed?)`. The server's own `tool_stats` rows are still shown.
 - **`pct`:** `round(kept / raw * 100)`, or `0` when raw is 0.
-- **Lifetime:** sums over `stats_totals`, plus the redirected `bytes_avoided`. The start date is the earliest `first_at`.
+- **Lifetime:** sums over `stats_totals`, plus the redirected `bytes_avoided`. The start date is the earliest `first_at`. When any `ctx_execute` call was recorded as not measured, the line gets `  ·  <n> ctx_execute calls not measured` after the kept figure.
 
 ## 3. Statusline
 `cmgo-hook statusline` reads Claude Code's statusLine stdin JSON and prints one line with no trailing newline, then exits 0.
