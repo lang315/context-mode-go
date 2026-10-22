@@ -23,7 +23,7 @@
 
 - A JS-only session, and a DB with only pre-migration rows, print byte for byte as before (no suffix).
 - A `ctx_execute` that fails argument parsing or hits a security denial adds 0 to `unmeasured_calls`.
-- Python with `CMGO_PY_COUNTERS=0`, a Background Python run and a shell run are unmeasured; a Background JS run is measured.
+- Python with `CMGO_PY_COUNTERS=0`, a shell run and any detached Background run (JS included, its counters were never written) are unmeasured; a Background run that finishes before its timeout is not detached, so an instrumented one is measured.
 - Opening a v3 database upgrades to v4 and keeps every existing row.
 - Several servers writing the same `(server_id, tool, window)` row add the counts (upsert), not overwrite.
 
@@ -36,7 +36,7 @@
 - Test: `internal/executor/measured_test.go` (create)
 
 **Interfaces:**
-- Produces: `Result.Measured bool`, true when the run used an instrumented path (JS/TS `wrapJS`, or the Python bootstrap argv).
+- Produces: `Result.Measured bool`, true when the run used an instrumented path (JS/TS `wrapJS`, or the Python bootstrap argv) and was not detached (`!Backgrounded`): a detached run has not exited, so its counters were never written.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -44,6 +44,7 @@
 package executor
 
 import (
+	"os"
 	"testing"
 	"time"
 )
@@ -63,7 +64,11 @@ func TestResultMeasured(t *testing.T) {
 		{"python", Request{Language: Python, Code: "print(1)"}, false, true},
 		{"python counters off", Request{Language: Python, Code: "print(1)"}, true, false},
 		{"python background", Request{Language: Python, Code: "print(1)", Background: true, Timeout: 300 * time.Millisecond}, false, false},
-		{"javascript background", Request{Language: JavaScript, Code: "console.log(1)", Background: true, Timeout: 3 * time.Second}, false, true},
+		// Detached: still running when Run returns, so no counter line was written.
+		{"javascript background detached", Request{Language: JavaScript, Code: "console.log(1)", Background: true, Timeout: 300 * time.Millisecond}, false, false},
+		// wrapJS keeps a background JS run alive with setInterval, so a run that
+		// exits before its timeout is not reachable from JS. Shell exits, but is not instrumented.
+		{"shell background finished", Request{Language: Shell, Code: "echo 1", Background: true, Timeout: 5 * time.Second}, false, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -73,7 +78,7 @@ func TestResultMeasured(t *testing.T) {
 					if k == "CMGO_PY_COUNTERS" {
 						return "0"
 					}
-					return ""
+					return os.Getenv(k)
 				}
 			}
 			if c.req.Language == Python && c.req.Timeout == 0 {
@@ -108,18 +113,18 @@ In `Run`, set it where the two counters are read:
 ```go
 	if countsFile != "" {
 		res.SandboxBytes = readPyCounts(countsFile)
-		res.Measured = true
+		res.Measured = !res.Backgrounded // a detached run has not exited: no counts yet
 	}
 	if strings.HasPrefix(code, jsCounters) { // only a wrapJS run reports counts
 		res.Stderr, res.SandboxBytes = takeCounters(res.Stderr)
-		res.Measured = true
+		res.Measured = !res.Backgrounded
 	}
 ```
 
 - [ ] **Step 4: Run to see it pass**
 
 Run: `go test ./internal/executor -run TestResultMeasured -count=1 -v`
-Expected: PASS, six subtests. Then `go test ./internal/executor -count=1` → ok.
+Expected: PASS, seven subtests. Then `go test ./internal/executor -count=1` → ok.
 
 - [ ] **Step 5: Commit**
 

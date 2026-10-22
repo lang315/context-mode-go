@@ -28,7 +28,7 @@ Why not a per-language split: the primary key is `(server_id, tool, window)`; ad
 
 ## 2. Recording
 
-- `executor.Result` gets `Measured bool`: true when the run was instrumented and its counters were read (the `wrapJS` path, or the Python counters file path). False for every other run, including Python with counters off, Background, `execute_file` and compile failures.
+- `executor.Result` gets `Measured bool`: true when the run was instrumented and its counters were read (the `wrapJS` path, or the Python counters file path). False for every other run, including Python with counters off, a detached Background run (still running when `Run` returns, so no counters were written; any language) and compile failures. A Background run that exits before its timeout is not detached and is measured when instrumented (Python Background is never instrumented).
 - `ctx_execute` classifies each call: `Run` returned and `!Measured` → unmeasured; everything else (a measured run, or a call that never ran code: argument error, security denial, runtime missing) → counted as 0. Nothing was left to measure, so `kept 0` is true.
 - `StatsRecorder` gets one more entry, `RecordExec(d, tool, raw, res, unmeasured bool)`, with `Record` unchanged for the other tools. `statJob` carries `unmeasured` (0 or 1). `AddToolStat` keeps its signature (19 test callers) and delegates to `AddToolStatExec(..., unmeasured int64)`, which adds it in the same upsert. `stats_totals` is not changed (it has no per-tool data).
 - A timeout or `os._exit` Python run counts as measured (the executor had instrumented it; the lower bound is already documented in the Python spec §5). Only runs the executor never instrumented are unmeasured.
