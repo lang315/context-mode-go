@@ -56,6 +56,11 @@ Bootstrap behavior (`internal/executor/pycounters.py`, embedded with `go:embed`,
 about 130 lines of Python; the `-c` argument is `exec(compile(<source>, "<cm>",
 "exec"), {})`):
 
+00. **Version floor at runtime.** The first statement is `if sys.version_info < (3, 9)`
+   -> `os.execv(sys.executable, [sys.executable, script])`, the plain path (the
+   runtime is `python3` or `python` from PATH, so it can be an older pyenv or venv
+   Python). Code before that guard is parseable by old Pythons. No interpreter
+   below 3.9 is installed here; the test raises the floor instead, and the PR says so.
 0. **No leaked names.** The `-c` text is only `exec(<bootstrap source>, {})`, so
    `__main__` gains no name. The bootstrap lives in one function inside that
    private namespace and the user code runs in the `__main__` dict, which holds
@@ -71,7 +76,9 @@ about 130 lines of Python; the `-c` argument is `exec(compile(<source>, "<cm>",
    bootstrap skips the hooks and execs the script unhooked, writing no counts
    file, so the user's run is unchanged.
 2b. Restore the ordinary script environment: `sys.argv = [script]`,
-   `sys.path[0] = dirname(script)` (with `-c` it would be `''`), run in the
+   `sys.path[0] = dirname(script)` (with `-c` it would be `''`) unless
+   `sys.flags.safe_path` is on (`PYTHONSAFEPATH`, 3.11+; `-c` then inserts nothing,
+   as a plain script run does), in which case `sys.path` is left alone, run in the
    `__main__` module namespace with `__file__ = script`, `__spec__ = None`.
    `multiprocessing` spawn then re-imports the same `script.py`.
 3. Install the hooks (below), `atexit.register(write_counts)` first, so it runs
@@ -96,7 +103,9 @@ set as `open` sets them). Every other call (write modes, file descriptors,
 `buffering != -1`) is delegated to the original `open` and is not
 counted. The count is "bytes the kernel returned to the process", so reading
 one line of a large file counts one buffer (<= 8 KiB over), never the file size.
-Imports use `_io.open_code`, so `import json` is not counted.
+Imports use `_io.open_code`, so `import json` is not counted. A read of the
+script file itself (compared by `abspath`) is code, not data: it is delegated and
+not counted, which also covers `linecache` printing a traceback.
 
 **Network.** Count bytes received on sockets, not bytes of HTTP bodies:
 patch `socket.socket.recv`, `socket.socket.recv_into` and `ssl.SSLSocket.read`
@@ -244,9 +253,9 @@ and local sockets. Background runs return 0. `inspect.stack()`,
 `traceback.print_stack()` and `logging` with `stack_info` show one extra
 `<string>` bootstrap frame below the script's `<module>` frame (the `-c`
 module and the `exec` frame cannot be removed from a live stack; uncaught
-errors are cleaned by the excepthook, §1 Q1). An uncaught error also counts the
-script's own source once, because `linecache` reads it through the patched
-`open` when it prints the traceback. `type(f.buffer.raw)` is a `FileIO`
+errors are cleaned by the excepthook, §1 Q1). If user code resets
+`sys.excepthook` (for example to `sys.__excepthook__`), an uncaught traceback
+shows the bootstrap frames (`<string>`/`<cm>`). `type(f.buffer.raw)` is a `FileIO`
 subclass, not `FileIO`; `isinstance` holds.
 
 ## 6. Owner decisions (all taken, 2026-10-22)

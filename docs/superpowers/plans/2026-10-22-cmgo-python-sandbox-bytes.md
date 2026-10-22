@@ -19,6 +19,7 @@
 - Only `internal/executor`, docs, `testdata/golden/KNOWN-DIFFS.md` and `CLAUDE.md` change; `mcpserver/execute.go` already adds `SandboxBytes`.
 - Imports: stdlib first, blank line, module imports. `gofmt -l .` prints nothing.
 - Commits in English, end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. No session URLs. Do not push before the PR step.
+- Reads of `script.py` itself are not counted; the bootstrap's first statement execs the plain interpreter below Python 3.9.
 - Counts are a lower bound; SIGKILL/timeout and `os._exit` lose them (same as JS).
 
 ## Review Focus
@@ -230,6 +231,9 @@ Expected: FAIL to compile (`pyBootstrap`, `readPyCounts` undefined).
 
 ```python
 import sys
+if sys.version_info < (3, 9) and sys.executable:
+    import os
+    os.execv(sys.executable, [sys.executable, sys.argv[2]])
 def cm_main():
     counts, script = sys.argv[1], sys.argv[2]
     import os, io, builtins, atexit
@@ -251,6 +255,7 @@ def cm_main():
                 return d
         def cm_open(file, mode="r", buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
             if (mode in ("r", "rt", "rb") and buffering == -1 and isinstance(file, (str, bytes, os.PathLike))
+                    and not (isinstance(file, str) and os.path.abspath(file) == script)
                     and (mode != "rb" or (encoding is None and errors is None and newline is None))):
                 raw = CFile(file, "r", closefd, opener)
                 try:
@@ -297,7 +302,8 @@ def cm_main():
         oh(t, v.with_traceback(tb), tb)
     sys.excepthook = hook
     sys.argv = [script]
-    sys.path[0] = os.path.dirname(script)
+    if not getattr(sys.flags, "safe_path", False):
+        sys.path[0] = os.path.dirname(script)
     ns = sys.modules["__main__"].__dict__
     ns["__file__"] = script
     ns["__cached__"] = None
@@ -702,6 +708,62 @@ func TestPyFidelity(t *testing.T) {
 	}
 }
 
+// Reads of script.py itself (linecache on a traceback, __file__) are code, not data.
+func TestPyIgnoresScriptSource(t *testing.T) {
+	code := "print(len(open(__file__).read()) > 0)\nraise ValueError('x')"
+	for _, py := range pythons(t) {
+		res := runPy(t, pyExec(t, py), code)
+		if res.ExitCode != 1 || res.SandboxBytes != 0 {
+			t.Errorf("%s: %+v", py, res)
+		}
+	}
+}
+
+// With PYTHONSAFEPATH (3.11+) the bootstrap leaves sys.path alone, as a plain run does.
+func TestPySafePathFidelity(t *testing.T) {
+	t.Setenv("PYTHONSAFEPATH", "1")
+	for _, py := range pythons(t) {
+		if out, _ := exec.Command(py, "-c", "import sys;print(sys.version_info >= (3, 11))").Output(); strings.TrimSpace(string(out)) != "True" {
+			t.Logf("%s has no safe_path, skipped", py)
+			continue
+		}
+		code := "import sys\nprint(sys.path)"
+		off := pyExec(t, py)
+		off.getenv = func(k string) string {
+			if k == "CMGO_PY_COUNTERS" {
+				return "0"
+			}
+			return os.Getenv(k)
+		}
+		a, b := runPy(t, pyExec(t, py), code), runPy(t, off, code)
+		if masked(a.Stdout) != masked(b.Stdout) || a.ExitCode != 0 {
+			t.Errorf("%s: on %q off %q", py, a.Stdout, b.Stdout)
+		}
+	}
+}
+
+// Below the version floor the bootstrap execs the plain interpreter and writes no counts.
+// (No Python below 3.9 is installed here, so the floor is raised in the test instead.)
+func TestPyOldVersionRunsPlain(t *testing.T) {
+	old := strings.Replace(pyBootstrap, "sys.version_info < (3, 9)", "sys.version_info < (99, 0)", 1)
+	if old == pyBootstrap {
+		t.Fatal("version guard not found in pycounters.py")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "script.py")
+	counts := filepath.Join(dir, ".counts")
+	os.WriteFile(script, []byte("print('plain')"), 0o644)
+	for _, py := range pythons(t) {
+		out, err := exec.Command(py, "-c", `exec(compile(`+jsonQuote(old)+`, "<cm>", "exec"), {"__name__": "cm"})`, counts, script).Output()
+		if err != nil || string(out) != "plain\n" {
+			t.Fatalf("%s: err=%v out=%q", py, err, out)
+		}
+		if _, err := os.Stat(counts); err == nil {
+			t.Errorf("%s: counts file written", py)
+		}
+	}
+}
+
 // A sitecustomize on the user's PYTHONPATH still runs.
 func TestPyKeepsUserSitecustomize(t *testing.T) {
 	dir := t.TempDir()
@@ -742,7 +804,7 @@ func TestPySetupFailureRunsScript(t *testing.T) {
 
 - [ ] **Step 2: Run to verify** — `go test ./internal/executor -run 'TestPyFidelity|TestPyKeeps|TestPySetup' -count=1 2>&1 | tail -40`
 Expected: should pass on the Task 1 bootstrap (it was prototyped against these cases on 3.9.6 and 3.12.1). Any FAIL is a real fidelity bug: fix `pycounters.py` (do not edit the case). Prove the corpus can fail: temporarily delete the `hook` excepthook trimming (`sys.excepthook = hook`), confirm `nested exception` FAILS, then restore.
-Known quirk to confirm, not fix: `atexit reads` makes the count nonzero only when counters are on; the compared streams must still match.
+The `atexit reads` case reads the script itself, so its count must be 0 (`TestPyIgnoresScriptSource`).
 
 - [ ] **Step 3: Commit**
 
