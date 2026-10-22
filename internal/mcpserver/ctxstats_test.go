@@ -40,7 +40,7 @@ func TestCtxStatsReport(t *testing.T) {
 This session  ·  2h  ·  1 calls
   Kept out of context    962 B   (96% of 1002 B processed)
   Returned to context    40 B
-  Redirected by hooks    1 calls  ·  ~8.0 KB
+  Redirected by hooks    1 calls  ·  ~8.0 KB (estimated)
   ctx_execute_file          1 calls      962 B kept       40 B returned
 
 Session memory  ·  2 events  ·  0 compactions
@@ -49,7 +49,7 @@ Session memory  ·  2 events  ·  0 compactions
 
 This project  ·  1 sources indexed (13 B)  ·  1 sessions  ·  2 events
 
-All projects  ·  13.8 KB kept out  ·  1 sessions  ·  since 2026-10-20
+All projects  ·  5.8 KB kept out  ·  1 sessions  ·  since 2026-10-20
 
 cmgo test`
 	if isErr || got != want {

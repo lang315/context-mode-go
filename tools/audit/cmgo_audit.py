@@ -501,7 +501,7 @@ def main():
         J["q2_read_events"][nm] = dict(events=len(ev), claimed=sum(e[3] for e in ev), matched=n_found, executed=n_exec, claimed_executed=by_exec, any_time=n_any)
     P("")
     lr, ln = db["lifetime_redirect_bytes"]
-    P("- Lifetime figure `ctx_stats` prints = stats_totals kept %s + redirect bytes_avoided %s (%d events) = %s. Of that, sandbox bytes measured on clean rows: %s." % (
+    P("- Lifetime figure `ctx_stats` printed before the 2026-10-22 split (stats:lifetime-split) = stats_totals kept %s + redirect bytes_avoided %s (%d events) = %s; it now shows stats_totals only. Sandbox bytes measured on clean rows: %s." % (
         kb(sum(k for _, _, _, k in db["totals"])), kb(lr), ln, kb(sum(k for _, _, _, k in db["totals"]) + lr), kb(t_clean[2])))
     P("")
 

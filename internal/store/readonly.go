@@ -51,12 +51,24 @@ func (s *Store) UserVersion() (int, error) {
 // never linked to a Claude Code process, has no server rows.
 func (s *Store) SessionLine(sessionID string) (sessionKept, sessionRaw, lifetime int64, err error) {
 	if sessionID != "" { // window '' holds every unlinked call: never a session
-		tools, err := s.toolStats("window = ?", sessionID)
+		// Not toolStats: this runs against a file that may still be at schema 3,
+		// which has no unmeasured_calls.
+		rows, err := s.db.Query("SELECT tool, SUM(bytes_returned), SUM(bytes_kept) FROM tool_stats WHERE window = ? GROUP BY tool", sessionID)
 		if err != nil {
 			return 0, 0, 0, err
 		}
-		for _, t := range tools {
+		defer rows.Close()
+		var tools []ToolStat
+		for rows.Next() {
+			var t ToolStat
+			if err := rows.Scan(&t.Tool, &t.BytesReturned, &t.BytesKept); err != nil {
+				return 0, 0, 0, err
+			}
 			sessionKept += t.BytesKept
+			tools = append(tools, t)
+		}
+		if err := rows.Err(); err != nil {
+			return 0, 0, 0, err
 		}
 		sessionRaw = rawBytes(tools)
 	}

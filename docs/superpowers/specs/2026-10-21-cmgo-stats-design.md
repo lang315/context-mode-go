@@ -29,7 +29,7 @@ This builds on the core, hooks and session-memory specs. The TS reference is `a5
 1. **"Kept out" is measured, never estimated:**
    - for `ctx_execute`, `ctx_execute_file` and `ctx_batch_execute`: bytes the tool produced or read minus bytes it returned;
    - for `ctx_fetch_and_index`: bytes fetched minus bytes returned;
-   - for PreToolUse redirects: the TS `bytes_avoided` values (8192 / file size / 16384), shown separately as "redirected".
+   - for PreToolUse redirects: the TS `bytes_avoided` values (8192 / 16384; the Read tip's file size is not counted, see `2026-10-22-cmgo-stats-measured-vs-estimated-design.md`), shown separately as "redirected".
 
    Unit tests pin each definition.
 2. **Stats go to the right session:** server statistics are attributed to the Claude Code session that owns the server process (§1.2), with two concurrent sessions in one project in the test.
@@ -120,7 +120,7 @@ cmgo stats
 This session  ·  <duration>  ·  <calls> calls
   Kept out of context    <kb kept>   (<pct>% of <kb raw> processed)
   Returned to context    <kb returned>
-  Redirected by hooks    <n> calls  ·  ~<kb bytes_avoided>
+  Redirected by hooks    <n> calls  ·  ~<kb bytes_avoided> (estimated)
   <tool padEnd 22> <calls padStart 4> calls  <kb kept padStart 9> kept  <kb returned padStart 9> returned     (one line per tool, by calls desc; the `ctx_execute` line ends with `  ·  <n> not measured` when n > 0)
 
 Session memory  ·  <events> events  ·  <compactions> compactions
@@ -136,7 +136,7 @@ cmgo <version>
 Details:
 - **"This session":** the caller's session is resolved as in §1.2, from `serve`'s own `cc_pid`. If no session is linked, the session lines are replaced by `This session  ·  no hook data yet (is cmgo-hook installed?)`. The server's own `tool_stats` rows are still shown.
 - **`pct`:** `round(kept / raw * 100)`, or `0` when raw is 0.
-- **Lifetime:** sums over `stats_totals`, plus the redirected `bytes_avoided`. The start date is the earliest `first_at`. When any `ctx_execute` call was recorded as not measured, the line gets `  ·  <n> ctx_execute calls not measured` (`call` when n is 1) after the kept figure.
+- **Lifetime:** sums over `stats_totals` only: measured bytes. Hook-estimated redirect bytes are shown for the session, not here (`2026-10-22-cmgo-stats-measured-vs-estimated-design.md`). The start date is the earliest `first_at`. When any `ctx_execute` call was recorded as not measured, the line gets `  ·  <n> ctx_execute calls not measured` (`call` when n is 1) after the kept figure.
 
 ## 3. Statusline
 `cmgo-hook statusline` reads Claude Code's statusLine stdin JSON and prints one line with no trailing newline, then exits 0.
@@ -150,7 +150,7 @@ Output, plain text with no ANSI, because Claude Code's stdout is a pipe:
 | Case | Line |
 |---|---|
 | fallback (no DB, no session, error) | `cmgo  ●  ready` |
-| session has no kept bytes yet | `cmgo  ●  <kb lifetime kept> kept out lifetime` |
+| session has no kept bytes yet | `cmgo  ●  <kb lifetime kept> kept out lifetime` (measured bytes only) |
 | otherwise | `cmgo  ●  <kb session kept> this chat  ·  <kb lifetime kept> lifetime  ·  <pct>% kept out` |
 
 `pct` is computed over the session.
