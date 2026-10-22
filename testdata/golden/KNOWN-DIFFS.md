@@ -45,6 +45,9 @@ No golden case differs because of a §2.2 item, so none is skipped:
 
 - Batch `NODE_OPTIONS` fs preload: batch commands in `tools.json`
   never start `node`, so no `__CM_FS__` line appears on either side.
+- `executor:python-counters`: `ctx_execute` counts the bytes a Python run reads through
+  `open()`/pathlib and receives on sockets (TS counts JS/TS only). No golden case runs
+  Python through stats, so none is skipped. Spec: `2026-10-22-cmgo-python-sandbox-bytes-design.md`.
 - Timeline sort (`t11`): differs on purpose, session memory spec §3.2. TS
   keeps the best ranked matches and sorts them oldest first; cmgo ranks up to
   200 matches, keeps the newest by `indexed_at` (ties: the later chunk) and

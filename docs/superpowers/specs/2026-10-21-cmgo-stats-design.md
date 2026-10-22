@@ -98,7 +98,7 @@ Hooks, the statusline and `cmgo serve` all run under the same Claude Code proces
 
 | Tool | raw bytes |
 |---|---|
-| `ctx_execute` | stdout + stderr bytes of the run; for JS/TS also the bytes the code read through `fs.readFileSync`/`readFile`, `fetch` and `http(s).get`/`request` (the TS `__CM_FS__`/`__CM_NET__` counters). Reads in other languages are not counted |
+| `ctx_execute` | stdout + stderr bytes of the run; for JS/TS also the bytes the code read through `fs.readFileSync`/`readFile`, `fetch` and `http(s).get`/`request` (the TS `__CM_FS__`/`__CM_NET__` counters). Python runs also count the bytes read through `open()`/pathlib and received on sockets (a lower bound; spec 2026-10-22-cmgo-python-sandbox-bytes-design.md). Shell and other languages are not counted |
 | `ctx_execute_file` | file size + stdout + stderr bytes |
 | `ctx_batch_execute` | sum of every command's output bytes |
 | `ctx_fetch_and_index` | response body bytes of every fetched URL (cache hits: the cached source's content bytes) |
