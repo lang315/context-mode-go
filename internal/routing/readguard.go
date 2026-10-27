@@ -18,22 +18,20 @@ const (
 	readGuardMaxCommand   = 4096 // longer commands are scripts, not reads
 	readGuardMaxStats     = 8
 	readGuardBytesPerLine = 64 // upper-side average for source and Markdown
-
-	// readGuardDefaultMin is about half of the ~30,000 characters Claude Code
-	// lets a Bash result carry (spec §1.4).
-	readGuardDefaultMin = 16384
 )
 
 // readGuardMin ports nothing from TS: CMGO_BASH_READ_MIN_BYTES is an int in
-// [1, 100000000], else the default; 0 turns the guidance off (returned as 0).
+// [1, 100000000]; anything else, unset included, turns the guidance off
+// (returned as 0). It is off by default since the 2026-10-27 audit: 0 of 11
+// hints were followed (spec §5.3 override). 16384 restores the old default.
 func readGuardMin(getenv func(string) string) int64 {
 	if getenv == nil {
-		return readGuardDefaultMin
+		return 0
 	}
 	if n, ok := jsParseInt(getenv("CMGO_BASH_READ_MIN_BYTES")); ok && n >= 0 && n <= 100_000_000 {
 		return n
 	}
-	return readGuardDefaultMin
+	return 0
 }
 
 // bashReadGuidance returns the hint for a Bash command that prints at least

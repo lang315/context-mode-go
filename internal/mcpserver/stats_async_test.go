@@ -71,6 +71,33 @@ func TestStatsRecordNeverWaitsOnTheDB(t *testing.T) {
 	}
 }
 
+// kept is capped per call at what one Bash result can carry: a ctx_execute
+// that downloaded 750 MB kept at most that much out of the context, not 750 MB.
+func TestStatsKeptCappedPerCall(t *testing.T) {
+	h := newHarness(t, nil)
+	row := h.recordStats()
+	ten := textResult("ten bytes!")
+	cases := []struct {
+		tool string
+		raw  int64
+		kept int64
+	}{
+		{"ctx_execute", 750_000_000, 30000},
+		{"ctx_execute_file", 10 + 29999, 29999},
+		{"ctx_batch_execute", 10 + 30000, 30000},
+		{"ctx_fetch_and_index", 10 + 30001, 30000},
+		{"ctx_search", 4, 0},
+	}
+	for _, c := range cases {
+		h.Deps.Stats.RecordExec(h.Deps, c.tool, c.raw, ten, false)
+	}
+	for _, c := range cases {
+		if got := row(c.tool); got.Calls != 1 || got.BytesReturned != 10 || got.BytesKept != c.kept {
+			t.Errorf("%s raw %d: %+v, want kept %d", c.tool, c.raw, got, c.kept)
+		}
+	}
+}
+
 // A full queue drops the record instead of blocking, and the rest still lands.
 func TestStatsFullQueueDrops(t *testing.T) {
 	h := newHarness(t, nil)

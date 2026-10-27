@@ -71,7 +71,7 @@ func TestStatsExecuteKept(t *testing.T) {
 	// Over 5 KB with an intent: indexed, and only matching sections come back.
 	big, _ := h.call("ctx_execute", args("language", "shell", "code", `head -c 100000 /dev/zero | tr '\0' a`, "intent", "letters"))
 	got := row("ctx_execute")
-	want := store.ToolStat{Tool: "ctx_execute", Calls: 2, BytesReturned: int64(len(small) + len(big)), BytesKept: int64(100000 - len(big)), Unmeasured: 2}
+	want := store.ToolStat{Tool: "ctx_execute", Calls: 2, BytesReturned: int64(len(small) + len(big)), BytesKept: min(int64(100000-len(big)), MaxKeptPerCall), Unmeasured: 2}
 	if got != want || len(big) > 10000 {
 		t.Fatalf("indexed run: %+v, want %+v (returned %d bytes)", got, want, len(big))
 	}
@@ -134,7 +134,7 @@ func TestStatsBatchKept(t *testing.T) {
 				{"label": "errs", "command": "printf xy >&2"},
 			},
 			"queries", []string{"letters"}, "concurrency", concurrency))
-		want := store.ToolStat{Tool: "ctx_batch_execute", Calls: 1, BytesReturned: int64(len(text)), BytesKept: int64(50000 + 2 - len(text))}
+		want := store.ToolStat{Tool: "ctx_batch_execute", Calls: 1, BytesReturned: int64(len(text)), BytesKept: min(int64(50000+2-len(text)), MaxKeptPerCall)}
 		if got := row("ctx_batch_execute"); isErr || got != want || len(text) > 20000 {
 			t.Fatalf("concurrency %d: %+v, want %+v (isErr %v, returned %d)", concurrency, got, want, isErr, len(text))
 		}
@@ -155,7 +155,7 @@ func TestStatsFetchKept(t *testing.T) {
 
 	first, isErr := h.call("ctx_fetch_and_index", args("url", srv.URL+"/a", "source", "big"))
 	raw := int64(len(strings.TrimSpace(body)))
-	want := store.ToolStat{Tool: "ctx_fetch_and_index", Calls: 1, BytesReturned: int64(len(first)), BytesKept: raw - int64(len(first))}
+	want := store.ToolStat{Tool: "ctx_fetch_and_index", Calls: 1, BytesReturned: int64(len(first)), BytesKept: min(raw-int64(len(first)), MaxKeptPerCall)}
 	if got := row("ctx_fetch_and_index"); isErr || got != want {
 		t.Fatalf("fetch: %+v, want %+v (isErr %v)", got, want, isErr)
 	}
@@ -170,7 +170,7 @@ func TestStatsFetchKept(t *testing.T) {
 		t.Fatalf("SourceBytes = %d, %v", content, err)
 	}
 	want.Calls, want.BytesReturned = 2, want.BytesReturned+int64(len(cached))
-	want.BytesKept += content - int64(len(cached))
+	want.BytesKept += min(content-int64(len(cached)), MaxKeptPerCall)
 	if got := row("ctx_fetch_and_index"); isErr || !strings.Contains(cached, "cached") || got != want {
 		t.Fatalf("cache hit: %+v, want %+v\n%s", got, want, cached)
 	}

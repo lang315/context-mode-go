@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,6 +117,14 @@ func readDeps(t *testing.T, env map[string]string) (Deps, string) {
 	proj, home := readFixture(t)
 	d := testDeps(t)
 	d.Cwd, d.Home = proj, home
+	if _, ok := env["CMGO_BASH_READ_MIN_BYTES"]; !ok {
+		// The guidance is off unless the variable is set; these tests are about it on.
+		env = maps.Clone(env)
+		if env == nil {
+			env = map[string]string{}
+		}
+		env["CMGO_BASH_READ_MIN_BYTES"] = "16384"
+	}
 	d.Getenv = func(k string) string { return env[k] }
 	return d, proj
 }
@@ -150,13 +159,14 @@ func TestRouteBashReadGuidanceThreshold(t *testing.T) {
 		cmd  string
 		hint bool
 	}{
-		{"", "cat b.txt", false}, // 3000 < 16384
-		{"", "cat a.txt", true},
-		{"", "cat a.txt b.txt", true},
-		{"0", "cat a.txt", false}, // off
-		{"junk", "cat a.txt", true},
-		{"-5", "cat a.txt", true},
-		{"200000000", "cat a.txt", true}, // out of range: default
+		{"", "cat a.txt", false},      // unset: off (0 of 11 hints were followed, audit 2026-10-27)
+		{"16384", "cat b.txt", false}, // 3000 < 16384
+		{"16384", "cat a.txt", true},
+		{"16384", "cat a.txt b.txt", true},
+		{"0", "cat a.txt", false},
+		{"junk", "cat a.txt", false},
+		{"-5", "cat a.txt", false},
+		{"200000000", "cat a.txt", false}, // out of range: off
 		{"30000", "cat a.txt", false},
 		{"1000", "cat b.txt", true},
 	}

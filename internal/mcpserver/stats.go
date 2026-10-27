@@ -58,9 +58,15 @@ func (r *StatsRecorder) start() {
 	}()
 }
 
+// MaxKeptPerCall caps bytes_kept for one call at about what one Bash result
+// can carry into the context (Claude Code shows about 30,000 characters and
+// spills the rest to a file), so a run that reads or downloads a large file
+// counts what the context was spared, not the file size. TS has no cap.
+const MaxKeptPerCall = 30000
+
 // Record adds one finished call of tool: bytes_returned is the UTF-8 size of
-// the result text, bytes_kept is max(0, raw - returned), where raw is what
-// the tool produced or read. A nil recorder records nothing, a full queue or
+// the result text, bytes_kept is max(0, raw - returned) up to MaxKeptPerCall,
+// where raw is what the tool produced or read. A nil recorder records nothing, a full queue or
 // a closed recorder drops the call, and a failed write is dropped too: stats
 // never fail or slow a tool.
 func (r *StatsRecorder) Record(d *Deps, tool string, raw int64, res *mcp.CallToolResult) {
@@ -79,7 +85,7 @@ func (r *StatsRecorder) RecordExec(d *Deps, tool string, raw int64, res *mcp.Cal
 			returned += int64(len(tc.Text))
 		}
 	}
-	job := statJob{st: d.Store, project: d.Cfg.ProjectKey, tool: tool, returned: returned, kept: max(0, raw-returned)}
+	job := statJob{st: d.Store, project: d.Cfg.ProjectKey, tool: tool, returned: returned, kept: min(max(0, raw-returned), MaxKeptPerCall)}
 	if unmeasured {
 		job.unmeasured = 1
 	}

@@ -117,6 +117,12 @@ CREATE INDEX session_meta_cc ON session_meta(cc_pid, project, linked_at);
 CREATE INDEX session_events_redirect ON session_events(bytes_avoided) WHERE category = 'redirect';`,
 	// ctx_execute calls whose kept bytes cannot be measured (kept-not-measured spec §1).
 	`ALTER TABLE tool_stats ADD COLUMN unmeasured_calls INTEGER NOT NULL DEFAULT 0;`,
+	// Cap kept at 30000 bytes per call (mcpserver.MaxKeptPerCall) on rows written
+	// before the cap, and take the same amount off each project's lifetime total.
+	`UPDATE stats_totals SET bytes_kept = max(0, bytes_kept - coalesce((
+  SELECT sum(t.bytes_kept - t.calls * 30000) FROM tool_stats t
+  WHERE t.project = stats_totals.project AND t.bytes_kept > t.calls * 30000), 0));
+UPDATE tool_stats SET bytes_kept = calls * 30000 WHERE bytes_kept > calls * 30000;`,
 }
 
 // defaultBusyTimeout is how long a statement or the WAL switch waits for
