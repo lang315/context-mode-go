@@ -66,9 +66,9 @@ const MaxKeptPerCall = 30000
 
 // Record adds one finished call of tool: bytes_returned is the UTF-8 size of
 // the result text, bytes_kept is max(0, raw - returned) up to MaxKeptPerCall,
-// where raw is what the tool produced or read. A nil recorder records nothing, a full queue or
-// a closed recorder drops the call, and a failed write is dropped too: stats
-// never fail or slow a tool.
+// where raw is what the tool produced or read. A nil recorder records
+// nothing, a full queue or a closed recorder drops the call, and a failed
+// write is dropped too: stats never fail or slow a tool.
 func (r *StatsRecorder) Record(d *Deps, tool string, raw int64, res *mcp.CallToolResult) {
 	r.RecordExec(d, tool, raw, res, false)
 }

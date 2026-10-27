@@ -70,3 +70,13 @@ func TestKnownDiffsListsLifetimeSplit(t *testing.T) {
 		t.Error("KNOWN-DIFFS.md has no stats:lifetime-split entry")
 	}
 }
+
+func TestKnownDiffsListsKeptCap(t *testing.T) {
+	b, err := os.ReadFile("../../testdata/golden/KNOWN-DIFFS.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "stats:kept-cap") {
+		t.Error("KNOWN-DIFFS.md has no stats:kept-cap entry")
+	}
+}

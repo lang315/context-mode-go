@@ -80,7 +80,7 @@ func TestMigration4KeepsRows(t *testing.T) {
 
 // Migration 5 caps each row's kept bytes at 30000 per call (the per-call cap
 // mcpserver applies since then) and takes the same amount off the project's
-// lifetime total. A total with no rows left (purged) stays as it is.
+// lifetime total. A total with no matching rows is left as it is.
 func TestMigration5CapsKept(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cmgo.db")
 	s, err := Open(path)
