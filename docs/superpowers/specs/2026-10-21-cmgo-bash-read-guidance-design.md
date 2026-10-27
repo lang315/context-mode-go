@@ -257,3 +257,7 @@ Before re-reading a file or re-running a command to recover what you did earlier
 ```
 
 A cheap way to get that data without code: the same audit scripts, restricted to the cmgo era, with two extra counters (Read of a Files Modified path; Bash `git log|diff` within 4 actions of a compact).
+
+## 9. Update 2026-10-27: off by default
+
+The 2026-10-27 audit counted 11 fires and 0 followed within 3 actions (M2 0%, target at least 25%). The owner chose to turn the guidance off now instead of waiting for 40 fires (§5.3): `CMGO_BASH_READ_MIN_BYTES` unset, or anything outside 1-100,000,000, is off; `16384` restores the old default. The code stays: the size estimator may serve a stronger action than a hint in the next routing work, and is removed there if it does not.

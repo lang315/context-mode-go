@@ -70,3 +70,13 @@ The statusline runs on every refresh with a 10 ms budget. After this change its 
 - Showing a lifetime estimate in any form; changing the 8,192 B and 16,384 B constants; crediting an estimate only when a `ctx_*` call follows.
 - Stopping the Read hook from writing `bytes_avoided`.
 - Any change to the TS-parity events or session memory.
+
+## 9. Update 2026-10-27: per-call kept cap
+
+The 2026-10-27 audit found 760 MB of lifetime kept bytes, 750 MB of them in one `tool_stats` row: a Python `ctx_execute` that downloaded a large release file with `urllib`. The socket counter (`executor:python-counters`) counted every byte, but no alternative tool would have put 750 MB into the context: a Bash result carries about 30,000 characters and Claude Code spills the rest to a file.
+
+- `bytes_kept` of one call is `min(max(0, raw - returned), 30000)` (`mcpserver.MaxKeptPerCall`), for every recorded tool. Kept is now a lower bound on what the context was spared per call.
+- Migration 5 applies the same cap to rows written before it (`bytes_kept <= calls * 30000`) and takes the same amount off each project's `stats_totals.bytes_kept`. A total with no matching rows is left as it is. A row aggregates calls, so a migrated row is an upper bound of what the per-call cap would have recorded (13 calls with one 750 MB download become 390,000 bytes, not about 30,000).
+- `cmgo serve` processes started before the upgrade keep the old binary and write uncapped kept bytes until their session ends; migration 5 does not run again. Restart the Claude sessions after installing.
+- The `ctx_stats` text `(N% of X processed)` (TS parity) uses `returned + kept`, so with the cap it understates what a run read or downloaded.
+- KNOWN-DIFFS: `stats:kept-cap`.

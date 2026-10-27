@@ -507,6 +507,7 @@ func TestHookNullAgentFieldsAreNotSubagent(t *testing.T) {
 // process's own cwd; the hint writes no event.
 func TestHookPreToolUseBashReadGuidance(t *testing.T) {
 	env := hookEnv(t)
+	env["CMGO_BASH_READ_MIN_BYTES"] = "16384" // off by default
 	project := env["CLAUDE_PROJECT_DIR"]
 	if err := os.WriteFile(filepath.Join(project, "big.txt"), bytes.Repeat([]byte("x"), 20000), 0o644); err != nil {
 		t.Fatal(err)

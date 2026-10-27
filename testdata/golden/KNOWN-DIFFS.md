@@ -58,6 +58,12 @@ No golden case differs because of a §2.2 item, so none is skipped:
   added to them. The session line `Redirected by hooks` excludes Read tips (the Read still runs)
   and ends with `(estimated)`. No golden case reads these lines, so none is skipped. Spec:
   `2026-10-22-cmgo-stats-measured-vs-estimated-design.md`.
+- `stats:kept-cap`: `bytes_kept` of one call is capped at 30000 bytes (`mcpserver.MaxKeptPerCall`,
+  about what one Bash result carries into the context), and migration 5 caps older rows and
+  the lifetime totals the same way. TS records `raw - returned` uncapped, so one `ctx_execute`
+  that downloaded 750 MB counted 750 MB kept. Migrated rows are an upper bound (`calls * 30000`),
+  and the TS text `(N% of X processed)` now understates what a run read. No golden case records
+  such a call, so none is skipped. Spec: `2026-10-22-cmgo-stats-measured-vs-estimated-design.md` §9.
 - Timeline sort (`t11`): differs on purpose, session memory spec §3.2. TS
   keeps the best ranked matches and sorts them oldest first; cmgo ranks up to
   200 matches, keeps the newest by `indexed_at` (ties: the later chunk) and
