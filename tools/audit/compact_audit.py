@@ -40,6 +40,8 @@ def scan(lines, since=""):
         if not isinstance(content, list):
             continue
         for x in content:
+            if not isinstance(x, dict):
+                continue
             if x.get("type") == "tool_use":
                 calls[x["id"]] = (x["name"], x.get("input") or {})
                 order.append(x["id"])
@@ -57,7 +59,7 @@ def scan(lines, since=""):
         recovered = False
         for nid in order[i + 1:i + 1 + WINDOW]:
             n2, i2 = calls[nid]
-            if (n2.endswith("ctx_search") and label in json.dumps(i2)) or (n2 == "Bash" and norm(i2.get("command", "")) == norm(inp.get("command", ""))):
+            if (n2.endswith("ctx_search") and i2.get("source") == label) or (n2 == "Bash" and norm(i2.get("command", "")) == norm(inp.get("command", ""))):
                 recovered = True
                 back += size(results.get(nid))
         out.append((label, recovered, back))
@@ -76,9 +78,22 @@ def self_test():
         {"message": {"content": [{"type": "tool_result", "tool_use_id": "d", "content": "abc"}]}},
         {"message": {"content": [{"type": "tool_use", "id": "e", "name": "Bash", "input": {"command": "pwd"}}]}},
         {"message": {"content": [{"type": "tool_result", "tool_use_id": "e", "content": '[cmgo: the full output is indexed as "bash:e".'}]}},
+        {"message": {"content": ["junk", {"type": "tool_use", "id": "f", "name": "Bash", "input": {"command": "cmd1"}}]}},
+        {"message": {"content": [{"type": "tool_result", "tool_use_id": "f", "content": '[cmgo: the full output is indexed as "bash:f".'}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "g", "name": "Bash", "input": {"command": "x1"}}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "h", "name": "Bash", "input": {"command": "x2"}}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "i", "name": "Bash", "input": {"command": "x3"}}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "j", "name": "mcp__cmgo__ctx_search", "input": {"queries": ["q"], "source": "bash:f"}}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "k", "name": "Bash", "input": {"command": "cmd2"}}]}},
+        {"message": {"content": [{"type": "tool_result", "tool_use_id": "k", "content": '[cmgo: the full output is indexed as "bash:1".'}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "l", "name": "mcp__cmgo__ctx_search", "input": {"queries": ["q"], "source": "bash:12"}}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "m", "name": "Bash", "input": {"command": "cmd3"}}]}},
+        {"message": {"content": [{"type": "tool_result", "tool_use_id": "m", "content": '[cmgo: the full output is indexed as "bash:m".'}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "n", "name": "Bash", "input": {"command": "cmd4"}}]}},
     ]
     got = scan(json.dumps(x) for x in t)
-    assert got == [("bash:a", True, 5), ("bash:c", True, 3), ("bash:e", False, 0)], got
+    assert got == [("bash:a", True, 5), ("bash:c", True, 3), ("bash:e", False, 0),
+                   ("bash:f", False, 0), ("bash:1", False, 0), ("bash:m", False, 0)], got
     assert norm("ls   # cmgo:full") == "ls"
     print("self-test ok")
 
@@ -98,7 +113,8 @@ def main():
             shutil.copy(DB + "-wal", db + "-wal")
         c = sqlite3.connect(db)
         calls, kept, sessions = c.execute(
-            "SELECT coalesce(sum(calls),0), coalesce(sum(bytes_kept),0), count(DISTINCT window) FROM tool_stats WHERE tool = 'bash-compact' AND updated_at >= ?",
+            "SELECT coalesce(sum(calls),0), coalesce(sum(bytes_kept),0), count(DISTINCT window) FROM tool_stats WHERE tool = 'bash-compact' AND updated_at >= ?"
+            " AND coalesce(project, '') NOT LIKE '%scratchpad%' AND coalesce(project, '') NOT LIKE '/private/tmp%'",
             (a.since,)).fetchone()
         c.close()
     finally:
@@ -118,6 +134,9 @@ def main():
     print(f"M1 saved: {kept} bytes ({kept / max(1, sessions):.0f} per session)")
     print(f"M2 recovery: {rec} of {n} ({100 * m2:.0f}%), bringing back {back} bytes")
     print(f"M3 net: {m3} bytes ({100 * m3 / max(1, kept):.0f}% of M1)")
+    if abs(calls - n) > 0.1 * max(calls, n):
+        print(f"warning: DB and transcript counts differ (DB {calls}, transcripts {n})")
+    print("lost output: not measured here; check hook-errors.log and a sample of compacted results by hand (spec §5)")
     if n < 200:
         print(f"verdict: not enough data ({n} of 200 compactions)")
     elif m2 > 0.5 or m3 < 0:
@@ -125,9 +144,9 @@ def main():
     elif m2 > 0.3:
         print("verdict: raise the default threshold to 8192 once (spec §5)")
     elif m3 >= 0.5 * kept:
-        print("verdict: keep (spec §5)")
+        print("verdict: keep (spec §5), if the manual lost-output check is clean")
     else:
-        print("verdict: net below 50% of saved; raise the threshold to 8192 once (spec §5)")
+        print("verdict: undecided by spec §5 (M2 <= 30% but M3 < 50% of M1); the owner decides")
 
 
 if __name__ == "__main__":
