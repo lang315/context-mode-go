@@ -111,11 +111,11 @@ Judge after at least 200 compactions (about 2 days at the measured 110 a day):
 
 - `compact`: head and tail cut at line boundaries and never inside a UTF-8 sequence; 0, 1, 20 and 21 matching lines; 200-byte cut of a long matching line; size and line count text; stdout + stderr joining; threshold parsing (unset, `0`, junk, 1, 30000, 30001).
 - `routing`: reading-command table: `sed -n 1,9p f`, `cd d && cat f`, `FOO=1 head f`, `git -C d diff`, `git --no-pager show x`, `cat f | grep x`, `go test ./...` (not reading), `ls && cat f` (reading in a later chain counts), skipped forms (heredoc, `$(`).
-- `store`: the no-vocabulary `Index` leaves `vocabulary` unchanged and is searchable; the hook stat write adds to `tool_stats` and `stats_totals`; `bash:` sources older than 48 hours are cleaned, a 47-hour one and a 15-day-old non-`bash:` source within 14 days are kept.
+- `store`: the no-vocabulary `Index` leaves `vocabulary` unchanged and is searchable; the hook stat write adds to `tool_stats` and `stats_totals`; `bash:` sources older than 48 hours are cleaned; a 47-hour `bash:` source and a 72-hour non-`bash:` source are kept.
 - `hookcmd` (end to end, in-process like the existing hook tests):
   - a 20 KB stdout gives the `updatedToolOutput` shape; `ctx_search`'s store query finds a line from the middle under `bash:<id>`; one `bash-compact` row;
   - prints nothing for: `agent_id` present; MCP down; 5120 bytes; 30001 bytes; a reading command; `# cmgo:full`; `CMGO_BASH_COMPACT_MIN_BYTES=0`; a non-Bash tool;
-  - DB write-locked: prints nothing, logs to `hook-errors.log`, events still written once the lock is gone;
+  - DB write-locked: prints nothing (the model keeps the original) and logs to `hook-errors.log`;
   - the existing posttooluse golden cases are unchanged.
 - Bench: `bench/hook-latency.py` gains `posttooluse bash compact (20 KB)`, p95 ≤ 25 ms; no existing case regresses by 1 ms or more in p95 on the same machine.
 - E2E before the PR: `claude -p --settings <hooks pointing at bin/cmgo-hook>` with a scratch `CMGO_DIR`, a command printing 20 KB with a marker line in the middle; the model must find the marker with `ctx_search`. The transcript shows the compact text.
