@@ -75,7 +75,7 @@ In one transaction, before printing:
 
 The session events (`capture.PostToolUse`) are written afterwards, in their own transaction, from the original response, exactly as today. A failed compaction still writes the events.
 
-**Retention.** A `bash:` source is useful only during its session. `CleanupIfDue` also deletes `bash:%` sources (and their chunks) older than 48 hours; other sources keep 14 days. At about 0.65 MB of original output a day, with the trigram index, this is about 4-6 MB of steady-state DB.
+**Retention.** A `bash:` source is useful only during its session. `CleanupIfDue` also deletes `bash:%` sources (and their chunks) older than 48 hours; other sources keep 14 days. At about 0.65 MB of original output a day, with the trigram index, this is about 4-6 MB of steady-state DB. `ctx_purge` with a session id does not remove that session's `bash:` sources (`sources` has no session column); they stay until the 48-hour cleanup.
 
 **Busy DB.** The hook uses its usual busy timeout. On timeout it prints nothing and logs to `hook-errors.log`, as the event writes do.
 

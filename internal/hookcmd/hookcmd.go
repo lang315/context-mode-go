@@ -247,7 +247,7 @@ func compactBash(h *hookCtx, tool string, input *hookio.Object) error {
 	}
 	threshold := compact.MinBytes(h.getenv)
 	resp, ok := h.in.Object("tool_response")
-	if threshold == 0 || !ok {
+	if img, _ := resp.Bool("isImage"); threshold == 0 || !ok || img {
 		return nil
 	}
 	stdout, _ := resp.String("stdout")

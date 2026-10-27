@@ -12,7 +12,7 @@ The design record is in `docs/superpowers/specs/` (one spec per sub-project: cor
 
 ```sh
 go build ./...
-go test ./... -count=1                         # about 20 s, all 20 packages
+go test ./... -count=1                         # about 20 s, all 21 packages
 go test -race ./... -count=1
 go test ./internal/store -run TestGolden -count=1   # one package / one test
 go vet ./...

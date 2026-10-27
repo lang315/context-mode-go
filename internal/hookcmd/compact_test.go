@@ -120,6 +120,7 @@ func TestHookPostToolUseBashCompactSkips(t *testing.T) {
 		{name: "full marker", stdin: compactInput("go test ./... # cmgo:full", big, false, "")},
 		{name: "switched off", stdin: compactInput("go test ./...", big, false, ""), env: map[string]string{"CMGO_BASH_COMPACT_MIN_BYTES": "0"}},
 		{name: "text longer than output", stdin: compactInput("go test ./...", strings.Repeat("z", 100), false, ""), env: map[string]string{"CMGO_BASH_COMPACT_MIN_BYTES": "1"}},
+		{name: "image result", stdin: strings.Replace(compactInput("go test ./...", big, false, ""), `"isImage":false`, `"isImage":true`, 1)},
 		{name: "no stdout", stdin: `{"session_id":"s1","tool_use_id":"tu1","tool_name":"Bash","tool_input":{"command":"go test ./..."},"tool_response":{"stderr":""}}`},
 		{name: "not Bash", stdin: readInput},
 		{name: "MCP down", stdin: compactInput("go test ./...", big, false, ""), mcpDown: true},

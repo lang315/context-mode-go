@@ -56,13 +56,17 @@ def scan(lines, since=""):
         if not mm:
             continue
         label, back = mm.group(1), 0
-        recovered = False
+        recovered = edited = False
+        edit_seen = False
         for nid in order[i + 1:i + 1 + WINDOW]:
             n2, i2 = calls[nid]
-            if (n2.endswith("ctx_search") and i2.get("source") == label) or (n2 == "Bash" and norm(i2.get("command", "")) == norm(inp.get("command", ""))):
+            edit_seen = edit_seen or n2 in ("Edit", "Write", "MultiEdit")
+            rerun = n2 == "Bash" and norm(i2.get("command", "")) == norm(inp.get("command", ""))
+            if (n2.endswith("ctx_search") and i2.get("source") == label) or rerun:
                 recovered = True
+                edited = edited or (rerun and edit_seen)
                 back += size(results.get(nid))
-        out.append((label, recovered, back))
+        out.append((label, recovered, back, edited))
     return out
 
 
@@ -90,10 +94,16 @@ def self_test():
         {"message": {"content": [{"type": "tool_use", "id": "m", "name": "Bash", "input": {"command": "cmd3"}}]}},
         {"message": {"content": [{"type": "tool_result", "tool_use_id": "m", "content": '[cmgo: the full output is indexed as "bash:m".'}]}},
         {"message": {"content": [{"type": "tool_use", "id": "n", "name": "Bash", "input": {"command": "cmd4"}}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "p", "name": "Bash", "input": {"command": "cmd5"}}]}},
+        {"message": {"content": [{"type": "tool_result", "tool_use_id": "p", "content": '[cmgo: the full output is indexed as "bash:p".'}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "q", "name": "Edit", "input": {}}]}},
+        {"message": {"content": [{"type": "tool_use", "id": "r", "name": "Bash", "input": {"command": "cmd5"}}]}},
+        {"message": {"content": [{"type": "tool_result", "tool_use_id": "r", "content": "xy"}]}},
     ]
     got = scan(json.dumps(x) for x in t)
-    assert got == [("bash:a", True, 5), ("bash:c", True, 3), ("bash:e", False, 0),
-                   ("bash:f", False, 0), ("bash:1", False, 0), ("bash:m", False, 0)], got
+    assert got == [("bash:a", True, 5, False), ("bash:c", True, 3, False), ("bash:e", False, 0, False),
+                   ("bash:f", False, 0, False), ("bash:1", False, 0, False), ("bash:m", False, 0, False),
+                   ("bash:p", True, 2, True)], got
     assert norm("ls   # cmgo:full") == "ls"
     print("self-test ok")
 
@@ -126,13 +136,14 @@ def main():
         with open(f, errors="replace") as fh:
             found += scan(fh, a.since)
     n = len(found)
-    rec = sum(1 for _, r, _ in found if r)
-    back = sum(b for _, _, b in found)
+    rec = sum(1 for _, r, _, _ in found if r)
+    back = sum(b for _, _, b, _ in found)
     m2 = rec / n if n else 0.0
     m3 = kept - back
     print(f"compactions: DB {calls} calls in {sessions} sessions; transcripts {n}")
     print(f"M1 saved: {kept} bytes ({kept / max(1, sessions):.0f} per session)")
     print(f"M2 recovery: {rec} of {n} ({100 * m2:.0f}%), bringing back {back} bytes")
+    print(f"of which re-runs after an Edit/Write: {sum(1 for *_, e in found if e)}")
     print(f"M3 net: {m3} bytes ({100 * m3 / max(1, kept):.0f}% of M1)")
     if abs(calls - n) > 0.1 * max(calls, n):
         print(f"warning: DB and transcript counts differ (DB {calls}, transcripts {n})")
