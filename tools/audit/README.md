@@ -14,6 +14,8 @@ About 15 s with a warm cache, a few minutes the first time. Output goes to `~/.c
 
 `subagent_probe.py` is the per-subagent part (also runnable alone, it writes `subagent_probe.json`).
 
+`python3 -I tools/audit/compact_audit.py [--since YYYY-MM-DD]`: Bash compaction M1-M3 and the keep/raise/remove verdict (bash-compact spec §5).
+
 ## Sample-size gate
 
 A question is "not enough data" when its post-install sample is under 30 events or the window is under 3 days. The last section of `report.md` lists each gate with its n. Subagent routing (option O1 in `docs/superpowers/specs/2026-10-22-cmgo-subagent-routing-design.md`) is decided on the cmgo row of the subagent funnel, which needs at least 60 subagents with the block and the tools listed.

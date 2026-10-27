@@ -95,7 +95,7 @@ The session events (`capture.PostToolUse`) are written afterwards, in their own 
 
 ## 5. Measurement and decision rule (pre-registered)
 
-`tools/audit/cmgo_audit.py` gets a "Bash compaction" section, computed from `tool_stats` and the transcripts of main sessions:
+`tools/audit/compact_audit.py` measures this, computed from `tool_stats` and the transcripts of main sessions:
 
 - **M1 saved:** sum of `bytes_kept` of `bash-compact`, per session. Expected about 33 KB per session.
 - **M2 recovery:** the share of compactions followed within 3 actions by a `ctx_search` with that source, a re-run of the same command, or the same command with `# cmgo:full`. A re-run puts the original back into the context, so it counts as a full loss.
