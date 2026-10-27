@@ -10,9 +10,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lang315/context-mode-go/internal/capture"
+	"github.com/lang315/context-mode-go/internal/compact"
 	"github.com/lang315/context-mode-go/internal/config"
 	"github.com/lang315/context-mode-go/internal/hookio"
 	"github.com/lang315/context-mode-go/internal/memory"
@@ -222,12 +225,60 @@ func preToolUse(h *hookCtx) error {
 	return h.insertEvents("PreToolUse", routing.Events(tool, dec))
 }
 
-// postToolUse records the kept extractors' events (spec §3.3).
+// postToolUse compacts a large main-session Bash result (bash-compact spec
+// §1), then records the kept extractors' events (spec §3.3) from the original
+// response. A failed compaction prints nothing, so the model keeps the
+// original; its error is returned with the events' error, to be logged.
 func postToolUse(h *hookCtx) error {
 	tool, _ := h.in.String("tool_name")
 	input, _ := h.in.Object("tool_input")
 	resp, _ := h.in.Get("tool_response") // nil when absent
-	return h.insertEvents("PostToolUse", capture.PostToolUse(tool, input, resp, h.cfg.Home))
+	cerr := compactBash(h, tool, input)
+	return errors.Join(h.insertEvents("PostToolUse", capture.PostToolUse(tool, input, resp, h.cfg.Home)), cerr)
+}
+
+// compactBash replaces a large main-session Bash result with compact.Text
+// after indexing the original as "bash:<tool_use_id>" (bash-compact spec
+// §1-§2). It prints nothing whenever a condition fails or the store write
+// fails.
+func compactBash(h *hookCtx, tool string, input *hookio.Object) error {
+	if tool != "Bash" || input == nil || notNull(h.in, "agent_id") || notNull(h.in, "agent_type") {
+		return nil
+	}
+	threshold := compact.MinBytes(h.getenv)
+	resp, ok := h.in.Object("tool_response")
+	if threshold == 0 || !ok {
+		return nil
+	}
+	stdout, _ := resp.String("stdout")
+	stderr, _ := resp.String("stderr")
+	output := compact.Output(stdout, stderr)
+	if len(output) <= threshold || len(output) > compact.MaxBytes {
+		return nil
+	}
+	command, _ := input.String("command")
+	id, _ := h.in.String("tool_use_id")
+	if id == "" || strings.Contains(command, compact.FullMarker) || routing.ReadsFiles(command) || !routing.MCPReady(h.runDir) {
+		return nil
+	}
+	label := "bash:" + id
+	text := compact.Text(output, label)
+	if len(text) >= len(output) {
+		return nil
+	}
+	st, err := h.openStore()
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	kept := min(int64(len(output)-len(text)), compact.MaxBytes)
+	if err := st.IndexBashOutput(h.cfg.ProjectKey, label, h.sid, store.ChunkPlainText(output, 20), int64(len(text)), kept); err != nil {
+		return err
+	}
+	interrupted, _ := resp.Bool("interrupted")
+	_, err = io.WriteString(h.out, `{"hookSpecificOutput":{"hookEventName":"PostToolUse","updatedToolOutput":{"stdout":`+
+		string(hookio.QuoteString(text))+`,"stderr":"","interrupted":`+strconv.FormatBool(interrupted)+`,"isImage":false}}}`+"\n")
+	return err
 }
 
 func postToolUseFailure(h *hookCtx) error {

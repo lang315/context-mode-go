@@ -64,6 +64,10 @@ No golden case differs because of a §2.2 item, so none is skipped:
   that downloaded 750 MB counted 750 MB kept. Migrated rows are an upper bound (`calls * 30000`),
   and the TS text `(N% of X processed)` now understates what a run read. No golden case records
   such a call, so none is skipped. Spec: `2026-10-22-cmgo-stats-measured-vs-estimated-design.md` §9.
+- `stats:bash-compact`: `tool_stats` has a `bash-compact` row per session (`server_id` `hook`,
+  window = the session) for the Bash results `cmgo-hook` compacted, counted in `stats_totals` too,
+  so `ctx_stats` lists `bash-compact` and lifetime includes it. TS has no such tool. No golden case
+  records one, so none is skipped. Spec: `2026-10-27-cmgo-bash-compact-design.md`.
 - Timeline sort (`t11`): differs on purpose, session memory spec §3.2. TS
   keeps the best ranked matches and sorts them oldest first; cmgo ranks up to
   200 matches, keeps the newest by `indexed_at` (ties: the later chunk) and
