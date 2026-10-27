@@ -109,7 +109,7 @@ func (s *Store) ImportSource(project, label, indexedAt string, chunks []Chunk) (
 	if n > 0 {
 		return false, nil
 	}
-	_, added, err := insertSource(tx, project, label, indexedAt, chunks)
+	_, added, err := insertSource(tx, project, label, indexedAt, chunks, true)
 	if err != nil {
 		return false, err
 	}

@@ -30,7 +30,8 @@ type Report struct {
 	Tools         []ToolRow // this session's server rows
 	// Raw is the bytes processed this session: the sum of Kept + Returned
 	// over the rows of tools that have a raw definition (spec §1.3:
-	// ctx_execute, ctx_execute_file, ctx_batch_execute, ctx_fetch_and_index).
+	// ctx_execute, ctx_execute_file, ctx_batch_execute, ctx_fetch_and_index,
+	// bash-compact).
 	// The caller computes it; the headline percentage is Pct(sum Kept, Raw).
 	Raw                 int64
 	Redirects           int64 // PreToolUse redirects this session (Read tips excluded)

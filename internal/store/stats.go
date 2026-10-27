@@ -151,9 +151,9 @@ type StatsSnapshot struct {
 	LifetimeSince            string // earliest tool_stats started_at; "" when there is none
 }
 
-// rawTools are the tools whose calls have a raw size (stats spec §1.3); the
+// rawTools are the tools whose calls have a raw size (stats spec §1.3), plus bash-compact; the
 // others (ctx_search, ctx_purge, ctx_stats) only return bytes.
-var rawTools = map[string]bool{"ctx_execute": true, "ctx_execute_file": true, "ctx_batch_execute": true, "ctx_fetch_and_index": true}
+var rawTools = map[string]bool{"ctx_execute": true, "ctx_execute_file": true, "ctx_batch_execute": true, "ctx_fetch_and_index": true, BashCompactTool: true}
 
 // rawBytes is the bytes processed by tools: what they kept plus what they returned.
 func rawBytes(tools []ToolStat) int64 {

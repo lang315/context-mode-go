@@ -77,7 +77,7 @@ func (s *Store) Index(project, label string, chunks []Chunk) (IndexResult, error
 			return res, err
 		}
 	}
-	id, added, err := insertSource(tx, project, label, "", chunks)
+	id, added, err := insertSource(tx, project, label, "", chunks, true)
 	if err != nil {
 		return res, err
 	}
@@ -100,10 +100,11 @@ func (s *Store) Index(project, label string, chunks []Chunk) (IndexResult, error
 	return res, nil
 }
 
-// insertSource writes one sources row, its chunks in both FTS tables and
-// their words, inside tx. indexedAt "" means datetime('now'). It returns the
-// source id and the number of new vocabulary words.
-func insertSource(tx *sql.Tx, project, label, indexedAt string, chunks []Chunk) (int64, int64, error) {
+// insertSource writes one sources row, its chunks in both FTS tables and,
+// when vocab is true, their words, inside tx. indexedAt "" means
+// datetime('now'). It returns the source id and the number of new
+// vocabulary words.
+func insertSource(tx *sql.Tx, project, label, indexedAt string, chunks []Chunk, vocab bool) (int64, int64, error) {
 	code := 0
 	contents := make([]string, len(chunks))
 	for i, c := range chunks {
@@ -139,6 +140,9 @@ func insertSource(tx *sql.Tx, project, label, indexedAt string, chunks []Chunk) 
 		stmt.Close()
 	}
 	var added int64
+	if !vocab {
+		return id, 0, nil
+	}
 	if words := vocabWords(strings.Join(contents, "\n")); len(words) > 0 {
 		stmt, err := tx.Prepare("INSERT OR IGNORE INTO vocabulary (word) VALUES (?)")
 		if err != nil {

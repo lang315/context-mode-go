@@ -452,3 +452,22 @@ func TestSessionRedirectsIgnoreReadTips(t *testing.T) {
 		t.Fatalf("Redirects = %d, RedirectBytes = %d; want 1 and 8192", snap.Redirects, snap.RedirectBytes)
 	}
 }
+
+func TestStatsRawIncludesBashCompact(t *testing.T) {
+	s := statsFixture(t)
+	q := StatsQuery{ServerID: "srvA", CCPID: 100, Project: "/p"}
+	before, err := s.Stats(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.IndexBashOutput("/p", "bash:t1", before.SessionID, ChunkPlainText("alpha\nomega\n", 20), 2000, 15000); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Stats(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Raw != before.Raw+17000 {
+		t.Fatalf("Raw = %d, want %d", got.Raw, before.Raw+17000)
+	}
+}

@@ -10,6 +10,7 @@ precompact and sessionstart compact cases run against a session pre-filled
 to 1000 events (the per-session cap) through the hook itself. The time
 is subprocess.run wall clock, so it includes the fork/exec cost. Then
 posttooluse runs from 4 threads at once, `runs` fires each, into the same DB.
+posttooluse bash compact (20 KB) has its own limit, 25 ms (bash-compact spec §6).
 Last, `cmgo-hook statusline` runs against a second DB that the binary creates
 and migrates and that this script fills with sqlite3 to 100 sessions x 500
 events plus linked tool_stats rows; the DB file must not change.
@@ -29,6 +30,7 @@ import threading
 import time
 
 LIMIT_MS, WORKERS, MEM_EVENTS, MEM_SID = 10.0, 4, 1000, "bench-mem"
+COMPACT_LIMIT_MS = 25.0  # bash-compact spec §6: the case indexes 20 KB
 STAT_SESSIONS, STAT_EVENTS = 100, 500
 
 
@@ -54,8 +56,8 @@ def stats(times):
     return f"p50 {statistics.median(times):.2f} ms p95 {p95(times):.2f} ms"
 
 
-def report(name, times):
-    ok = p95(times) <= LIMIT_MS
+def report(name, times, limit=LIMIT_MS):
+    ok = p95(times) <= limit
     print(f"{name}: {stats(times)} {'PASS' if ok else 'FAIL'}")
     return ok
 
@@ -189,6 +191,21 @@ def main(binary, runs):
                     raise SystemExit(f"{name}: unexpected stdout {out[:200]!r}")
                 times.append(ms)
             ok &= report(name, times)
+
+        # Bash compaction (bash-compact spec §6): indexes about 20 KB per fire.
+        compact_out = "".join(f"line {n:04d} ok github.com/x/pkg{n} 0.01s\n" for n in range(560))
+        times = []
+        for i in range(runs):
+            ms, out = fire(binary, env, "posttooluse", {
+                "tool_name": "Bash", "tool_use_id": f"bench-compact-{i}", "session_id": "bench-compact", "cwd": project,
+                "tool_input": {"command": "go test ./..."},
+                "tool_response": {"stdout": compact_out, "stderr": "", "interrupted": False, "isImage": False}})
+            if i == 0 and b'"updatedToolOutput"' not in out:
+                print("posttooluse bash compact (20 KB): not supported by this binary, skipped")
+                break
+            times.append(ms)
+        if times:
+            ok &= report("posttooluse bash compact (20 KB)", times, COMPACT_LIMIT_MS)
 
         times, lock, errors = [], threading.Lock(), []
 

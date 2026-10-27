@@ -298,14 +298,17 @@ func (s *Store) CleanupIfDue(now time.Time, retention, every time.Duration) (int
 		return 0, err
 	}
 	cutoff := now.Add(-retention).UTC().Format(sqliteTime)
-	old := "SELECT id FROM sources WHERE datetime(indexed_at) < datetime(?)"
-	if _, err := tx.Exec("DELETE FROM chunks WHERE source_id IN ("+old+")", cutoff); err != nil {
+	bashCutoff := now.Add(-BashSourceRetention).UTC().Format(sqliteTime)
+	// bash: sources (compacted Bash results) only serve their session.
+	stale := "datetime(indexed_at) < datetime(?1) OR (label LIKE 'bash:%' AND datetime(indexed_at) < datetime(?2))"
+	old := "SELECT id FROM sources WHERE " + stale
+	if _, err := tx.Exec("DELETE FROM chunks WHERE source_id IN ("+old+")", cutoff, bashCutoff); err != nil {
 		return 0, err
 	}
-	if _, err := tx.Exec("DELETE FROM chunks_trigram WHERE source_id IN ("+old+")", cutoff); err != nil {
+	if _, err := tx.Exec("DELETE FROM chunks_trigram WHERE source_id IN ("+old+")", cutoff, bashCutoff); err != nil {
 		return 0, err
 	}
-	res, err := tx.Exec("DELETE FROM sources WHERE datetime(indexed_at) < datetime(?)", cutoff)
+	res, err := tx.Exec("DELETE FROM sources WHERE "+stale, cutoff, bashCutoff)
 	if err != nil {
 		return 0, err
 	}
@@ -314,11 +317,11 @@ func (s *Store) CleanupIfDue(now time.Time, retention, every time.Duration) (int
 		return 0, err
 	}
 	// Sessions inactive for SessionRetention (DB:1696-1705, keyed on activity).
-	stale := now.Add(-SessionRetention).UTC().Format(sqliteTime)
-	if _, err := tx.Exec("DELETE FROM session_events WHERE session_id IN (SELECT session_id FROM session_meta WHERE last_event_at < ?)", stale); err != nil {
+	inactive := now.Add(-SessionRetention).UTC().Format(sqliteTime)
+	if _, err := tx.Exec("DELETE FROM session_events WHERE session_id IN (SELECT session_id FROM session_meta WHERE last_event_at < ?)", inactive); err != nil {
 		return 0, err
 	}
-	if _, err := tx.Exec("DELETE FROM session_meta WHERE last_event_at < ?", stale); err != nil {
+	if _, err := tx.Exec("DELETE FROM session_meta WHERE last_event_at < ?", inactive); err != nil {
 		return 0, err
 	}
 	if _, err := tx.Exec("INSERT INTO meta(key, value) VALUES('last_cleanup', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
