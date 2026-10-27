@@ -131,8 +131,10 @@ def main(binary, runs):
         data, home, project = (os.path.join(root, d) for d in ("data", "home", "project"))
         for d in (home, project):
             os.makedirs(d)
+        # The Bash read guidance is off unless set; 16384 is the old default, so older
+        # binaries time the same work.
         env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": home,
-               "CMGO_DIR": data, "CMGO_PROJECT_DIR": project}
+               "CMGO_DIR": data, "CMGO_PROJECT_DIR": project, "CMGO_BASH_READ_MIN_BYTES": "16384"}
         print(f"load average (1 min) at start: {os.getloadavg()[0]:.2f}")
         for name, argv in (("/usr/bin/true", ["/usr/bin/true"]), ("cmgo-hook, no args", [binary])):
             print(f"context {name}: {stats([timed(argv, env)[0] for _ in range(runs)])}")
