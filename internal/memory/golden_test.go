@@ -2,6 +2,7 @@ package memory
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,7 +101,7 @@ func TestGoldenDirective(t *testing.T) {
 	g := loadGolden(t, "memory-directive.json")
 	checkKnownDiffs(t, "directive", g.Cases)
 	for _, c := range g.Cases {
-		if got := Directive(c.Source, c.stored()); got != c.Expected {
+		if got := Directive(c.Source, c.stored(), math.MaxInt); got != c.Expected {
 			t.Errorf("%s:\n--- got\n%s\n--- want\n%s", c.Name, got, c.Expected)
 		}
 	}

@@ -312,7 +312,7 @@ func TestHookSessionStartCompact(t *testing.T) {
 	if ai == "" {
 		t.Fatal("seed events give no auto-injection")
 	}
-	want := sessionStartOut(memory.Directive("compact", evs) + "\n\n" + ai)
+	want := sessionStartOut(memory.Directive("compact", evs, 10) + "\n\n" + ai)
 	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"compact"}`); out != want {
 		t.Fatalf("got %q\nwant %q", out, want)
 	}
@@ -328,7 +328,7 @@ func TestHookSessionStartCompact(t *testing.T) {
 func TestHookSessionStartResume(t *testing.T) {
 	env := hookEnv(t)
 	evs := seedSession(t, env)
-	want := sessionStartOut(memory.Directive("resume", evs))
+	want := sessionStartOut(memory.Directive("resume", evs, 10))
 	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"resume"}`); out != want {
 		t.Fatalf("got %q\nwant %q", out, want)
 	}
@@ -350,7 +350,7 @@ func TestHookSessionStartCompactFailOpen(t *testing.T) {
 	env = hookEnv(t)
 	evs := seedSession(t, env)
 	holdDBLock(t, filepath.Join(env["CMGO_DIR"], "cmgo.db"))
-	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"resume"}`); out != sessionStartOut(memory.Directive("resume", evs)) {
+	if out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"resume"}`); out != sessionStartOut(memory.Directive("resume", evs, 10)) {
 		t.Fatalf("locked: got %q", out)
 	}
 	if !strings.Contains(hookErrors(env), "sessionstart:") {
@@ -532,5 +532,49 @@ func TestHookPreToolUseBashReadGuidance(t *testing.T) {
 	}
 	if s := hookErrors(env); s != "" {
 		t.Fatalf("errors logged: %s", s)
+	}
+}
+
+// A long session's context stays within Claude Code's 10,000-character
+// limit for additionalContext; a longer one reaches the model as a 2 KB
+// preview. The last request survives the cut.
+func TestHookSessionStartCompactFitsHookLimit(t *testing.T) {
+	env := hookEnv(t)
+	seedSession(t, env)
+	st, err := store.Open(filepath.Join(env["CMGO_DIR"], "cmgo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	long := strings.Repeat("y", 300)
+	var add []store.Event
+	for i := range 200 {
+		add = append(add,
+			store.Event{Type: "error_tool", Category: "error", Priority: 2, Data: fmt.Sprintf("error %d %s", i, long)},
+			store.Event{Type: "git_commit", Category: "git", Priority: 2, Data: fmt.Sprintf("commit %d %s", i, long)},
+			store.Event{Type: "env", Category: "env", Priority: 2, Data: fmt.Sprintf("go install ./x%d %s", i, long)},
+			store.Event{Type: "decision", Category: "decision", Priority: 2, Data: fmt.Sprintf("decision %d %s", i, long)})
+	}
+	if _, err := st.InsertEvents("s1", "p", "PostToolUse", add); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	out := callHook(t, env, "sessionstart", `{"session_id":"s1","source":"compact"}`)
+	o, err := hookio.ParseObject([]byte(out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, _ := o.Get("hookSpecificOutput")
+	inner, _ := hookio.ParseObject(ctx)
+	c, _ := inner.String("additionalContext")
+	if n := hookio.JSLen(c); n > 10000 {
+		t.Fatalf("additionalContext is %d units, over 10000", n)
+	}
+	for _, want := range []string{"## Last Request\nfix the login bug", "<continue_from>", "decision 199"} {
+		if !strings.Contains(c, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if b, _ := os.ReadFile("../../testdata/golden/HOOKS-KNOWN-DIFFS.md"); !strings.Contains(string(b), "`sessionstart:context-cap`") {
+		t.Error("HOOKS-KNOWN-DIFFS.md has no sessionstart:context-cap row")
 	}
 }

@@ -380,6 +380,29 @@ func (h *hookCtx) printSessionStart(context string) error {
 // cmgo does not (spec §2.3). The directive needs the events, so the read
 // comes before the output; a failed read prints block alone. Writes come
 // after the output.
+// hookContextMax is Claude Code's limit for a hook's additionalContext: a
+// longer one is saved to a file and the model sees a 2 KB preview of it.
+const hookContextMax = 10000
+
+// resumeContext is block, the directive (and, on compact, the
+// auto-injection), with the fewest list items cut that keep it within
+// hookContextMax. When even one item per section does not fit, it is block
+// alone: a spilled context would show the model little more.
+func resumeContext(src, block string, evs []store.StoredEvent) string {
+	ai := ""
+	if src == "compact" {
+		if ai = memory.AutoInjection(evs); ai != "" {
+			ai = "\n\n" + ai
+		}
+	}
+	for _, n := range []int{10, 5, 2, 1} {
+		if c := block + memory.Directive(src, evs, n) + ai; hookio.JSLen(c) <= hookContextMax { // "" with no events
+			return c
+		}
+	}
+	return block
+}
+
 func (h *hookCtx) sessionResume(src, block string) error {
 	st, err := h.openStore()
 	if err != nil {
@@ -390,12 +413,9 @@ func (h *hookCtx) sessionResume(src, block string) error {
 	if err != nil {
 		return errors.Join(err, h.printSessionStart(block))
 	}
-	context := block + memory.Directive(src, evs) // "" with no events
+	context := resumeContext(src, block, evs)
 	var add []store.Event
 	if len(evs) > 0 && src == "compact" {
-		if ai := memory.AutoInjection(evs); ai != "" {
-			context += "\n\n" + ai
-		}
 		add = append(add, store.Event{Type: "resume_completed", Category: "session-resume", Priority: 1,
 			Data: "Session resumed from compact. Prior events loaded."})
 	}

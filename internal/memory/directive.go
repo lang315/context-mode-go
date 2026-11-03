@@ -16,7 +16,10 @@ const searchTool = "mcp__cmgo__ctx_search"
 // References sections are gone (capture writes no mcp or data events).
 // source is "compact" or "resume"; events are one session's rows in id
 // order. It returns "" for no events, the guard TS kept in its caller.
-func Directive(source string, events []store.StoredEvent) string {
+// Each list section keeps its last n items, and git and env lines are cut
+// to 150 units (TS kept all, uncut; the caller picks n to fit the hook
+// output limit).
+func Directive(source string, events []store.StoredEvent, n int) string {
 	if len(events) == 0 {
 		return ""
 	}
@@ -35,24 +38,24 @@ func Directive(source string, events []store.StoredEvent) string {
 	}
 	pending, _ := g.tasks()
 	list(&b, "Pending Tasks", pending)
-	list(&b, "Key Decisions", mapData(g.cat["decision"], 150))
+	list(&b, "Key Decisions", mapData(recent(g.cat["decision"], n), 150))
 	if len(g.files) > 0 {
-		text(&b, "Files Modified", strings.Join(g.files, ", "))
+		text(&b, "Files Modified", strings.Join(recent(g.files, n), ", "))
 	}
-	list(&b, "Unresolved Errors", mapData(g.cat["error"], 150))
-	if git := uniqueData(g.cat["git"]); len(git) > 0 {
+	list(&b, "Unresolved Errors", mapData(recent(g.cat["error"], n), 150))
+	if git := recent(unique(mapData(g.cat["git"], 150)), n); len(git) > 0 {
 		text(&b, "Git", strings.Join(git, ", "))
 	}
-	if rules := ruleParents(g.cat["rule"]); len(rules) > 0 {
+	if rules := recent(ruleParents(g.cat["rule"]), n); len(rules) > 0 {
 		text(&b, "Project Rules", strings.Join(rules, ", "))
 	}
 	current, prior := g.subagents()
-	list(&b, "Subagent Tasks", mapData(current, 120))
-	list(&b, "Subagent Tasks (earlier session — not current)", mapData(prior, 120))
-	if skills := uniqueData(g.cat["skill"]); len(skills) > 0 {
+	list(&b, "Subagent Tasks", mapData(recent(current, n), 120))
+	list(&b, "Subagent Tasks (earlier session — not current)", mapData(recent(prior, n), 120))
+	if skills := recent(uniqueData(g.cat["skill"]), n); len(skills) > 0 {
 		text(&b, "Skills Used", strings.Join(skills, ", "))
 	}
-	if env := environment(g); len(env) > 0 {
+	if env := environment(g, n); len(env) > 0 {
 		text(&b, "Environment", strings.Join(env, "\n"))
 	}
 	if last, ok := lastData(g.cat["intent"]); ok {
@@ -178,14 +181,19 @@ func ruleParents(rules []store.StoredEvent) []string {
 	return unique(paths)
 }
 
-// environment returns "cwd: <last cwd>" and then every env event's data,
-// the lines of both Environment sections.
-func environment(g groups) []string {
+// environment returns "cwd: <last cwd>" and then the last n env events'
+// data, cut to 150 units, the lines of both Environment sections.
+func environment(g groups, n int) []string {
 	var lines []string
 	if cwd, ok := lastData(g.cat["cwd"]); ok {
 		lines = append(lines, "cwd: "+cwd)
 	}
-	return append(lines, dataOf(g.cat["env"])...)
+	return append(lines, mapData(recent(g.cat["env"], n), 150)...)
+}
+
+// recent returns the last n items.
+func recent[T any](xs []T, n int) []T {
+	return xs[max(0, len(xs)-n):]
 }
 
 func hasType(evs []store.StoredEvent, typ string) bool {
