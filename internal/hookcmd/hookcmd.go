@@ -380,7 +380,8 @@ func (h *hookCtx) printSessionStart(context string) error {
 // cmgo does not (spec §2.3). The directive needs the events, so the read
 // comes before the output; a failed read prints block alone. Writes come
 // after the output.
-// hookContextMax is Claude Code's limit for a hook's additionalContext: a
+// hookContextMax is Claude Code's limit for a hook's additionalContext, as
+// measured in transcripts (largest kept 9,993, smallest saved 10,151): a
 // longer one is saved to a file and the model sees a 2 KB preview of it.
 const hookContextMax = 10000
 

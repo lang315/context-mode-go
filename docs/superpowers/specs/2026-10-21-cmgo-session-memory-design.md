@@ -185,7 +185,7 @@ The schema and description are copied from TS, without the stats wording.
 
 ## 7. Addendum (2026-11-03): the context fits Claude Code's hook output limit
 
-Claude Code saves a hook `additionalContext` longer than 10,000 characters to a file, and the model sees only a 2 KB preview of it. That preview holds less than the routing block. From 2026-10-21 to 2026-11-03, 177 of 338 cmgo SessionStart contexts were saved this way: 127 of 175 on `compact`, with a median of 42 KB and a maximum of 605 KB. The directive almost never reached the model after a compaction.
+Claude Code saves a hook `additionalContext` longer than about 10,000 characters to a file (measured in transcripts: the largest kept was 9,993 characters, the smallest saved 10,151), and the model sees only a 2 KB preview of it. That preview holds less than the routing block. From 2026-10-21 to 2026-11-03, 177 of 338 cmgo SessionStart contexts were saved this way: 127 of 175 on `compact`, with a median of 42 KB and a maximum of 605 KB. The directive almost never reached the model after a compaction.
 
 Causes:
 - TS lists every event of a list section. Environment lines are uncut, and capture stores the whole Bash command as an env event, heredocs included (459 events, 409 KB in the live DB).

@@ -43,7 +43,10 @@ func Directive(source string, events []store.StoredEvent, n int) string {
 		text(&b, "Files Modified", strings.Join(recent(g.files, n), ", "))
 	}
 	list(&b, "Unresolved Errors", mapData(recent(g.cat["error"], n), 150))
-	if git := recent(unique(mapData(g.cat["git"], 150)), n); len(git) > 0 {
+	if git := recent(uniqueData(g.cat["git"]), n); len(git) > 0 {
+		for i := range git {
+			git[i] = cut(git[i], 150)
+		}
 		text(&b, "Git", strings.Join(git, ", "))
 	}
 	if rules := recent(ruleParents(g.cat["rule"]), n); len(rules) > 0 {
