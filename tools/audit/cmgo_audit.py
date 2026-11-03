@@ -84,6 +84,8 @@ def scan(path, since):
             o = json.loads(line)
         except ValueError:
             continue
+        if o.get("type") == "api-request-blob":  # a copy of the request, no timestamp: not new calls
+            continue
         ts = o.get("timestamp") or ""
         if ts and ts < since:
             continue
@@ -178,7 +180,7 @@ def load_transcripts(since, out):
         cache = pickle.load(open(cp, "rb"))
     except Exception:
         cache = {}
-    key_ = since + "|scan-v2"  # bump when scan() output changes
+    key_ = since + "|scan-v3"  # bump when scan() output changes
     if cache.get("_since") != key_:
         cache = {"_since": key_}
     out, n_new = [], 0

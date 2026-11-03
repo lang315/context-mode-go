@@ -36,6 +36,8 @@ def scan(lines, since=""):
             continue
         if m.get("timestamp", since) < since:
             continue
+        if m.get("type") == "api-request-blob":  # a copy of the request, no timestamp: not new calls
+            continue
         content = (m.get("message") or {}).get("content")
         if not isinstance(content, list):
             continue
@@ -99,11 +101,15 @@ def self_test():
         {"message": {"content": [{"type": "tool_use", "id": "q", "name": "Edit", "input": {}}]}},
         {"message": {"content": [{"type": "tool_use", "id": "r", "name": "Bash", "input": {"command": "cmd5"}}]}},
         {"message": {"content": [{"type": "tool_result", "tool_use_id": "r", "content": "xy"}]}},
+        {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "s", "name": "Bash", "input": {"command": "make"}}]}},
+        {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "s", "content": '[cmgo: the full output is indexed as "bash:s".'}]}},
+        # an API request copy of the conversation: not a second call, not a re-run
+        {"type": "api-request-blob", "message": {"content": [{"type": "tool_use", "id": "s", "name": "Bash", "input": {"command": "make"}}]}},
     ]
     got = scan(json.dumps(x) for x in t)
     assert got == [("bash:a", True, 5, False), ("bash:c", True, 3, False), ("bash:e", False, 0, False),
                    ("bash:f", False, 0, False), ("bash:1", False, 0, False), ("bash:m", False, 0, False),
-                   ("bash:p", True, 2, True)], got
+                   ("bash:p", True, 2, True), ("bash:s", False, 0, False)], got
     assert norm("ls   # cmgo:full") == "ls"
     print("self-test ok")
 
