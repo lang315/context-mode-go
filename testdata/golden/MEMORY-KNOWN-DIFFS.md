@@ -29,6 +29,15 @@ has no fix to apply, so it holds `expected` only and has no rows here.
 | `no-mcp-data` | "MCP Tools Used" and "Data References" sections | left out: capture writes no `mcp` or `data` events (hooks spec §3.4) |
 | order by id | `getSessionEvents` orders by `created_at` | rows are used in id order. Not exercised here: the generator feeds every fixture in id order, as cmgo reads them |
 
+## Size cap (not in these goldens)
+
+`Directive` takes `n`, the item cap for each list section, and cuts git and
+env lines to 150 units. The golden tests pass `n = math.MaxInt`, and no
+fixture has a git or env line over 150 units, so the cases below still match
+TS. At runtime `sessionstart` picks `n` so that the context fits Claude
+Code's 10,000-character hook limit (session memory spec §7,
+`sessionstart:context-cap` in `HOOKS-KNOWN-DIFFS.md`).
+
 ## Cases
 
 Case IDs are `directive:<name>`, where `<name>` is the `name` field of a

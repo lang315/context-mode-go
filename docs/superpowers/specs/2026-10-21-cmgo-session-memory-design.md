@@ -182,3 +182,18 @@ The schema and description are copied from TS, without the stats wording.
 - The events markdown is not built at all; `source: "session-events"` searches the events table directly (§2.3).
 - Timeline returns the newest matches.
 - Auto-memory reads Claude Code's real memory dir.
+
+## 7. Addendum (2026-11-03): the context fits Claude Code's hook output limit
+
+Claude Code saves a hook `additionalContext` longer than about 10,000 characters to a file (measured in transcripts: the largest kept was 9,993 characters, the smallest saved 10,151), and the model sees only a 2 KB preview of it. That preview holds less than the routing block. From 2026-10-21 to 2026-11-03, 177 of 338 cmgo SessionStart contexts were saved this way: 127 of 175 on `compact`, with a median of 42 KB and a maximum of 605 KB. The directive almost never reached the model after a compaction.
+
+Causes:
+- TS lists every event of a list section. Environment lines are uncut, and capture stores the whole Bash command as an env event, heredocs included (459 events, 409 KB in the live DB).
+- Git, Files Modified, Key Decisions, Project Rules and the Subagent sections also have no item cap.
+
+Change:
+- `memory.Directive(source, events, n)` keeps the last `n` items of every list section: Key Decisions, Files Modified, Unresolved Errors, Git, Project Rules, both Subagent sections, Skills Used, and the env lines. Git and env lines are cut to 150 units, as the error and decision lines already are.
+- `sessionResume` builds the routing block, the directive and, on `compact`, the auto-injection with `n` = 10, then 5, 2 and 1. It prints the first one that is at most 10,000 UTF-16 units. If none fits, it prints the block alone, which shows the model about as much as a spilled context would.
+- On a copy of the live DB (64 sessions), every session fits with this change; the largest context is 9,556 units, against 146,598 before.
+
+Golden tests call `Directive` with `n = math.MaxInt`, so they still compare with TS. `HOOKS-KNOWN-DIFFS.md` lists the change as `sessionstart:context-cap`.

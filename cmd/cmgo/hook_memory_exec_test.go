@@ -41,7 +41,7 @@ func TestBinaryPreCompactAndCompactDirective(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := routing.RoutingBlock(true, false) + memory.Directive("compact", evs) + "\n\n" + memory.AutoInjection(evs)
+	ctx := routing.RoutingBlock(true, false) + memory.Directive("compact", evs, 10) + "\n\n" + memory.AutoInjection(evs)
 	want := `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":` + string(hookio.QuoteString(ctx)) + "}}\n"
 	out, code := runHookBinary(t, env, `{"session_id":"s1","source":"compact"}`, "sessionstart")
 	if code != 0 || out != want || !strings.Contains(out, `<session_knowledge source=\"compact\">`) {
