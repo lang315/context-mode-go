@@ -31,6 +31,8 @@ def probe_one(p):
             o = json.loads(l)
         except ValueError:
             continue
+        if o.get("type") == "api-request-blob":  # a copy of the request, no timestamp: not new calls
+            continue
         ts = o.get("timestamp") or ""
         if ts and r["first"] is None:
             r["first"] = ts
